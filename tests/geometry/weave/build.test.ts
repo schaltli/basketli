@@ -26,7 +26,7 @@ const cases: [string, BasketParams][] = [
     'band open',
     weave({}, { material: 'band', materialHeight: 15, materialThickness: 1.6, rowGap: 6 }),
   ],
-  ['small', weave({ width: 60, depth: 40, height: 30, borderBand: 5 })],
+  ['small', weave({ width: 60, depth: 40, height: 30 })],
 ];
 
 describe('woven basket', () => {

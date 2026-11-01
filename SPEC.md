@@ -140,57 +140,60 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 
 ### Flechtmuster (Wandstil „Geflecht“)
 
-Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit flachen Bändern, die sich um runde Staken winden, und einem gedrehten Kordelrand. Er soll **ohne Stützmaterial** druckbar sein; kurze Brücken sind erlaubt.
+Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit dünnen Bändern, die sich um runde Staken winden, und **ohne Stützmaterial** druckbar sein.
 
 > **Entscheidungen 2026-11-01**
 >
-> 1. Prototyp 1 (ovale, frei geführte Stränge) war nicht druckbar: Die Strang-Unterkanten lagen nirgends auf.
-> 2. Prototyp 2 (Relief-Wand ohne Brücken) war druckbar, sah aber nicht nach Korb aus.
-> 3. **Gewählt:** Konstruktionsprinzip eines bewährten Flechtkorb-Modells (Referenz-STL des Nutzers, nur das Prinzip, keine Geometrie übernommen): flache, **senkrechte** Bänder, **Brücken bis 15 mm** zwischen den Auflagepunkten erlaubt.
+> 1. Prototyp 1 (ovale, frei geführte Stränge): nicht druckbar.
+> 2. Prototyp 2 (Relief-Wand ohne Brücken): druckbar, sah aber nicht nach Korb aus.
+> 3. Prototyp 3 (Referenz-Prinzip mit Kordelrand): besser, aber Bänder zu dick, Kordel überzeugte nicht.
+> 4. **Gewählt (Nutzer-Vorgabe):** keine Kordel; Bänder stehen auf der Grundplatte. Die **erste Schicht jedes Bandes ist genau eine Extrusion**, die als Brücke von Stake zu Stake läuft und **beide Staken schneidet** (nicht nur berührt). Ab der zweiten Schicht wird das Band nach innen und außen breiter.
 
 **Aufbau**
 
-- **Staken**: senkrechte, runde Stäbe auf der Wandmitte, vom Boden bis in den Rand.
-- **Bänder**: Jede Reihe ist ein geschlossenes, flaches Band; die **Innenseite ist senkrecht**, die **Außenseite oben mit 45° angefast** (Fase = halbe Banddicke) und **unten mit einer 45°-Fase, die mindestens 0,8 mm Auflage stehen lässt** (Entscheidung 2026-11-01: Fase nur außen, sonst druckt die Unterkante in die Luft). Die Dicke gilt senkrecht zum Band, auch auf den Schrägen der Welle. Es schlängelt sich abwechselnd vor und hinter den Staken entlang (Leinwandbindung 1 über / 1 unter) und berührt jede Stake. Benachbarte Reihen sind um eine Stake versetzt → Schachbrett-Flechtbild.
-- **Auflage**: Zwischen zwei Staken kreuzt jede Reihe die Reihe darunter und liegt dort auf; außerdem trägt jede Stake. Die erste Schicht einer Reihe überbrückt nur die Strecke zwischen diesen Auflagepunkten.
-- Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
-- **Flechtmaterial** Rohr / Band unterscheidet sich nur in Höhe und Dicke (Rohr: schmal und dicker, Band: breit und dünn); beide sind flache, senkrechte Bänder mit leicht gebrochenen Kanten.
-- **Reihenaufteilung**: n Reihen mit n − 1 Spalten (Fuß und Rand sitzen direkt auf der ersten bzw. letzten Reihe), n = ⌊(nutzbare Wandhöhe + Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe geht gleichmäßig an Fuß und Rand.
-- **Kordelrand** oben und **Kordelfuß** unten: gedrehte, mehrsträngige Kordel als Relief (schräge Rillen), Unterseite des oberen Rands mit 45°-Übergang; der obere Rand bildet die Stapelkante.
-- Bindung in v1 ausschließlich **Leinwandbindung**. Nur **rechteckige Körbe** mit Eckenradius; der **Boden bleibt massiv**.
+- **Grundplatte**: massiver Boden über die ganze Grundfläche (Bodenstärke).
+- **Staken**: senkrechte, runde Stäbe auf der Wandmitte, von der Grundplatte bis zur Oberkante.
+- **Bänder**: Jede Reihe ist ein geschlossenes Band, das sich abwechselnd vor und hinter den Staken entlangschlängelt (Leinwandbindung 1 über / 1 unter); Nachbarreihen um eine Stake versetzt. Die Mittellinie des Bandes läuft **durch** jede Stake (0,1 mm innerhalb ihrer Oberfläche), das Band selbst deckt die Stake auf der jeweiligen Seite ab.
+- **Bandquerschnitt** (senkrecht zum Band gemessen):
+  - Schicht 1 (0,2 mm): **eine Linie, 0,45 mm breit** – die Brücke von Stake zu Stake.
+  - darüber: wächst unter **45° nach innen und außen** bis zur vollen Banddicke (Schicht 2 hat damit zwei Linien).
+  - oben: **Außenseite 45° angefast** (halbe Banddicke), Innenseite senkrecht.
+- Oberste Reihe = oberer Abschluss (kein Rand). Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
+- **Reihenaufteilung**: Die Reihen füllen die Wand von der Grundplatte bis zur Oberkante exakt; die Bandhöhe wird dafür leicht angepasst (ganze Zahl Reihen, möglichst nah an der eingestellten Materialhöhe).
+- **Flechtmaterial** Rohr / Band unterscheidet sich in Höhe und Dicke.
+- Bindung in v1 ausschließlich **Leinwandbindung**. Nur **rechteckige Körbe** mit Eckenradius.
+- **Stapeln** beim Geflecht: offen (der frühere Kordelrand als Stapelkante entfällt) – wird mit T10 neu geklärt.
 
 **Varianten**
 
-- **Geschlossen** (Default): Reihen liegen direkt übereinander.
-- **Offen**: Spalt zwischen den Reihen; die Bänder werden dann nur von den Staken getragen (Brücke = Stakenabstand, daher Stakenabstand ≤ 15 mm im offenen Modus).
+- **Geschlossen** (Default): Reihen direkt übereinander.
+- **Offen**: Spalt zwischen den Reihen; die Bänder hängen nur an den Staken.
 
 **Parameter (nur im Geflecht-Modus)**
 
-| Parameter                                                                | Default                                                      | Bereich    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------- |
-| Flechtmaterial                                                           | Rohr                                                         | Rohr, Band |
-| Materialhöhe (Bandhöhe)                                                  | Rohr 6 mm / Band 9 mm                                        | 3–40       |
-| Materialdicke                                                            | Rohr 1.2 mm / Band 0.8 mm                                    | 0.8–4      |
-| Stakenabstand (Ziel, gerade Anzahl; tatsächlich ≤ 15 mm − Materialdicke) | 12 mm                                                        | 6–15       |
-| Stakendurchmesser                                                        | 3 mm                                                         | 2–8        |
-| Reihenabstand (Spalt)                                                    | 0 mm (geschlossen)                                           | 0–10       |
-| Auslenkung um die Staken                                                 | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | –          |
+| Parameter                                                                | Default                                        | Bereich    |
+| ------------------------------------------------------------------------ | ---------------------------------------------- | ---------- |
+| Flechtmaterial                                                           | Rohr                                           | Rohr, Band |
+| Materialhöhe (Bandhöhe, Zielwert)                                        | Rohr 6 mm / Band 9 mm                          | 3–40       |
+| Materialdicke                                                            | Rohr 1.2 mm / Band 0.8 mm                      | 0.8–4      |
+| Stakenabstand (Ziel, gerade Anzahl; tatsächlich ≤ 15 mm − Materialdicke) | 12 mm                                          | 6–15       |
+| Stakendurchmesser                                                        | 3 mm                                           | 2–8        |
+| Reihenabstand (Spalt)                                                    | 0 mm (geschlossen)                             | 0–10       |
+| Auslenkung um die Staken                                                 | automatisch = Stakenradius − 0,225 mm − 0,1 mm | –          |
 
 **Druckbarkeit (verbindlich, automatisch geprüft)**
 
-- Jeder Körper wird **Schicht für Schicht (0,2 mm)** geschnitten. Jeder Teil einer Schicht muss entweder innerhalb **45°** von der Schicht darunter getragen sein **oder** eine **Brücke** sein: an mindestens zwei getrennten Stellen auf der Schicht darunter verankert, **höchstens 15 mm** lang und **mindestens 0,8 mm breit** (zwei Druckbahnen; eine einzelne dünne Linie trägt nicht – nur Zwickel bis 1 mm Länge). Frei schwebende Teile zählen immer als Fehler. Einseitig freistehende Überhänge sind verboten. Unterstützungslücken schmaler als 0,2 mm (halbe Druckbahn) werden ignoriert.
-- Mindest-Wanddicke ≥ 1,0 mm. Der Korb ist **ein zusammenhängender, manifold Körper**.
+- Jeder Körper wird **Schicht für Schicht (0,2 mm)** geschnitten. Jeder Teil einer Schicht muss entweder innerhalb **45°** von der Schicht darunter getragen sein **oder** eine **Brücke** sein: an mindestens zwei getrennten Stellen **in** die Schicht darunter hineinlaufend (je ≥ 0,08 mm² Überlappung – bloßes Berühren zählt nicht) und **höchstens 15 mm** lang. Eine Brücke darf aus einer einzigen Extrusionslinie bestehen. Frei schwebende Teile zählen immer als Fehler; einseitige Überhänge schmaler als 0,2 mm werden ignoriert.
+- Der Korb ist **ein zusammenhängender, manifold Körper**.
 
 **Zusammenspiel mit anderen Features**
 
 - **Griffmulden**: aus dem Geflecht ausgeschnitten, mit massivem, gerundetem Rahmen; Oberkante mit 45°-Spitze bzw. -Bogen.
 - **Unterteilungen**: Trennwände bleiben massiv (glatt), mit Staken/Bändern verbunden.
-- **Stapeln**: über Fuß/Rand; Stapelraster bleibt = H.
 
 **Umsetzung (technische Leitplanke)**
 
-- Bänder: wellige 2D-Ringe (Mittellinie ± Dicke/2) als CrossSection, senkrecht extrudiert; Staken als Zylinder; Vereinigung per Batch-Union.
-- Kordelrand/-fuß: Höhenfeld-Schale (Bogenlänge s × Höhe z) mit 45°-Filter von unten nach oben (Technik aus Prototyp 2).
+- Bänder als Höhenfeld-Schalen entlang der Wandmitte (Profil aus 5 Höhenstufen, Dicke auf den Wellenschrägen senkrecht zum Band ausgeglichen); Staken als Zylinder; Grundplatte als Extrusion; Batch-Union.
 - Export wird auf 0,02 mm vereinfacht (`simplify`).
 
 **Vorschau-Darstellung**
@@ -256,7 +259,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - `npm run typecheck && npm run lint && npm test` grün, bevor committet wird.
 - Geometrie-Änderungen mit einem Test belegen (TDD für `src/geometry` und `src/export`).
 - Jedes erzeugte Mesh auf Manifold-Status prüfen; fehlerhafte Geometrie nie zum Download anbieten.
-- Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45° oder beidseitig verankerte Brücke ≤ 15 mm).
+- Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45° oder beidseitig eindringende Brücke ≤ 15 mm).
 - Eingaben validieren und auf erlaubte Bereiche begrenzen.
 - Spec aktualisieren, wenn sich Umfang oder Entscheidungen ändern.
 

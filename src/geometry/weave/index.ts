@@ -5,15 +5,13 @@ import type { BasketParams } from '../params';
 import { roundedRect } from '../shapes';
 import { bandSolids } from './bands';
 import { weaveLayout, type WeaveLayout } from './layout';
-import { footField, rimField } from './rope';
-import { reliefShell } from './shell';
 
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
-export const STAKE_SEGMENTS = { preview: 12, export: 24 } as const;
+export const STAKE_SEGMENTS = { preview: 16, export: 32 } as const;
 
 /**
- * Woven basket: floor plate, rope foot, round stakes, flat vertical bands
- * weaving round the stakes, rope rim. Returns one solid body.
+ * Woven basket: floor plate, round stakes from the plate to the top, and flat
+ * bands weaving round the stakes. Returns one solid body.
  */
 export function buildWeave(
   wasm: Wasm,
@@ -31,12 +29,9 @@ export function buildWeave(
     ]),
   );
   parts.push(scope.keep(outline.extrude(p.floor)));
-  parts.push(scope.keep(reliefShell(wasm, footField(p, layout, quality), layout.path)));
-  parts.push(scope.keep(reliefShell(wasm, rimField(p, layout, quality), layout.path)));
 
   const r = p.weave.stakeDiameter / 2;
-  const stakeTop = p.height - layout.rimHeight / 2;
-  const stake = scope.keep(Manifold.cylinder(stakeTop, r, r, STAKE_SEGMENTS[quality]));
+  const stake = scope.keep(Manifold.cylinder(p.height, r, r, STAKE_SEGMENTS[quality]));
   for (const s of layout.stakes) {
     const { p: at } = layout.path.at(s);
     parts.push(scope.keep(stake.translate(at[0], at[1], 0)));

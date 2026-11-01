@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
-import { FUSE, evenStakeCount, weaveLayout } from '../../../src/geometry/weave/layout';
+import { CUT, evenStakeCount, FIRST_LINE, weaveLayout } from '../../../src/geometry/weave/layout';
 import { RoundedRectPath } from '../../../src/geometry/weave/outline';
 
 const weave = (patch: Partial<BasketParams> = {}, w: Partial<BasketParams['weave']> = {}) =>
@@ -42,8 +42,7 @@ describe('RoundedRectPath', () => {
     for (let i = 0; i < 400; i++) {
       const { p, n } = path.at((i / 400) * path.length);
       expect(Math.hypot(n[0], n[1])).toBeCloseTo(1, 9);
-      expect(p[0] * n[0] + p[1] * n[1]).toBeGreaterThan(0); // outward
-      // distance from the inner rectangle (hx=40, hy=20) equals the radius
+      expect(p[0] * n[0] + p[1] * n[1]).toBeGreaterThan(0);
       const dx = Math.max(Math.abs(p[0]) - 40, 0);
       const dy = Math.max(Math.abs(p[1]) - 20, 0);
       expect(Math.hypot(dx, dy)).toBeCloseTo(10, 6);
@@ -75,37 +74,41 @@ describe('weaveLayout', () => {
     const l = weaveLayout(weave());
     expect(l.stakeCount % 2).toBe(0);
     const spacing = l.path.length / l.stakeCount;
-    expect(
-      Math.abs(spacing - DEFAULTS.weave.stakeSpacing) / DEFAULTS.weave.stakeSpacing,
-    ).toBeLessThan(0.15);
+    const target = DEFAULTS.weave.stakeSpacing;
+    expect(Math.abs(spacing - target) / target).toBeLessThan(0.15);
     expect(l.stakes).toHaveLength(l.stakeCount);
+  });
+
+  it('the first line of a band runs inside every stake (cuts it)', () => {
+    const p = weave();
+    const l = weaveLayout(p);
+    const r = p.weave.stakeDiameter / 2;
+    expect(l.amplitude + FIRST_LINE / 2).toBeCloseTo(r - CUT, 9);
+  });
+
+  it('the band still covers the stake on its outer side', () => {
+    const p = weave();
+    const l = weaveLayout(p);
+    expect(l.amplitude + p.weave.materialThickness / 2).toBeGreaterThan(p.weave.stakeDiameter / 2);
+  });
+
+  it('woven wall fits in the outer dimensions', () => {
+    const p = weave();
+    const l = weaveLayout(p);
+    expect(l.centerOffset).toBeCloseTo(l.span / 2, 9);
+    expect(l.amplitude + p.weave.materialThickness / 2).toBeLessThanOrEqual(l.span / 2 + 1e-9);
+    expect(p.weave.stakeDiameter / 2).toBeLessThanOrEqual(l.span / 2 + 1e-9);
   });
 
   it('real stake spacing ≤ 15 mm − material thickness (bands bridge between stakes)', () => {
     const l = weaveLayout(
       weave(
-        { width: 80, depth: 60, height: 50, borderBand: 5 },
+        { width: 80, depth: 60, height: 50 },
         { stakeDiameter: 8, materialThickness: 4, stakeSpacing: 15 },
       ),
     );
     expect(l.path.length / l.stakeCount).toBeLessThanOrEqual(15 - 4);
     expect(l.stakeCount % 2).toBe(0);
-  });
-
-  it('woven wall stays inside the outer dimensions', () => {
-    const p = weave();
-    const l = weaveLayout(p);
-    // outer surface of a strand at max displacement
-    const outer = l.centerOffset - l.amplitude - p.weave.materialThickness / 2;
-    expect(outer).toBeGreaterThanOrEqual(-1e-9);
-    expect(l.span).toBeCloseTo(p.weave.stakeDiameter + 2 * p.weave.materialThickness, 9);
-  });
-
-  it('bands overlap the stakes by FUSE', () => {
-    const p = weave();
-    const l = weaveLayout(p);
-    const innerFaceOfBand = l.amplitude - p.weave.materialThickness / 2;
-    expect(p.weave.stakeDiameter / 2 - innerFaceOfBand).toBeCloseTo(FUSE, 9);
   });
 
   const rowCases: [string, 'cane' | 'band', number, number][] = [];
@@ -114,22 +117,20 @@ describe('weaveLayout', () => {
       for (const gap of [0, 4])
         rowCases.push([`${material} ${mh}mm gap ${gap}`, material, mh, gap]);
 
-  it.each(rowCases)('%s: whole rows only, remainder split evenly', (_n, material, mh, gap) => {
+  it.each(rowCases)('%s: rows fill floor to top exactly', (_n, material, mh, gap) => {
     const p = weave({ height: 120 }, { material, materialHeight: mh, rowGap: gap });
     const l = weaveLayout(p);
     const n = l.rows.length;
-    expect(n).toBe(Math.floor((120 - 2 * p.borderBand + gap) / (mh + gap)));
-    // stack adds up exactly to the height
-    expect(l.footHeight + n * mh + (n - 1) * gap + l.rimHeight).toBeCloseTo(120, 9);
-    expect(l.footHeight).toBeCloseTo(l.rimHeight, 9);
-    expect(l.footHeight).toBeGreaterThanOrEqual(p.borderBand);
-    // rows are ordered, sized and inside the woven zone; foot and rim touch them
-    expect(l.rows[0]!.z0).toBeCloseTo(l.footHeight, 9);
-    expect(l.rows[n - 1]!.z1).toBeCloseTo(120 - l.rimHeight, 9);
+    expect(l.rows[0]!.z0).toBeCloseTo(p.floor, 9);
+    expect(l.rows[n - 1]!.z1).toBeCloseTo(120, 9);
+    const h = l.rows[0]!.z1 - l.rows[0]!.z0;
+    // n is the whole number closest to the target → band height close to the target
+    const wall = 120 - p.floor;
+    const target = p.weave.materialHeight;
+    expect(n).toBe(Math.max(1, Math.round((wall + gap) / (target + gap))));
+    expect(Math.abs(h - target)).toBeLessThanOrEqual((target + gap) / 2);
     l.rows.forEach((r, i) => {
-      expect(r.z1 - r.z0).toBeCloseTo(mh, 9);
-      expect(r.z0).toBeGreaterThanOrEqual(l.footHeight - 1e-9);
-      expect(r.z1).toBeLessThanOrEqual(120 - l.rimHeight + 1e-9);
+      expect(r.z1 - r.z0).toBeCloseTo(h, 9);
       if (i > 0) expect(r.z0 - l.rows[i - 1]!.z1).toBeCloseTo(gap, 9);
     });
   });

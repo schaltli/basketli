@@ -3,12 +3,11 @@ import { Scope } from './manifold';
 
 /** Longest bridge a basket may rely on (SPEC: Druckbarkeit). */
 export const MAX_BRIDGE = 15;
-/** Narrowest bridge that prints reliably: two 0.4 mm extrusion lines. */
-export const MIN_BRIDGE_WIDTH = 0.8;
-/** Thinner bridges are fine only over gaps up to this length. */
-export const MAX_THIN_BRIDGE = 1;
-/** Numerical tolerance (mm per side) when checking the bridge width. */
-const WIDTH_TOLERANCE = 0.02;
+/**
+ * Every anchor of a bridge must overlap the layer below by at least this area
+ * (mm²): the bridge has to run into its support, not just touch it.
+ */
+export const MIN_ANCHOR_AREA = 0.08;
 
 export interface OverhangReport {
   /** Largest unsupported, non-bridge area in a single layer (mm²). */
@@ -32,8 +31,10 @@ export interface OverhangOptions {
  * Slices the body layer by layer. Every part of a layer must either lie
  * within 45° of the layer below (lateral reach = layer height) or be a
  * bridge: a region anchored on the layer below at two or more separate
- * places. Bridges are measured. Floating regions (no anchor) always count as
- * unsupported; one-sided overhangs count unless thinner than `minFeature`.
+ * places, each anchor overlapping by at least MIN_ANCHOR_AREA (a single
+ * extrusion line may bridge if it runs into its supports). Bridges are
+ * measured. Floating regions always count as unsupported; one-sided
+ * overhangs count unless thinner than `minFeature`.
  */
 export function overhangReport(m: Manifold, options: OverhangOptions = {}): OverhangReport {
   const layer = options.layer ?? 0.2;
@@ -60,7 +61,7 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
       const contact = scope.keep(
         scope.keep(part.offset(reach + minFeature, 'Round')).intersect(prev),
       );
-      const anchors = anchorCount(contact);
+      const anchors = anchorCount(contact, 0.01);
       if (anchors === 0) {
         area += a; // floating in mid-air: always a failure, however thin
       } else if (anchors === 1) {
@@ -69,11 +70,8 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
           scope.keep(part.offset(-minFeature / 2, 'Round')).offset(minFeature / 2, 'Round'),
         );
         area += opened.area();
-      } else if (
-        scope.keep(part.offset(-(MIN_BRIDGE_WIDTH / 2 - WIDTH_TOLERANCE), 'Round')).isEmpty() &&
-        chord(part) > MAX_THIN_BRIDGE
-      ) {
-        area += a; // a long single thin line cannot bridge (SPEC: min. 2 extrusion lines)
+      } else if (anchorCount(contact, MIN_ANCHOR_AREA) < 2) {
+        area += a; // only grazes its supports: not a reliable bridge
       } else {
         const length = bridgeLength(scope, part, contact);
         if (length > report.maxBridge) {
@@ -95,11 +93,11 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
   return report;
 }
 
-/** Number of separate places where a part touches the layer below. */
-function anchorCount(contact: CrossSection): number {
+/** Number of separate places where a part overlaps the layer below by >= minArea. */
+function anchorCount(contact: CrossSection, minArea: number): number {
   let count = 0;
   for (const piece of contact.decompose()) {
-    if (piece.area() > 0.01) count++;
+    if (piece.area() >= minArea) count++;
     piece.delete();
   }
   return count;

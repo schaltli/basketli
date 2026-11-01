@@ -1,11 +1,15 @@
 import { MAX_OPEN_SPACING, type BasketParams } from '../params';
 import { RoundedRectPath } from './outline';
 
-/** Strands sink this far into the stakes so they fuse into one body. */
-export const FUSE = 0.3;
+/** Width of one extrusion line: the first layer of every band (mm). */
+export const FIRST_LINE = 0.45;
+/** Layer height the band bottom is designed for (mm). */
+export const LAYER = 0.2;
+/** The first line runs this far inside each stake (it cuts, not touches). */
+export const CUT = 0.1;
 
 export interface WeaveRow {
-  /** Bottom and top of the material in this row (mm). */
+  /** Bottom and top of the band in this row (mm). */
   z0: number;
   z1: number;
 }
@@ -15,18 +19,14 @@ export interface WeaveLayout {
   path: RoundedRectPath;
   /** Distance from the outer basket edge to the centerline. */
   centerOffset: number;
-  /** Radial thickness of the woven wall (= solid band thickness). */
+  /** Radial thickness of the woven wall. */
   span: number;
-  /** Max sideways displacement of a strand's center from the centerline. */
+  /** Max sideways displacement of a band's center line from the centerline. */
   amplitude: number;
   stakeCount: number;
   /** Arc positions of the stakes along `path`. */
   stakes: number[];
   rows: WeaveRow[];
-  /** Height of the solid foot band (from z = 0). */
-  footHeight: number;
-  /** Height of the solid top rim. */
-  rimHeight: number;
 }
 
 /**
@@ -42,13 +42,18 @@ export function evenStakeCount(length: number, targetSpacing: number): number {
   return err(upper) < err(lower) ? upper : lower;
 }
 
-/** Pure layout of a woven wall. `p` must be clamped and use wallStyle 'weave'. */
+/**
+ * Pure layout of a woven wall standing on the floor plate. `p` must be
+ * clamped and use wallStyle 'weave'.
+ */
 export function weaveLayout(p: BasketParams): WeaveLayout {
   const w = p.weave;
-  const span = w.stakeDiameter + 2 * w.materialThickness;
+  const r = w.stakeDiameter / 2;
+  // The band's center line (= its single-line first layer) passes through
+  // every stake, CUT inside the stake's surface.
+  const amplitude = Math.max(0, r - FIRST_LINE / 2 - CUT);
+  const span = 2 * Math.max(r, amplitude + w.materialThickness / 2);
   const centerOffset = span / 2;
-  // Bands touch every stake (overlapping it by FUSE).
-  const amplitude = w.stakeDiameter / 2 + w.materialThickness / 2 - FUSE;
 
   const path = new RoundedRectPath(
     p.width - 2 * centerOffset,
@@ -63,31 +68,16 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const step = path.length / stakeCount;
   const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
 
-  // Rows: n rows with n − 1 gaps; foot and rim sit directly on the first
-  // and last row. The remainder is split evenly so no row is cut off.
-  const usable = p.height - 2 * p.borderBand;
-  const pitch = w.materialHeight + w.rowGap;
-  const n = Math.max(1, Math.floor((usable + w.rowGap) / pitch));
-  const woven = n * w.materialHeight + (n - 1) * w.rowGap;
-  const extra = (usable - woven) / 2;
-  const footHeight = p.borderBand + extra;
-  const rimHeight = p.borderBand + extra;
-
+  // Rows fill the wall from the floor plate to the top. The band height is
+  // adjusted slightly so a whole number of rows fits exactly.
+  const wall = p.height - p.floor;
+  const n = Math.max(1, Math.round((wall + w.rowGap) / (w.materialHeight + w.rowGap)));
+  const h = (wall - (n - 1) * w.rowGap) / n;
   const rows: WeaveRow[] = [];
   for (let i = 0; i < n; i++) {
-    const z0 = footHeight + i * pitch;
-    rows.push({ z0, z1: z0 + w.materialHeight });
+    const z0 = p.floor + i * (h + w.rowGap);
+    rows.push({ z0, z1: z0 + h });
   }
 
-  return {
-    path,
-    centerOffset,
-    span,
-    amplitude,
-    stakeCount,
-    stakes,
-    rows,
-    footHeight,
-    rimHeight,
-  };
+  return { path, centerOffset, span, amplitude, stakeCount, stakes, rows };
 }

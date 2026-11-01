@@ -41,15 +41,20 @@ describe('overhangReport (the tool itself)', () => {
     expect(r.maxBridge).toBeLessThan(12);
   });
 
-  it('a bridge only one thin line wide counts as unsupported', () => {
+  it('a single thin line running into two pillars is a bridge', () => {
     const thin = wasm.Manifold.union([
       box(4, 4, 10, [0, 0, 0]),
       box(4, 4, 10, [14, 0, 0]),
-      box(18, 0.5, 2, [0, 1.75, 10]),
+      box(18, 0.45, 0.2, [0, 1.75, 10]),
     ]);
     const r = overhangReport(thin);
-    expect(r.maxArea).toBeGreaterThan(1);
-    expect(r.maxBridge).toBe(0);
+    expect(r.maxArea).toBe(0);
+    expect(r.maxBridge).toBeGreaterThan(9);
+  });
+
+  it('a thin line anchored on one pillar only is unsupported', () => {
+    const thin = wasm.Manifold.union([box(4, 4, 10, [0, 0, 0]), box(14, 0.45, 2, [0, 1.75, 10])]);
+    expect(overhangReport(thin).maxArea).toBeGreaterThan(1);
   });
 
   it('measures longer bridges too', () => {

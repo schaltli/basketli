@@ -57,3 +57,9 @@ Zum Vergleich mit derselben Prüfung: Referenz-STL des Nutzers 102 mm² Überhan
 
 Rohr 1,2 mm, Band 0,8 mm. Außenseite oben mit 45° angefast (halbe Dicke), unten mit einer Fase, die mindestens 0,8 mm Auflage stehen lässt.
 Testdrucke 80 × 60 × 50 mm (Export): je 0,00 mm² Überhang, längste Brücke 10,3–12,6 mm, rund 80 000–103 000 Dreiecke, unter 1 s.
+
+## 2026-11-01 – Bänder auf Grundplatte, erste Schicht = eine Linie
+
+Kein Kordelrand und kein Kordelfuß mehr. Die erste Schicht jedes Bandes ist eine 0,45 mm breite Linie, die beide Staken schneidet; darüber wächst das Band unter 45° nach innen und außen.
+Testdrucke 80 × 60 × 50 mm (Export): je 0,00 mm² Überhang; längste Brücke geschlossen 5,1–5,2 mm, offen 10,1–10,2 mm; 33 000–67 000 Dreiecke; 0,25–0,55 s.
+Gegenprobe mit derselben Regel: Prototyp 1 fällt weiterhin durch (23 mm²).
