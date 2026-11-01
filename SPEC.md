@@ -17,7 +17,7 @@ Maker:innen mit FDM-3D-Drucker (Bambu, Prusa, Creality …), die Körbe für Wer
 ### User Stories
 
 1. Als Nutzer:in gebe ich **Breite, Tiefe, Höhe** in mm ein (Klick auf Maß oder Slider) und sehe den Korb sofort in 3D.
-2. Ich wähle ein **Wandmuster** (Waben, vertikale Schlitze, Rauten oder geschlossen) und passe Lochgröße und Stegbreite an.
+2. Ich wähle einen **Wandstil**: Streckmetall (Standard), Waben, Voronoi, Geflecht geschlossen oder Geflecht offen, und passe seine Parameter an.
    2a. Alternativ wähle ich ein **Flechtmuster**: Der Korb sieht aus wie echt geflochten – Flechtstränge laufen sichtbar abwechselnd über und unter den senkrechten Staken, mit echter 3D-Tiefe innen und außen.
 3. Ich aktiviere **Griffmulden** an den Stirnseiten (und optional an den Längsseiten).
 4. Ich **unterteile** den Korb über ein Raster mit „+“-Buttons am rechten und unteren Rand in Fächer; ich kann Trennwände verschieben (Maß eintippen) und wieder entfernen.
@@ -76,7 +76,7 @@ src/
   geometry/        → Reine Geometrie-Logik, framework-frei, kein React/DOM
     params.ts      → BasketParams-Typ, Defaults, Grenzen, Validierung
     basket.ts      → Grundkörper: Wanne, Boden, Rand, Stapel-Absatz
-    patterns/      → Lochmuster (hex, slots, diamond, none)
+    patterns/      → Wandstile mit Löchern (hex, voronoi, expanded) + gemeinsame Werkzeuge
     weave/         → Flechtmuster: Staken, Flechtstrang-Pfade, Rohr-Mesh-Erzeugung
     handles.ts     → Griffmulden
     dividers.ts    → Trennwände aus dem Raster
@@ -104,37 +104,38 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 
 ### Parameter (Defaults / Grenzen)
 
-| Parameter           | Default     | Bereich                                                         | Hinweis                                     |
-| ------------------- | ----------- | --------------------------------------------------------------- | ------------------------------------------- |
-| Breite (X, außen)   | 150 mm      | 30–400                                                          |                                             |
-| Tiefe (Y, außen)    | 100 mm      | 30–400                                                          |                                             |
-| Höhe (Z, außen)     | 80 mm       | 20–300                                                          | = Stapelraster (s. u.)                      |
-| Wandstärke          | 1.6 mm      | 0.8–5                                                           | sinnvoll: Vielfache der Linienbreite        |
-| Bodenstärke         | 1.2 mm      | 0.6–5                                                           |                                             |
-| Eckenradius (außen) | 4 mm        | 0–30                                                            |                                             |
-| Stapelbar           | an          | an/aus                                                          |                                             |
-| Stapelspiel         | 0.3 mm      | 0.1–1.0                                                         | Toleranz zwischen Absatz und Rand           |
-| Wandstil            | Waben       | Waben, Schlitze, Rauten, Voronoi, Streckmetall, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
-| Lochgröße           | 10 mm       | 3–40                                                            |                                             |
-| Stegbreite          | 2.5 mm      | 1–10                                                            |                                             |
-| Randband oben/unten | 4 mm        | 3–30                                                            | massive Zone ohne Löcher                    |
-| Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten                               | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
-| Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm                         | Trennwandhöhe = Innenhöhe oder einstellbar  |
+| Parameter           | Default      | Bereich                                                      | Hinweis                                     |
+| ------------------- | ------------ | ------------------------------------------------------------ | ------------------------------------------- |
+| Breite (X, außen)   | 150 mm       | 30–400                                                       |                                             |
+| Tiefe (Y, außen)    | 100 mm       | 30–400                                                       |                                             |
+| Höhe (Z, außen)     | 80 mm        | 20–300                                                       | = Stapelraster (s. u.)                      |
+| Wandstärke          | 1.6 mm       | 0.8–5                                                        | sinnvoll: Vielfache der Linienbreite        |
+| Bodenstärke         | 1.2 mm       | 0.6–5                                                        |                                             |
+| Eckenradius (außen) | 8 mm         | 0–30                                                         |                                             |
+| Stapelbar           | an           | an/aus                                                       |                                             |
+| Stapelspiel         | 0.3 mm       | 0.1–1.0                                                      | Toleranz zwischen Absatz und Rand           |
+| Wandstil            | Streckmetall | Streckmetall, Waben, Voronoi, Geflecht (geschlossen / offen) | Geflecht: eigene Parameter, s. u.           |
+| Lochgröße           | 10 mm        | 3–40                                                         |                                             |
+| Stegbreite          | 2.5 mm       | 1–10                                                         |                                             |
+| Randband oben/unten | 4 mm         | 3–30                                                         | massive Zone ohne Löcher                    |
+| Griffmulden         | Stirnseiten  | keine / Stirnseiten / alle Seiten                            | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
+| Unterteilungen      | keine        | Raster X×Y, je Trennwand Position in mm                      | Trennwandhöhe = Innenhöhe oder einstellbar  |
 
 Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße größer als die freie Wandfläche) werden **im UI abgefangen**: Wert wird begrenzt und ein Hinweis angezeigt – keine Abstürze, keine kaputten Meshes.
 
+### Wandstile (Entscheidung 2026-11-01)
+
+Angeboten werden: **Streckmetall** (Standard), **Waben**, **Voronoi**, **Geflecht geschlossen**, **Geflecht offen**. Schlitze und Rauten entfallen. Die glatte Wanne bleibt intern als Basis und Prüfkörper.
+
 ### Stapel-Geometrie
 
-- Der Korb hat unten einen **umlaufenden, nach innen versetzten Absatz** (Fuß), der in die Innenkante des Korbs darunter greift.
-- Außenmaß des Fußes = Innenmaß des Rands − 2 × Stapelspiel.
-- **Stapelraster = eingestellte Höhe**: Zwei gestapelte Körbe der Höhe H sind zusammen exakt 2·H hoch (kein „+1 mm pro Lage“).
-- Fuß-Übergang mit 45°-Fase, damit ohne Stützmaterial druckbar.
+- **Anforderung (2026-11-01): Alle Körbe gleicher Grundfläche (Breite × Tiefe) sind untereinander stapelbar – unabhängig vom Wandstil.** Dafür haben alle Wandstile dieselbe Stapel-Schnittstelle (Fuß unten, Stapelrand oben); die genaue Form wird vor T10 mit dem Nutzer abgestimmt.
+- Stapelraster = eingestellte Höhe: Zwei gestapelte Körbe der Höhe H sind zusammen exakt 2·H hoch.
+- Fuß-Übergang mit 45°-Fase, ohne Stützmaterial druckbar.
 
 ### Wandmuster
 
-- **Waben**: Sechsecke mit Spitze nach oben (stützfrei).
-- **Schlitze**: vertikale Langlöcher mit abgerundeten Enden.
-- **Rauten**: auf der Spitze stehende Quadrate (45°).
+- **Waben** (Hex-Löcher): sechseckige Löcher **mit Spitze nach oben** (Oberkanten 30°: jede Druckbahn wird pro Schicht nur ~0,35 mm in Laufrichtung verlängert → keine Brücke), versetzte Reihen, **umlaufend ohne Naht** wie Voronoi (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Lochgröße = Schlüsselweite (Breite über die Flächen), Stege mindestens die Stegbreite. Mindest-Eckenradius 8 mm.
 - **Voronoi**: echte, unregelmäßige Voronoi-Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), umlaufend ohne Naht um den ganzen Korb (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: In der dünnen Wand laufen die Druckbahnen längs der Wand – schräge Lochoberkanten verlängern die Bahnen nur in Laufrichtung. Ein Scan von oben nach unten verkleinert jedes Loch nur dort, wo sich eine Seite pro 0,2-mm-Schicht um mehr als ~1,4 mm (flacher als 8°) schließen müsste; die letzte Öffnung oben schließt als Brücke (Lochbreite höchstens 13 mm). Löcher werden nur kleiner, nie größer. Mindest-Eckenradius 8 mm (Stege innen ≥ 80 %). Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“). (Entscheidung 2026-11-01: der frühere 45°-Flachschnitt machte alle Zellen oben flach – verworfen.)
 - **Streckmetall** (Prototyp 2026-11-01, überarbeitet nach Vergleich mit echtem Streckmetall): Die Wand besteht aus **zwei Scharen durchgehender Schrägstege** („/“ und „\“), die sich in Knoten kreuzen; dazwischen bleiben **stehende Rauten** (lange Diagonale senkrecht → oben spitz, keine Brücke). Teilung exakt so, dass parallele Rautenkanten genau eine Stegbreite auseinanderliegen; umlaufend ohne Naht (Stege winden sich schraubenförmig um den Korb, auch durch die Ecken) und enden in den Randbändern. **Jeder Steg ist einzeln um seine Achse verdreht**: obere Kante nach außen, untere nach innen; die Verdrehung wird so begrenzt, dass die Außenfläche nie flacher als 45° überhängt. Parameter: Rautenbreite 3–15 mm (5), Rautenhöhe 6–40 mm (12, mind. 1,5 × Breite), Stegbreite 1–4 mm (1,6), Verdrehung 0–2 mm (0,6). Mindest-Eckenradius 8 mm. (Verworfen: Linsen-Löcher und Sägezahn-Relief über ganze Reihen.)
 - Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.

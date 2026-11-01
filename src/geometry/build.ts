@@ -3,6 +3,7 @@ import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
 import { buildExpanded } from './patterns/expanded';
+import { hexCutters } from './patterns/hex';
 import { voronoiCutters } from './patterns/voronoi';
 import { buildWeave } from './weave';
 
@@ -31,8 +32,11 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       body = buildExpanded(wasm, scope, params, quality);
     } else {
       body = buildTub(wasm, scope, params, quality);
-      if (params.wallStyle === 'voronoi') {
-        const holes = voronoiCutters(wasm, scope, params);
+      if (params.wallStyle === 'voronoi' || params.wallStyle === 'hex') {
+        const holes =
+          params.wallStyle === 'hex'
+            ? hexCutters(wasm, scope, params)
+            : voronoiCutters(wasm, scope, params);
         if (holes.length > 0)
           body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
       }

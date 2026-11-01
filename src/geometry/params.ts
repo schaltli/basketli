@@ -1,6 +1,7 @@
 /** All lengths in mm. */
 
-export type WallStyle = 'solid' | 'hex' | 'slots' | 'diamond' | 'voronoi' | 'expanded' | 'weave';
+/** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
+export type WallStyle = 'solid' | 'hex' | 'voronoi' | 'expanded' | 'weave';
 export type HandleMode = 'none' | 'ends' | 'all';
 export type WeaveMaterial = 'cane' | 'band';
 
@@ -112,10 +113,10 @@ export const DEFAULTS: BasketParams = {
   height: 80,
   wall: 1.6,
   floor: 1.2,
-  cornerRadius: 4,
+  cornerRadius: 8,
   stackable: true,
   stackClearance: 0.3,
-  wallStyle: 'hex',
+  wallStyle: 'expanded',
   holeSize: 10,
   webWidth: 2.5,
   borderBand: 4,
@@ -247,7 +248,7 @@ export function clampParams(input: BasketParams): ClampResult {
     rule('cornerRadius', maxRadius);
   }
   if (
-    (p.wallStyle === 'voronoi' || p.wallStyle === 'expanded') &&
+    (p.wallStyle === 'voronoi' || p.wallStyle === 'expanded' || p.wallStyle === 'hex') &&
     p.cornerRadius < MIN_VORONOI_CORNER_RADIUS
   ) {
     // Holes run round the corners; tighter corners squeeze the inner webs.
