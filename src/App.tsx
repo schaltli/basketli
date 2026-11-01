@@ -1,10 +1,19 @@
 import { useState } from 'react';
-import { clampParams, DEFAULTS, setWeaveMaterial, type BasketParams } from './geometry/params';
+import {
+  clampParams,
+  DEFAULTS,
+  setWeaveMaterial,
+  type BasketParams,
+  type WallStyle,
+} from './geometry/params';
 import { DownloadButton } from './ui/controls/DownloadButton';
 import { de } from './ui/i18n/de';
 import { useBasketMesh } from './ui/viewer/useBasketMesh';
 import { Viewer } from './ui/viewer/Viewer';
 import './App.css';
+
+/** Wall styles offered by the provisional controls (until T15). */
+const TEMP_STYLES: WallStyle[] = ['solid', 'voronoi', 'weave'];
 
 export function App() {
   const [params, setParams] = useState(DEFAULTS);
@@ -20,15 +29,30 @@ export function App() {
           <label>
             {de.wallStyle}{' '}
             <select
-              value={params.wallStyle === 'weave' ? 'weave' : 'solid'}
-              onChange={(e) =>
-                update({ ...params, wallStyle: e.target.value === 'weave' ? 'weave' : 'solid' })
-              }
+              value={TEMP_STYLES.includes(params.wallStyle) ? params.wallStyle : 'solid'}
+              onChange={(e) => {
+                const style = TEMP_STYLES.find((s) => s === e.target.value) ?? 'solid';
+                update({ ...params, wallStyle: style });
+              }}
             >
               <option value="solid">{de.wallStyleSolid}</option>
+              <option value="voronoi">{de.wallStyleVoronoi}</option>
               <option value="weave">{de.wallStyleWeave}</option>
             </select>
           </label>
+          {params.wallStyle === 'voronoi' && (
+            <button
+              type="button"
+              onClick={() =>
+                update({
+                  ...params,
+                  voronoi: { ...params.voronoi, seed: (params.voronoi.seed % 9999) + 1 },
+                })
+              }
+            >
+              {de.voronoiReroll}
+            </button>
+          )}
           {params.wallStyle === 'weave' && (
             <>
               <label>

@@ -4,6 +4,8 @@ export const de = {
   wallStyle: 'Wand',
   wallStyleSolid: 'Glatt',
   wallStyleWeave: 'Geflecht',
+  wallStyleVoronoi: 'Voronoi',
+  voronoiReroll: 'Neu würfeln',
   weaveMaterial: 'Material',
   weaveCane: 'Rohr',
   weaveBand: 'Band',

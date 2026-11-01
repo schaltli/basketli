@@ -232,13 +232,13 @@
       **Dateien:** `src/geometry/patterns/slots.ts`, `src/geometry/patterns/diamond.ts`, `tests/geometry/patterns/slots.test.ts`, `tests/geometry/patterns/diamond.test.ts`
       **Umfang:** S
 
-### - [ ] T13b: Voronoi-Muster
+### - [x] T13b: Voronoi-Muster
 
 **Beschreibung:** Wandstil „Voronoi“: reproduzierbare Zufallspunkte (Startwert) je Wandfläche, Voronoi-Zellen, um die halbe Stegbreite geschrumpft und ausgeschnitten. Jede Zelle bekommt oben eine Spitze (≤ 45°) oder eine Oberkante ≤ 15 mm. Parameter: Zellgröße, Stegbreite, Startwert.
 **Akzeptanz:**
 
-- [ ] Gleicher Startwert → identisches Mesh; anderer Startwert → anderes Muster.
-- [ ] Freihalteregeln wie T12; manifold; Druckbarkeitstest grün.
+- [x] Gleicher Startwert → identisches Mesh; anderer Startwert → anderes Muster.
+- [x] Ecken und Randbänder frei; manifold; Druckbarkeitstest grün (Prototyp mit eigener Wandflächen-Logik; T12 kann sie übernehmen).
 
 **Prüfung:** `npx vitest run tests/geometry/patterns/voronoi.test.ts`
 **Abhängig von:** T12

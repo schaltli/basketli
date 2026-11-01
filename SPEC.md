@@ -135,7 +135,7 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 - **Waben**: Sechsecke mit Spitze nach oben (stützfrei).
 - **Schlitze**: vertikale Langlöcher mit abgerundeten Enden.
 - **Rauten**: auf der Spitze stehende Quadrate (45°).
-- **Voronoi**: organische Zellen (zufällig verteilte Punkte, reproduzierbar per Startwert), Stege gleichmäßig breit; jede Zelle wird oben **spitz (≤ 45°)** abgeschlossen bzw. ihre Oberkante als Brücke ≤ 15 mm ausgelegt. Parameter: Zellgröße, Stegbreite, Startwert („neu würfeln“).
+- **Voronoi**: organische Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: Jedes Loch wird oben dort **waagerecht abgeschnitten**, wo sein Umriss flacher als 45° wird – es bleiben steile Seiten und eine kurze, beidseitig verankerte **Brücke** (höchstens 13 mm, sonst bekommt das Loch senkrechte Seiten). Löcher werden dadurch nur kleiner, nie größer. Je gerader Wandfläche; Ecken und Randbänder bleiben massiv. Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“).
 - Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.
 
 ### Flechtmuster (Wandstil „Geflecht“)

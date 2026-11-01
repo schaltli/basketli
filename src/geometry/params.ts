@@ -1,6 +1,6 @@
 /** All lengths in mm. */
 
-export type WallStyle = 'solid' | 'hex' | 'slots' | 'diamond' | 'weave';
+export type WallStyle = 'solid' | 'hex' | 'slots' | 'diamond' | 'voronoi' | 'weave';
 export type HandleMode = 'none' | 'ends' | 'all';
 export type WeaveMaterial = 'cane' | 'band';
 
@@ -14,6 +14,13 @@ export interface WeaveParams {
   stakeDiameter: number;
   /** Gap between rows; 0 = closed weave. */
   rowGap: number;
+}
+
+export interface VoronoiParams {
+  /** Mean cell size (mm). */
+  cellSize: number;
+  /** Seed of the random cell layout ("re-roll"). */
+  seed: number;
 }
 
 export interface BasketParams {
@@ -31,6 +38,7 @@ export interface BasketParams {
   borderBand: number;
   handles: HandleMode;
   weave: WeaveParams;
+  voronoi: VoronoiParams;
 }
 
 export interface Range {
@@ -54,6 +62,8 @@ export const LIMITS = {
   stakeSpacing: { min: 6, max: 40 },
   stakeDiameter: { min: 2, max: 8 },
   rowGap: { min: 0, max: 10 },
+  cellSize: { min: 6, max: 12 },
+  seed: { min: 0, max: 9999 },
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
@@ -92,6 +102,7 @@ export const DEFAULTS: BasketParams = {
   webWidth: 2.5,
   borderBand: 8,
   handles: 'ends',
+  voronoi: { cellSize: 12, seed: 1 },
   weave: {
     material: 'cane',
     ...MATERIAL_DEFAULTS.cane,
@@ -177,6 +188,16 @@ export function clampParams(input: BasketParams): ClampResult {
     notices.push({ field, kind: 'rule', value });
 
   for (const k of TOP_NUMBERS) p[k] = fit(k, p[k], LIMITS[k], DEFAULTS[k]);
+  p.voronoi = { ...input.voronoi };
+  p.voronoi.cellSize = fit(
+    'voronoi.cellSize',
+    p.voronoi.cellSize,
+    LIMITS.cellSize,
+    DEFAULTS.voronoi.cellSize,
+  );
+  p.voronoi.seed = Math.round(
+    fit('voronoi.seed', p.voronoi.seed, LIMITS.seed, DEFAULTS.voronoi.seed),
+  );
   for (const k of WEAVE_NUMBERS)
     p.weave[k] = fit(`weave.${k}`, p.weave[k], LIMITS[k], DEFAULTS.weave[k]);
 

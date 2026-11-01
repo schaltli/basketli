@@ -2,6 +2,7 @@ import type { Manifold } from 'manifold-3d';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
+import { voronoiCutters } from './patterns/voronoi';
 import { buildWeave } from './weave';
 
 export type { Quality };
@@ -22,10 +23,17 @@ export interface MeshData {
 export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality): Manifold {
   const scope = new Scope();
   try {
-    const body =
-      params.wallStyle === 'weave'
-        ? buildWeave(wasm, scope, params, quality).body
-        : buildTub(wasm, scope, params, quality);
+    let body: Manifold;
+    if (params.wallStyle === 'weave') {
+      body = buildWeave(wasm, scope, params, quality).body;
+    } else {
+      body = buildTub(wasm, scope, params, quality);
+      if (params.wallStyle === 'voronoi') {
+        const holes = voronoiCutters(wasm, scope, params);
+        if (holes.length > 0)
+          body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
+      }
+    }
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
