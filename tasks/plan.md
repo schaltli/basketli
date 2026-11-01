@@ -77,7 +77,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 ### Phase 4 – Bedienung nach Bento3D-Vorbild
 
 - [x] T14: Store und URL-Serialisierung
-- [ ] T15: Toolbar und Parameter-Dialog (inkl. Geflecht-Abschnitt, Hinweise beim Begrenzen)
+- [x] T15: Toolbar und Parameter-Dialog (inkl. Geflecht-Abschnitt, Hinweise beim Begrenzen)
 - [ ] T16: Maß-Labels am Modell (Klick, Eingabe, Slider)
 - [ ] T17: Ansichten Einzeln / Stapel / Explosion
 

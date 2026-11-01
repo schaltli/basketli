@@ -1,7 +1,7 @@
 import { Grid, OrbitControls } from '@react-three/drei';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
-import { BufferAttribute, BufferGeometry } from 'three';
+import { BufferAttribute, BufferGeometry, PerspectiveCamera, Vector3 } from 'three';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { MeshData } from '../../geometry/build';
 import type { BasketParams } from '../../geometry/params';
@@ -27,6 +27,33 @@ function useGeometry(mesh: MeshData | undefined, crease: number): BufferGeometry
 interface ViewerProps {
   mesh: MeshData | undefined;
   params: BasketParams;
+}
+
+/**
+ * Keeps the whole basket in view when its size changes: keeps the current
+ * viewing direction and moves the camera to a distance that fits the box.
+ */
+function CameraFit({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const get = useThree((s) => s.get);
+  useEffect(() => {
+    const { camera, controls } = get();
+    const orbit = controls as { target?: Vector3; update?: () => void } | null;
+    const target = new Vector3(0, height / 2, 0);
+    const radius = Math.hypot(width, depth, height) / 2;
+    const fov = camera instanceof PerspectiveCamera ? camera.fov : 40;
+    const distance = (radius / Math.sin(((fov / 2) * Math.PI) / 180)) * 1.1;
+    const from = orbit?.target ?? new Vector3(0, 0, 0);
+    const dir = camera.position.clone().sub(from).normalize();
+    if (dir.lengthSq() === 0) dir.set(0.5, 0.45, 0.75).normalize();
+    camera.position.copy(target.clone().add(dir.multiplyScalar(distance)));
+    camera.far = Math.max(5000, distance * 10);
+    camera.updateProjectionMatrix();
+    if (orbit?.target) {
+      orbit.target.copy(target);
+      orbit.update?.();
+    }
+  }, [get, width, depth, height]);
+  return null;
 }
 
 /** 3D scene. Geometry uses Z-up (mm); the group rotates it into three.js Y-up. */
@@ -64,6 +91,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
         position={[0, -0.01, 0]}
       />
       <OrbitControls makeDefault target={[0, params.height / 2, 0]} />
+      <CameraFit width={params.width} depth={params.depth} height={params.height} />
     </Canvas>
   );
 }

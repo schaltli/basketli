@@ -7,6 +7,7 @@
 .app-header {
   display: flex;
   align-items: center;
+  gap: 16px;
   padding: 8px 16px;
   border-bottom: 1px solid #ddd5c8;
 }
@@ -18,16 +19,148 @@
   letter-spacing: 0.02em;
 }
 
-.app-stage {
-  position: relative;
+.toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.toggle,
+.secondary {
+  padding: 5px 12px;
+  border: 1px solid #cfc4b4;
+  border-radius: 6px;
+  background: #fbf9f6;
+  color: #3d342a;
+}
+
+.toggle.on {
+  background: #e9e1d4;
+  border-color: #b8ab98;
+}
+
+.app-body {
+  display: flex;
   min-height: 0;
 }
 
-.app-temp-controls {
-  display: flex;
-  gap: 16px;
-  margin-left: 24px;
+.app-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.params {
+  width: 300px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+  border-left: 1px solid #ddd5c8;
+  background: #faf8f4;
   font-size: 0.9rem;
+}
+
+.params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.params-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.icon-button {
+  border: 0;
+  background: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #6b6052;
+}
+
+.params fieldset {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.params legend {
+  margin-bottom: 6px;
+  font-weight: 650;
+  color: #6b6052;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.field select {
+  width: 100%;
+  padding: 4px;
+  font: inherit;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-number {
+  width: 80px;
+  padding: 3px 6px;
+  border: 1px solid #cfc4b4;
+  border-radius: 4px;
+  font: inherit;
+  text-align: right;
+}
+
+.field-unit {
+  color: #8a7f70;
+}
+
+.field-range {
+  width: 100%;
+  accent-color: #8b6d42;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.notices {
+  margin-top: 16px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff4dc;
+  color: #6b4e12;
+  font-size: 0.85rem;
+}
+
+.notices h3 {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+}
+
+.notices ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .download {
@@ -43,8 +176,6 @@
   border-radius: 6px;
   background: #3d342a;
   color: #fff;
-  font: inherit;
-  cursor: pointer;
 }
 
 .download button:disabled {

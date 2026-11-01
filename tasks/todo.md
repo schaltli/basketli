@@ -278,7 +278,7 @@
       **Dateien:** `src/state/store.ts`, `src/state/url.ts`, `tests/state/url.test.ts`
       **Umfang:** S
 
-### - [ ] T15: Toolbar und Parameter-Dialog
+### - [x] T15: Toolbar und Parameter-Dialog
 
 **Beschreibung:** Eine Toolbar oben (Parameter, Raster, Ansicht, Download) und ein Parameter-Dialog mit allen Parametern als Zahlenfeld plus Slider, gruppiert nach Korb, Wand, Stapeln und Geflecht (Gruppe nur sichtbar, wenn der Wandstil „Geflecht“ ist). Hinweise beim Begrenzen erscheinen unaufdringlich. Alle Texte stehen in `ui/i18n/de.ts`. Die provisorischen Schalter aus T8 entfallen.
 **Akzeptanz:**
