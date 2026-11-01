@@ -44,7 +44,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 ### Phase 1 – Fundament und Durchstich
 
 - [x] T1: Projekt-Setup mit Toolchain
-- [ ] T2: Parameter-Modell (Typen, Defaults, Grenzen, Clamping)
+- [x] T2: Parameter-Modell (Typen, Defaults, Grenzen, Clamping)
 - [ ] T3: Grundwanne als manifold-Geometrie
 - [ ] T4: Worker und 3D-Viewer zeigen die Grundwanne
 

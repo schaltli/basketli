@@ -20,7 +20,7 @@
       **Dateien:** `package.json`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `.prettierrc`, `vitest.config.ts`, `playwright.config.ts`, `src/main.tsx`, `src/App.tsx`
       **Umfang:** M
 
-### - [ ] T2: Parameter-Modell
+### - [x] T2: Parameter-Modell
 
 **Beschreibung:** `BasketParams` mit allen Parametern aus dem Spec (inkl. Geflecht: Material Rohr/Band, Materialhöhe, Materialdicke, Stakenabstand, Stakendurchmesser, Reihenabstand), dazu `DEFAULTS`, `LIMITS` und `clampParams()`. `clampParams()` gibt die korrigierten Parameter zurück und eine Liste mit Hinweisen, was korrigiert wurde. Die Material-Defaults hängen vom Material ab (Rohr 6/2,4 mm, Band 15/1,6 mm).
 **Akzeptanz:**
