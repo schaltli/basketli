@@ -22,7 +22,7 @@ describe('DEFAULTS', () => {
       height: 80,
       wall: 1.6,
       floor: 1.2,
-      cornerRadius: 8,
+      cornerRadius: 10,
       stackable: true,
       stackClearance: 0.3,
       wallStyle: 'expanded',

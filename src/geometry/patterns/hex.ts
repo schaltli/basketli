@@ -4,6 +4,7 @@ import type { BasketParams } from '../params';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { printableHole } from './voronoi';
+import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Pointy-top regular hexagon, `width` across the flats, centered at (cx, cy). */
@@ -35,7 +36,7 @@ export function hexLayout(p: BasketParams): HexLayout {
   const px = path.length / count; // ≥ w + web → webs never thinner
   const pz = (px * Math.sqrt(3)) / 2;
   const tall = (2 * w) / Math.sqrt(3);
-  const y0 = p.floor + p.borderBand;
+  const y0 = holesBottom(p);
   const y1 = p.height - p.borderBand;
   const rows: number[] = [];
   const m = Math.floor((y1 - y0 - tall) / pz) + 1;

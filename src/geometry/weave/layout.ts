@@ -1,4 +1,5 @@
 import { MAX_OPEN_SPACING, type BasketParams } from '../params';
+import { patternBase } from '../stacking';
 import { RoundedRectPath } from './outline';
 
 /** Width of one extrusion line: the first layer of every band (mm). */
@@ -70,12 +71,13 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
 
   // Rows fill the wall from the floor plate to the top. The band height is
   // adjusted slightly so a whole number of rows fits exactly.
-  const wall = p.height - p.floor;
+  const base = patternBase(p);
+  const wall = p.height - base;
   const n = Math.max(1, Math.round((wall + w.rowGap) / (w.materialHeight + w.rowGap)));
   const h = (wall - (n - 1) * w.rowGap) / n;
   const rows: WeaveRow[] = [];
   for (let i = 0; i < n; i++) {
-    const z0 = p.floor + i * (h + w.rowGap);
+    const z0 = base + i * (h + w.rowGap);
     rows.push({ z0, z1: z0 + h });
   }
 

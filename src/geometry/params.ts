@@ -2,6 +2,8 @@
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
 export type WallStyle = 'solid' | 'hex' | 'voronoi' | 'expanded' | 'weave';
+
+import { STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 export type HandleMode = 'none' | 'ends' | 'all';
 export type WeaveMaterial = 'cane' | 'band';
 
@@ -113,7 +115,7 @@ export const DEFAULTS: BasketParams = {
   height: 80,
   wall: 1.6,
   floor: 1.2,
-  cornerRadius: 8,
+  cornerRadius: 10,
   stackable: true,
   stackClearance: 0.3,
   wallStyle: 'expanded',
@@ -288,6 +290,35 @@ export function clampParams(input: BasketParams): ClampResult {
     if (w.stakeSpacing < minSpacing) {
       w.stakeSpacing = Math.min(minSpacing, LIMITS.stakeSpacing.max);
       rule('weave.stakeSpacing', w.stakeSpacing);
+    }
+  }
+
+  // Stacking: every foot must fit into every opening of the same footprint.
+  if (p.stackable) {
+    // The corner radius is part of the footprint: one minimum for all styles,
+    // so the same input gives the same outline whatever the wall style.
+    if (p.cornerRadius < STACK_MIN_RADIUS) {
+      p.cornerRadius = Math.min(STACK_MIN_RADIUS, maxRadius);
+      rule('cornerRadius', p.cornerRadius);
+    }
+    if (p.wallStyle === 'expanded' && p.wall + 2 * p.expanded.twist > STACK_INSET) {
+      p.expanded.twist = Math.max(0, round((STACK_INSET - p.wall) / 2));
+      rule('expanded.twist', p.expanded.twist);
+    }
+    if (p.wallStyle === 'weave' && wallIntrusion(p) > STACK_INSET) {
+      const w = p.weave;
+      // span = 2·max(r, r − 0.325 + t/2) ≤ STACK_INSET
+      const rMax = Math.min(STACK_INSET / 2, STACK_INSET / 2 + 0.325 - w.materialThickness / 2);
+      w.stakeDiameter = Math.max(LIMITS.stakeDiameter.min, round(2 * rMax - 0.001));
+      rule('weave.stakeDiameter', w.stakeDiameter);
+      if (wallIntrusion(p) > STACK_INSET) {
+        w.materialThickness = round(2 * (STACK_INSET / 2 + 0.325 - w.stakeDiameter / 2) - 0.001);
+        rule('weave.materialThickness', w.materialThickness);
+      }
+    }
+    if (p.wall > STACK_INSET) {
+      p.wall = STACK_INSET;
+      rule('wall', STACK_INSET);
     }
   }
 

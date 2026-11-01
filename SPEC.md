@@ -111,7 +111,7 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 | Höhe (Z, außen)     | 80 mm        | 20–300                                                       | = Stapelraster (s. u.)                      |
 | Wandstärke          | 1.6 mm       | 0.8–5                                                        | sinnvoll: Vielfache der Linienbreite        |
 | Bodenstärke         | 1.2 mm       | 0.6–5                                                        |                                             |
-| Eckenradius (außen) | 8 mm         | 0–30                                                         |                                             |
+| Eckenradius (außen) | 10 mm        | 0–30                                                         |                                             |
 | Stapelbar           | an           | an/aus                                                       |                                             |
 | Stapelspiel         | 0.3 mm       | 0.1–1.0                                                      | Toleranz zwischen Absatz und Rand           |
 | Wandstil            | Streckmetall | Streckmetall, Waben, Voronoi, Geflecht (geschlossen / offen) | Geflecht: eigene Parameter, s. u.           |
@@ -129,9 +129,14 @@ Angeboten werden: **Streckmetall** (Standard), **Waben**, **Voronoi**, **Geflech
 
 ### Stapel-Geometrie
 
-- **Anforderung (2026-11-01): Alle Körbe gleicher Grundfläche (Breite × Tiefe) sind untereinander stapelbar – unabhängig vom Wandstil.** Dafür haben alle Wandstile dieselbe Stapel-Schnittstelle (Fuß unten, Stapelrand oben); die genaue Form wird vor T10 mit dem Nutzer abgestimmt.
-- Stapelraster = eingestellte Höhe: Zwei gestapelte Körbe der Höhe H sind zusammen exakt 2·H hoch.
-- Fuß-Übergang mit 45°-Fase, ohne Stützmaterial druckbar.
+- **Anforderung (2026-11-01): Alle Körbe gleicher Grundfläche (Breite × Tiefe × Eckenradius) sind untereinander stapelbar – unabhängig vom Wandstil.**
+- **Gewählt: Fuß auf Wandkante.** Gemeinsame Schnittstelle aller Wandstile:
+  - **Fuß:** die untersten 3 mm sind rundum um 4 mm + Stapelspiel (Default 0,3 mm) eingezogen.
+  - **Schulter:** darüber führt eine 45°-Fase zur vollen Außenkontur (stützfrei druckbar); der Bereich bis zum Fasenende ist ein massiver Sockel.
+  - **Oben kein zusätzlicher Rand.** Keine Wand reicht an der Oberkante mehr als 4 mm nach innen (Regel in `clampParams`, passt Verdrehung, Stakendurchmesser, Materialdicke bzw. Wandstärke an), daher passt jeder Fuß in jede Öffnung.
+  - **Eckenradius** bei stapelbaren Körben mindestens 10 mm für alle Stile (gleiche Eingabe → gleiche Kontur, sonst klemmen die Ecken).
+- Der obere Korb liegt mit der Fase auf der **Innenkante** der Wand darunter und zentriert sich dabei selbst. Das Stapelmaß hängt deshalb von der Wanddicke des unteren Korbs ab: **Stapelmaß = H − 3 mm − (4,3 mm − Wanddicke oben)**. Bei H = 50 mm: Geflecht unten 46,25 mm, Streckmetall 45,5 mm, Waben/Voronoi 44,3 mm. (Korrektur 2026-11-01: „2·H“ bzw. „H − 3 mm“ sind ohne Überhang nicht erreichbar.)
+- Muster (Löcher, Bänder) beginnen erst über dem Sockel.
 
 ### Wandmuster
 

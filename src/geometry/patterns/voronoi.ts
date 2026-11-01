@@ -4,6 +4,7 @@ import type { BasketParams } from '../params';
 import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
+import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Corner radius of the holes (organic look), scaled down for small cells. */
@@ -209,7 +210,7 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
   const { CrossSection } = wasm;
   const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
   const L = path.length;
-  const y0 = p.floor + p.borderBand;
+  const y0 = holesBottom(p);
   const y1 = p.height - p.borderBand;
   if (y1 - y0 < p.voronoi.cellSize / 2) return [];
 

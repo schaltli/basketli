@@ -3,6 +3,7 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect, type Vec2 } from '../shapes';
+import { holesBottom } from '../stacking';
 import { RoundedRectPath } from '../weave/outline';
 
 /** Longest step along the wall between two strand cross-sections (mm). */
@@ -60,7 +61,7 @@ export function expandedLayout(p: BasketParams): ExpandedLayout {
   const count = Math.max(2, Math.floor(path.length / pitch.ps));
   const ps = path.length / count;
   const pz = (pitch.pz * ps) / pitch.ps; // keep the diamond's aspect ratio
-  const y0 = p.floor + p.borderBand;
+  const y0 = holesBottom(p);
   const y1 = p.height - p.borderBand;
   // Knot rows every pz / 2; centre the pattern vertically.
   const rows = Math.max(1, Math.floor((y1 - y0) / (pz / 2)));

@@ -182,18 +182,17 @@
 
 ## Phase 3 – Korb-Kern
 
-### - [ ] T10: Stapel-Geometrie
+### - [x] T10: Stapel-Schnittstelle für alle Wandstile
 
-**Beschreibung:** Unten bekommt der Korb einen nach innen versetzten Fuß mit 45°-Fase, oben passt der Rand dazu. Fußmaß = Rand-Innenmaß − 2·Spiel. Das gilt für massive Wände, Lochmuster und Geflecht (beim Geflecht über Fußband und Randwulst). Der Schalter „stapelbar aus“ ergibt einen flachen Boden.
+**Beschreibung:** Gemeinsamer Sockel (Fuß 3 mm, 4,3 mm eingezogen, 45°-Fase), Wand oben ≤ 4 mm, Eckenradius ≥ 10 mm – Körbe gleicher Grundfläche stapeln stilübergreifend.
 **Akzeptanz:**
 
-- [ ] Die Fuß-Außenkontur entspricht der Rand-Innenkontur − 2·Spiel ± 0,01 mm.
-- [ ] Ein Korb, der virtuell um H nach oben versetzt wird, überschneidet sich nicht mit dem darunter (Volumen der Schnittmenge = 0) und greift seitlich ein (Fuß liegt innerhalb des Rands).
-- [ ] Bounding Box eines einzelnen Korbs = H (kein Aufmaß).
-      **Prüfung:** `npx vitest run tests/geometry/stacking.test.ts`
-      **Abhängig von:** T3, T8
-      **Dateien:** `src/geometry/stacking.ts`, `src/geometry/basket.ts`, `src/geometry/weave/index.ts`, `tests/geometry/stacking.test.ts`
-      **Umfang:** M
+- [x] Alle fünf Stile: ein Körper, Fuß eingezogen, Höhe H, Sockel stützfrei druckbar.
+- [x] Stilübergreifend gestapelt (6 Kombinationen geprüft): Fuß in der Öffnung, keine Kollision beim berechneten Stapelmaß, liegt tatsächlich auf.
+- [ ] Drucktest: Stapelpaar zweier verschiedener Stile.
+
+**Dateien:** `src/geometry/stacking.ts`, `src/geometry/build.ts`, `src/geometry/params.ts`, `tests/geometry/stacking.test.ts`
+**Umfang:** M
 
 ### - [ ] T11: 3MF-Export und Download-Menü
 

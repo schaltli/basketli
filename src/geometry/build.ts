@@ -5,6 +5,7 @@ import type { BasketParams } from './params';
 import { buildExpanded } from './patterns/expanded';
 import { hexCutters } from './patterns/hex';
 import { voronoiCutters } from './patterns/voronoi';
+import { withStacking } from './stacking';
 import { buildWeave } from './weave';
 
 export type { Quality };
@@ -41,6 +42,7 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
           body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
       }
     }
+    body = withStacking(wasm, scope, params, quality, body);
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
