@@ -1,11 +1,13 @@
 /** All lengths in mm. */
+import { STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
-export type WallStyle = 'solid' | 'hex' | 'voronoi' | 'expanded' | 'weave';
-
-import { STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
-export type HandleMode = 'none' | 'ends' | 'all';
-export type WeaveMaterial = 'cane' | 'band';
+export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave'] as const;
+export type WallStyle = (typeof WALL_STYLES)[number];
+export const HANDLE_MODES = ['none', 'ends', 'all'] as const;
+export type HandleMode = (typeof HANDLE_MODES)[number];
+export const WEAVE_MATERIALS = ['cane', 'band'] as const;
+export type WeaveMaterial = (typeof WEAVE_MATERIALS)[number];
 
 export interface WeaveParams {
   material: WeaveMaterial;
@@ -134,7 +136,7 @@ export const DEFAULTS: BasketParams = {
   },
 };
 
-export type NoticeKind = 'min' | 'max' | 'invalid' | 'rule';
+export type NoticeKind = 'min' | 'max' | 'invalid' | 'rule' | 'unknown';
 
 /** Machine-readable correction; the UI translates it into text. */
 export interface Notice {

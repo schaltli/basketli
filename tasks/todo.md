@@ -266,7 +266,7 @@
 
 ## Phase 4 – Bedienung nach Bento3D-Vorbild
 
-### - [ ] T14: Store und URL-Serialisierung
+### - [x] T14: Store und URL-Serialisierung
 
 **Beschreibung:** Ein zustand-Store für `BasketParams` (immer über `clampParams`). Die URL wird synchronisiert (`?v=1&w=150&d=100&…`, nur Abweichungen vom Default). Beim Laden wird die Konfiguration aus der URL wiederhergestellt; ungültige Werte werden begrenzt und gemeldet.
 **Akzeptanz:**
