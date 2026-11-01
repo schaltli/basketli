@@ -4,12 +4,10 @@ import { loadManifold, Scope, type Wasm } from '../../../src/geometry/manifold';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
 import {
   buildExpanded,
-  expandedField,
-  expandedHoles,
+  diamondPitch,
+  diamondPolygon,
   expandedLayout,
-  latticePitch,
-  lensPolygon,
-  polygonDistance,
+  maxTwist,
 } from '../../../src/geometry/patterns/expanded';
 import { MAX_BRIDGE, overhangReport } from '../../../src/geometry/printability';
 
@@ -31,87 +29,64 @@ const params = (patch: Partial<BasketParams> = {}, e: Partial<BasketParams['expa
     expanded: { ...DEFAULTS.expanded, ...e },
   }).params;
 
-describe('lens', () => {
-  it('stands upright with pointed tips and the requested size', () => {
-    const lens = lensPolygon(5, 12);
-    const xs = lens.map((q) => q[0]);
-    const ys = lens.map((q) => q[1]);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(5, 2);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(12, 6);
-    expect(lens).toContainEqual([expect.closeTo(0, 9), expect.closeTo(-6, 9)]); // bottom tip
-  });
-});
-
-describe('lattice', () => {
+describe('diamond lattice', () => {
   it.each([
     [5, 12, 1.6],
     [3, 6, 1],
     [10, 30, 4],
-  ])('w=%d h=%d strand=%d: neighbours exactly a strand apart', (w, h, t) => {
-    const { ps, pz } = latticePitch(w, h, t);
-    const lens = lensPolygon(w, h);
-    const moved = (dx: number, dy: number) =>
-      lens.map(([x, y]) => [x + dx, y + dy] as [number, number]);
-    const diag = polygonDistance(lens, moved(ps / 2, pz / 2));
-    expect(diag).toBeGreaterThanOrEqual(t - 1e-6);
-    const narrowest = Math.min(
-      diag,
-      polygonDistance(lens, moved(ps, 0)),
-      polygonDistance(lens, moved(0, pz)),
-    );
-    expect(narrowest).toBeLessThan(t + 0.05); // not wastefully wide
+  ])('w=%d h=%d strand=%d: parallel diamond edges exactly a strand apart', (w, h, t) => {
+    const { ps, pz } = diamondPitch(w, h, t);
+    const d = diamondPolygon(w, h);
+    const a = d[1]!; // right vertex
+    const b = d[2]!; // top vertex → upper-right edge a–b
+    const nx = b[1] - a[1];
+    const ny = a[0] - b[0];
+    // left vertex of the diagonal neighbour (shifted by ps/2, pz/2) lies on
+    // the parallel edge of that neighbour
+    const q: [number, number] = [ps / 2 - w / 2, pz / 2];
+    const dist = Math.abs((q[0] - a[0]) * nx + (q[1] - a[1]) * ny) / Math.hypot(nx, ny);
+    expect(dist).toBeCloseTo(t, 9);
+    expect(pz / ps).toBeCloseTo(h / w, 9); // aspect ratio kept
   });
 
-  it('wraps the whole perimeter: whole number of lenses per row, staggered rows', () => {
-    const p = params();
-    const l = expandedLayout(p);
+  it('wraps the perimeter: whole number of diamonds per row', () => {
+    const l = expandedLayout(params());
     const n = l.path.length / l.ps;
     expect(Math.abs(n - Math.round(n))).toBeLessThan(1e-9);
-    expect(l.rows.length).toBeGreaterThan(2);
-    const holes = expandedHoles(p, l);
-    expect(holes.length).toBe(Math.round(n) * l.rows.length);
+    expect(l.count).toBe(Math.round(n));
   });
 });
 
-describe('twisted sheet', () => {
-  it('outer face leans out at most 45°, inner face too', () => {
-    const p = params();
-    const l = expandedLayout(p);
-    const f = expandedField(p, l, 'preview');
-    const K = f.z.length;
-    for (let k = 1; k < K; k++) {
-      const dz = f.z[k]! - f.z[k - 1]!;
-      expect(f.outer[k]! - f.outer[k - 1]!).toBeLessThanOrEqual(dz + 1e-9);
-      expect(f.inner[k - 1]! - f.inner[k]!).toBeLessThanOrEqual(dz + 1e-9);
-    }
-    // the relief is really there
-    const outs = Array.from({ length: K }, (_, k) => f.outer[k]!);
-    expect(Math.max(...outs) - Math.min(...outs)).toBeGreaterThan(p.expanded.twist * 0.8);
-    // and the mesh stays light: few columns, few levels
-    expect(f.s.length * K).toBeLessThan(20000);
+describe('twist limit', () => {
+  it('clampParams keeps the twist below the 45° limit', () => {
+    const e = params({}, { twist: 2, strand: 1 }).expanded;
+    expect(e.twist).toBeLessThanOrEqual(maxTwist(e.diamondWidth, e.diamondHeight, e.strand));
   });
 });
 
 describe('expanded metal basket', () => {
   it.each([
     ['defaults', params()],
-    ['small lenses', params({}, { lensWidth: 3, lensHeight: 6, strand: 1 })],
-    ['big lenses, no twist', params({}, { lensWidth: 10, lensHeight: 24, twist: 0 })],
+    ['small diamonds', params({}, { diamondWidth: 3, diamondHeight: 6, strand: 1 })],
+    ['big diamonds, no twist', params({}, { diamondWidth: 10, diamondHeight: 24, twist: 0 })],
+    ['max twist', params({}, { twist: 2 })],
     ['default size basket', params({ width: 150, depth: 100, height: 80 })],
-  ] as const)('%s: one manifold body, exact size, printable', (_n, p) => {
+  ] as const)('%s: one manifold body, exact size, holes, printable', (_n, p) => {
     const m = buildManifold(wasm, p, 'preview');
     const scope = new Scope();
     try {
-      const sheet = buildExpanded(wasm, scope, p, 'preview', false);
+      const envelope = buildExpanded(wasm, scope, p, 'preview', true);
       expect(m.status()).toBe('NoError');
+      expect(m.volume()).toBeGreaterThan(0);
+      expect(m.volume()).toBeLessThan(envelope.volume() * 0.85); // holes really there
       const parts = m.decompose();
       expect(parts.length).toBe(1);
       parts.forEach((x) => x.delete());
       const box = m.boundingBox();
       expect(box.max[0]).toBeCloseTo(p.width / 2, 1);
       expect(box.max[1]).toBeCloseTo(p.depth / 2, 1);
-      expect(m.volume()).toBeLessThan(sheet.volume() * 0.85); // holes really cut
-      const r = overhangReport(m, { envelope: sheet });
+      expect(box.max[2]).toBeCloseTo(p.height, 3);
+      const r = overhangReport(m, { envelope });
       expect(r.maxArea, `z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
       expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);
     } finally {

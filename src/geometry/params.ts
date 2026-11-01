@@ -16,13 +16,14 @@ export interface WeaveParams {
   rowGap: number;
 }
 
-/** Expanded metal ("Streckmetall"): standing lens holes, twisted strands. */
+/** Expanded metal ("Streckmetall"): standing diamond holes, twisted strands. */
 export interface ExpandedParams {
-  lensWidth: number;
-  lensHeight: number;
-  /** Narrowest strand between two lenses. */
+  /** Diagonals of the standing diamond holes. */
+  diamondWidth: number;
+  diamondHeight: number;
+  /** Strand width (between two diamonds). */
   strand: number;
-  /** Depth of the sawtooth relief that imitates the twisted strands. */
+  /** Each strand is tilted about its axis: edges shifted ± this much (mm). */
   twist: number;
 }
 
@@ -75,8 +76,8 @@ export const LIMITS = {
   rowGap: { min: 0, max: 10 },
   cellSize: { min: 6, max: 12 },
   seed: { min: 0, max: 9999 },
-  lensWidth: { min: 3, max: 15 },
-  lensHeight: { min: 6, max: 40 },
+  diamondWidth: { min: 3, max: 15 },
+  diamondHeight: { min: 6, max: 40 },
   strand: { min: 1, max: 4 },
   twist: { min: 0, max: 2 },
 } as const satisfies Record<string, Range>;
@@ -120,7 +121,7 @@ export const DEFAULTS: BasketParams = {
   borderBand: 4,
   handles: 'ends',
   voronoi: { cellSize: 12, seed: 1 },
-  expanded: { lensWidth: 5, lensHeight: 12, strand: 1.6, twist: 0.8 },
+  expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
   weave: {
     material: 'cane',
     ...MATERIAL_DEFAULTS.cane,
@@ -207,13 +208,22 @@ export function clampParams(input: BasketParams): ClampResult {
 
   for (const k of TOP_NUMBERS) p[k] = fit(k, p[k], LIMITS[k], DEFAULTS[k]);
   p.expanded = { ...input.expanded };
-  for (const k of ['lensWidth', 'lensHeight', 'strand', 'twist'] as const)
+  for (const k of ['diamondWidth', 'diamondHeight', 'strand', 'twist'] as const)
     p.expanded[k] = fit(`expanded.${k}`, p.expanded[k], LIMITS[k], DEFAULTS.expanded[k]);
-  // Lenses stand upright: clearly taller than wide (pointed, steep tops).
-  const minHeight = round(1.5 * p.expanded.lensWidth);
-  if (p.expanded.lensHeight < minHeight) {
-    p.expanded.lensHeight = Math.min(minHeight, LIMITS.lensHeight.max);
-    rule('expanded.lensHeight', p.expanded.lensHeight);
+  // Diamonds stand upright: clearly taller than wide (steep, pointed tops).
+  const e = p.expanded;
+  const minHeight = round(1.5 * e.diamondWidth);
+  if (e.diamondHeight < minHeight) {
+    e.diamondHeight = Math.min(minHeight, LIMITS.diamondHeight.max);
+    rule('expanded.diamondHeight', e.diamondHeight);
+  }
+  // Twisted strands: outer face must not overhang more than 45°.
+  const twistLimit = round(
+    (e.strand * Math.hypot(e.diamondWidth, e.diamondHeight)) / (2 * e.diamondWidth) - 0.01,
+  );
+  if (e.twist > twistLimit) {
+    e.twist = Math.max(0, twistLimit);
+    rule('expanded.twist', e.twist);
   }
   p.voronoi = { ...input.voronoi };
   p.voronoi.cellSize = fit(

@@ -247,14 +247,14 @@
 
 ### - [x] T13c: Streckmetall (Prototyp)
 
-**Beschreibung:** Wandstil „Streckmetall“: stehende Linsen im versetzten Rautengitter, umlaufend; verdrehte Stege als Sägezahn-Relief (Höhenfeld mit 45°-Filter).
+**Beschreibung:** Wandstil „Streckmetall“: zwei Scharen durchgehender, einzeln verdrehter Schrägstege; stehende Rauten dazwischen; umlaufend.
 **Akzeptanz:**
 
-- [x] Stege überall ≥ Stegbreite (Gitterteilung per Abstandsrechnung); ganze Zahl Linsen pro Reihe.
-- [x] Ein manifold-Körper, exakte Außenmaße, Druckbarkeitstest grün (keine Brücken nötig: Linsen oben spitz).
-- [x] Vorschau ≈ 0,13 s, Export ≈ 1 s (150 × 100 × 80 mm).
+- [x] Parallele Rautenkanten genau eine Stegbreite auseinander; ganze Zahl Rauten pro Reihe.
+- [x] Ein manifold-Körper, exakte Außenmaße, echte Löcher, Druckbarkeitstest grün (Verdrehung auf ≤ 45° begrenzt).
+- [x] Vorschau ≈ 0,06 s, Export ≈ 1,4 s (150 × 100 × 80 mm).
 
-**Dateien:** `src/geometry/patterns/expanded.ts`, `src/geometry/patterns/wallcut.ts`, `tests/geometry/patterns/expanded.test.ts`
+**Dateien:** `src/geometry/patterns/expanded.ts`, `tests/geometry/patterns/expanded.test.ts`
 **Umfang:** M
 
 ### Checkpoint C

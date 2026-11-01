@@ -3,92 +3,32 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect, type Vec2 } from '../shapes';
-import { filteredField, type Field } from '../weave/field';
 import { RoundedRectPath } from '../weave/outline';
-import { reliefShell } from '../weave/shell';
-import { printableHole } from './voronoi';
-import { bentCutter } from './wallcut';
 
-/** Points per lens arc. */
-const ARC_POINTS = 24;
-/** Column spacing on the corner arcs (straight sides only need their ends). */
-const ARC_STEP = { preview: 0.8, export: 0.4 } as const;
+/** Longest step along the wall between two strand cross-sections (mm). */
+const STRAND_STEP = { preview: 0.8, export: 0.4 } as const;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
+/** Strands reach this far into the border bands. */
+const ANCHOR = 0.6;
 
 /**
- * Standing lens (vesica): two circular arcs meeting in pointed tips at the
- * top and bottom. Centered at the origin, counter-clockwise.
+ * Lattice of standing diamonds (rhombi with diagonals width × height) whose
+ * parallel edges are exactly `strand` apart: the material between them forms
+ * continuous diagonal strands. Returns horizontal and vertical pitch.
  */
-export function lensPolygon(width: number, height: number): Vec2[] {
-  const c = (height * height - width * width) / (4 * width); // arc centers at (±c, 0)
-  const r = c + width / 2;
-  const a = Math.atan2(height / 2, c);
-  const pts: Vec2[] = [];
-  for (let i = 0; i < ARC_POINTS; i++) {
-    const t = -a + (2 * a * i) / ARC_POINTS; // right arc, bottom → top
-    pts.push([-c + r * Math.cos(t), r * Math.sin(t)]);
-  }
-  for (let i = 0; i < ARC_POINTS; i++) {
-    const t = Math.PI - a + (2 * a * i) / ARC_POINTS; // left arc, top → bottom
-    pts.push([c + r * Math.cos(t), r * Math.sin(t)]);
-  }
-  return pts;
+export function diamondPitch(width: number, height: number, strand: number) {
+  const f = (strand * Math.hypot(width, height)) / (width * height);
+  return { ps: width * (1 + f), pz: height * (1 + f) };
 }
-
-function segmentDistance(p: Vec2, a: Vec2, b: Vec2): number {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const t = Math.max(
-    0,
-    Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)),
-  );
-  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
-}
-
-/** Smallest distance between two polygons (assumed not to overlap). */
-export function polygonDistance(a: Vec2[], b: Vec2[]): number {
-  let d = Infinity;
-  for (const [p, q] of [
-    [a, b],
-    [b, a],
-  ] as const)
-    for (const v of p)
-      for (let i = 0; i < q.length; i++)
-        d = Math.min(d, segmentDistance(v, q[i]!, q[(i + 1) % q.length]!));
-  return d;
-}
-
-const shift = (poly: Vec2[], dx: number, dy: number): Vec2[] =>
-  poly.map(([x, y]) => [x + dx, y + dy]);
 
 /**
- * Pitch of the diamond lattice (lenses in staggered rows) so every strand is
- * at least `strand` wide: horizontal pitch between lenses of a row and
- * vertical pitch between rows of the same phase.
+ * Largest twist (mm, edge shift outwards/inwards) that keeps the strands'
+ * outer face at ≤ 45° overhang. Going up at a fixed point, the position
+ * across a strand changes by w / √(w² + h²) per mm, the offset by
+ * 2·twist / strand per mm across.
  */
-export function latticePitch(
-  width: number,
-  height: number,
-  strand: number,
-): { ps: number; pz: number } {
-  const lens = lensPolygon(width, height);
-  const ok = (k: number) => {
-    const ps = k * width;
-    const pz = k * height;
-    return (
-      polygonDistance(lens, shift(lens, ps / 2, pz / 2)) >= strand &&
-      polygonDistance(lens, shift(lens, ps, 0)) >= strand &&
-      polygonDistance(lens, shift(lens, 0, pz)) >= strand
-    );
-  };
-  let lo = 1;
-  let hi = 6;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (ok(mid)) hi = mid;
-    else lo = mid;
-  }
-  return { ps: hi * width, pz: hi * height };
+export function maxTwist(width: number, height: number, strand: number): number {
+  return (strand * Math.hypot(width, height)) / (2 * width);
 }
 
 export interface ExpandedLayout {
@@ -97,103 +37,165 @@ export interface ExpandedLayout {
   /** Real horizontal pitch (fits the perimeter a whole number of times). */
   ps: number;
   pz: number;
-  /** Heights of the lens rows (knot rows of the twisted strands). */
-  rows: number[];
+  /** Strand zone (between the border bands). */
+  y0: number;
+  y1: number;
+  /** Height of the first knot row. */
+  knot0: number;
+  /** Number of strands per family (= diamonds per row). */
+  count: number;
+  /** Radial half-extent of the tilted strands. */
+  halfSpan: number;
 }
 
 export function expandedLayout(p: BasketParams): ExpandedLayout {
   const e = p.expanded;
-  const off = p.wall / 2 + e.twist / 2;
-  const path = new RoundedRectPath(p.width - 2 * off, p.depth - 2 * off, p.cornerRadius - off);
-  const pitch = latticePitch(e.lensWidth, e.lensHeight, e.strand);
-  const n = Math.max(2, Math.floor(path.length / pitch.ps));
-  const ps = path.length / n;
+  const halfSpan = p.wall / 2 + e.twist;
+  const path = new RoundedRectPath(
+    p.width - 2 * halfSpan,
+    p.depth - 2 * halfSpan,
+    p.cornerRadius - halfSpan,
+  );
+  const pitch = diamondPitch(e.diamondWidth, e.diamondHeight, e.strand);
+  const count = Math.max(2, Math.floor(path.length / pitch.ps));
+  const ps = path.length / count;
+  const pz = (pitch.pz * ps) / pitch.ps; // keep the diamond's aspect ratio
   const y0 = p.floor + p.borderBand;
   const y1 = p.height - p.borderBand;
-  const half = pitch.pz / 2;
-  const count = Math.floor((y1 - y0 - e.lensHeight) / half) + 1;
-  const rows: number[] = [];
-  if (count >= 1) {
-    const span = (count - 1) * half + e.lensHeight;
-    const first = y0 + (y1 - y0 - span) / 2 + e.lensHeight / 2;
-    for (let j = 0; j < count; j++) rows.push(first + j * half);
-  }
-  return { path, ps, pz: pitch.pz, rows };
-}
-
-/** All lens holes in wall coordinates (x = arc length along the centerline). */
-export function expandedHoles(p: BasketParams, layout: ExpandedLayout): Vec2[][] {
-  const lens = printableHole(lensPolygon(p.expanded.lensWidth, p.expanded.lensHeight));
-  const n = Math.round(layout.path.length / layout.ps);
-  const holes: Vec2[][] = [];
-  layout.rows.forEach((y, j) => {
-    for (let i = 0; i < n; i++)
-      holes.push(shift(lens, i * layout.ps + ((j % 2) * layout.ps) / 2, y));
-  });
-  return holes;
+  // Knot rows every pz / 2; centre the pattern vertically.
+  const rows = Math.max(1, Math.floor((y1 - y0) / (pz / 2)));
+  const knot0 = y0 + (y1 - y0 - (rows - 1) * (pz / 2)) / 2;
+  return { path, ps, pz, y0, y1, knot0, count, halfSpan };
 }
 
 /**
- * Sawtooth offset of the sheet that imitates the twisted strands: between two
- * knot rows the sheet leans outwards, at each knot row it steps back.
+ * Appends one continuous strand (closed mesh) to vert/tri. `dir` = +1 for
+ * "/" strands (rising to the right), −1 for "\" strands; `c` is the arc
+ * position where its center line crosses the first knot row. The strand is
+ * tilted about its own axis: upper edge `twist` outwards, lower edge inwards.
  */
-export function twistShift(p: BasketParams, layout: ExpandedLayout, z: number): number {
-  const rows = layout.rows;
-  if (rows.length < 2 || z < rows[0]! || z >= rows[rows.length - 1]!) return 0;
-  const phase = (z - rows[0]!) / (layout.pz / 2);
-  return p.expanded.twist * (phase - Math.floor(phase) - 0.5);
-}
-
-/** The sheet (without holes) as a height field along the centerline. */
-export function expandedField(p: BasketParams, layout: ExpandedLayout, quality: Quality): Field {
-  // The sheet does not change along the wall: only the corners need columns.
-  const s = Float64Array.from(layout.path.breakpoints(ARC_STEP[quality]));
-  // Heights: the sawtooth is linear between knot rows; at each knot it steps
-  // back (outer face) and the inner face follows at 45° within `twist`.
-  const t = p.expanded.twist;
-  const levels = new Set<number>([0, p.height]);
-  for (const r of layout.rows) {
-    levels.add(r - 1e-3);
-    levels.add(r);
-    if (t > 0) levels.add(Math.min(p.height, r + t));
-  }
-  const z = Float64Array.from(
-    [...levels].filter((v) => v >= 0 && v <= p.height).sort((a, b) => a - b),
-  );
+function strandMesh(
+  p: BasketParams,
+  layout: ExpandedLayout,
+  dir: 1 | -1,
+  c: number,
+  quality: Quality,
+  vert: number[],
+  tri: number[],
+) {
   const half = p.wall / 2;
-  return filteredField(
-    s,
-    z,
-    (_s, zz) => {
-      const d = twistShift(p, layout, zz);
-      return [d - half, d + half];
-    },
-    p.wall,
-  );
+  const slope = layout.ps / layout.pz; // ds per dz along a strand
+  const dx = (p.expanded.strand / 2) * Math.hypot(slope, 1); // horizontal half-width
+  const z0 = layout.y0 - ANCHOR;
+  const z1 = layout.y1 + ANCHOR;
+  const steps = Math.max(2, Math.ceil(((z1 - z0) * slope) / STRAND_STEP[quality]));
+  const tw = p.expanded.twist;
+  const upperSide = -dir; // "/" strands: upper edge at smaller s; "\": at larger s
+
+  const base = vert.length / 3;
+  for (let i = 0; i <= steps; i++) {
+    const z = z0 + ((z1 - z0) * i) / steps;
+    const sc = c + dir * slope * (z - layout.knot0);
+    for (const side of [-1, 1] as const) {
+      const shift = side === upperSide ? tw : -tw;
+      const { p: at, n } = layout.path.at(sc + side * dx);
+      for (const u of [shift - half, shift + half])
+        vert.push(at[0] + n[0] * u, at[1] + n[1] * u, z);
+    }
+  }
+  // Per level: 0 = left-in, 1 = left-out, 2 = right-in, 3 = right-out.
+  const v = (i: number, k: number) => base + i * 4 + k;
+  const quad = (a: number, b: number, c2: number, d: number) => tri.push(a, b, c2, a, c2, d);
+  for (let i = 0; i < steps; i++) {
+    quad(v(i, 1), v(i, 3), v(i + 1, 3), v(i + 1, 1)); // outer face
+    quad(v(i, 2), v(i, 0), v(i + 1, 0), v(i + 1, 2)); // inner face
+    quad(v(i, 0), v(i, 1), v(i + 1, 1), v(i + 1, 0)); // left edge
+    quad(v(i, 3), v(i, 2), v(i + 1, 2), v(i + 1, 3)); // right edge
+  }
+  quad(v(0, 0), v(0, 2), v(0, 3), v(0, 1)); // bottom cap
+  quad(v(steps, 1), v(steps, 3), v(steps, 2), v(steps, 0)); // top cap
 }
 
-/** Sheet + floor, optionally with the lens holes cut. */
+/** Both strand families, one manifold each (strands of a family never touch). */
+export function strandSolids(
+  wasm: Wasm,
+  p: BasketParams,
+  layout: ExpandedLayout,
+  quality: Quality,
+): Manifold[] {
+  return ([1, -1] as const).map((dir) => {
+    const vert: number[] = [];
+    const tri: number[] = [];
+    for (let k = 0; k < layout.count; k++)
+      strandMesh(p, layout, dir, (k + 0.5) * layout.ps, quality, vert, tri);
+    const mesh = new wasm.Mesh({
+      numProp: 3,
+      vertProperties: Float32Array.from(vert),
+      triVerts: Uint32Array.from(tri),
+    });
+    return new wasm.Manifold(mesh);
+  });
+}
+
+/** Ring band over the full radial span of the strands, from z0 to z1. */
+function band(
+  wasm: Wasm,
+  scope: Scope,
+  p: BasketParams,
+  layout: ExpandedLayout,
+  quality: Quality,
+  z0: number,
+  z1: number,
+): Manifold {
+  const { CrossSection } = wasm;
+  const seg = CORNER_SEGMENTS[quality];
+  const span = 2 * layout.halfSpan;
+  const outer = scope.keep(
+    CrossSection.ofPolygons([roundedRect(p.width, p.depth, p.cornerRadius, seg)]),
+  );
+  const inner = scope.keep(
+    CrossSection.ofPolygons([
+      roundedRect(p.width - 2 * span, p.depth - 2 * span, Math.max(0, p.cornerRadius - span), seg),
+    ]),
+  );
+  const ring = scope.keep(outer.subtract(inner));
+  return scope.keep(scope.keep(ring.extrude(z1 - z0)).translate(0, 0, z0));
+}
+
+/**
+ * Expanded metal wall: floor plate, bottom and top border band, and two
+ * families of continuous, individually twisted diagonal strands. The diamond
+ * holes are what is left between them. With `envelope`, the strand zone is
+ * filled solid instead (reference body for the printability check).
+ */
 export function buildExpanded(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
   quality: Quality,
-  withHoles = true,
+  envelope = false,
 ): Manifold {
   const { Manifold, CrossSection } = wasm;
   const layout = expandedLayout(p);
-  const shell = scope.keep(reliefShell(wasm, expandedField(p, layout, quality), layout.path));
   const outline = scope.keep(
     CrossSection.ofPolygons([
       roundedRect(p.width, p.depth, p.cornerRadius, CORNER_SEGMENTS[quality]),
     ]),
   );
-  const floor = scope.keep(outline.extrude(p.floor));
-  const sheet = scope.keep(Manifold.union([shell, floor]));
-  if (!withHoles) return sheet;
-  const holes = expandedHoles(p, layout);
-  if (holes.length === 0) return sheet;
-  const reach = p.wall / 2 + p.expanded.twist / 2 + 1;
-  const cutter = scope.keep(bentCutter(wasm, holes, layout.path, reach, -reach));
-  return scope.keep(sheet.subtract(cutter));
+  const parts: Manifold[] = [scope.keep(outline.extrude(p.floor))];
+  parts.push(band(wasm, scope, p, layout, quality, 0, layout.y0));
+  parts.push(band(wasm, scope, p, layout, quality, layout.y1, p.height));
+  if (envelope) parts.push(band(wasm, scope, p, layout, quality, layout.y0, layout.y1));
+  else for (const s of strandSolids(wasm, p, layout, quality)) parts.push(scope.keep(s));
+  return scope.keep(Manifold.union(parts));
+}
+
+/** Standing diamond centered at 0 (counter-clockwise), for tests and docs. */
+export function diamondPolygon(width: number, height: number): Vec2[] {
+  return [
+    [0, -height / 2],
+    [width / 2, 0],
+    [0, height / 2],
+    [-width / 2, 0],
+  ];
 }
