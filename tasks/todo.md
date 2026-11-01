@@ -45,7 +45,7 @@
       **Dateien:** `src/geometry/basket.ts`, `src/geometry/build.ts`, `src/geometry/manifold.ts` (WASM-Init), `tests/geometry/basket.test.ts`
       **Umfang:** M
 
-### - [ ] T4: Worker und 3D-Viewer zeigen die Grundwanne
+### - [x] T4: Worker und 3D-Viewer zeigen die Grundwanne
 
 **Beschreibung:** Ein Web Worker ruft `build()` auf und überträgt die Buffer als transferable. Der Viewer (r3f) bekommt Kamera, Orbit-Steuerung, Licht und Boden-Raster. Neue Berechnungen werden entprellt (150 ms); eine veraltete Berechnung wird verworfen, sobald eine neuere fertig ist.
 **Akzeptanz:**
