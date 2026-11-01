@@ -38,7 +38,7 @@ const cases: [string, BasketParams][] = [
     'weave thick stakes',
     clampParams({
       ...weave,
-      weave: { ...weave.weave, stakeDiameter: 8, materialThickness: 4, stakeSpacing: 20 },
+      weave: { ...weave.weave, stakeDiameter: 8, materialThickness: 4, stakeSpacing: 15 },
     }).params,
   ],
 ];

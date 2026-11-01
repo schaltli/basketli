@@ -34,7 +34,7 @@ describe('DEFAULTS', () => {
     expect(DEFAULTS.weave).toEqual({
       material: 'cane',
       materialHeight: 6,
-      materialThickness: 2.4,
+      materialThickness: 1.2,
       stakeSpacing: 12,
       stakeDiameter: 3,
       rowGap: 0,
@@ -103,7 +103,7 @@ describe('clampParams – dependent rules', () => {
 
   it('weave: corner radius leaves room for thick strands to bend', () => {
     const r = clampParams(
-      withWeave({ stakeDiameter: 8, materialThickness: 4, stakeSpacing: 20 }, { cornerRadius: 10 }),
+      withWeave({ stakeDiameter: 8, materialThickness: 4, stakeSpacing: 15 }, { cornerRadius: 10 }),
     );
     // span = 8 + 2*4 = 16 → radius must be >= span + 1
     expect(r.params.cornerRadius).toBe(17);
@@ -141,8 +141,8 @@ describe('clampParams – dependent rules', () => {
     expect(w.stakeSpacing).toBeGreaterThanOrEqual(w.stakeDiameter + 2 * w.materialThickness);
   });
 
-  it('open weave: stake spacing limited so bands bridge at most 15 mm', () => {
-    const r = clampParams(withWeave({ rowGap: 4, stakeSpacing: 30 }));
+  it('weave: stake spacing limited so bands bridge at most 15 mm', () => {
+    const r = clampParams(withWeave({ stakeSpacing: 30 }));
     expect(r.params.weave.stakeSpacing).toBe(15);
     expect(r.notices).toContainEqual(
       expect.objectContaining({ field: 'weave.stakeSpacing', kind: 'rule' }),
@@ -161,7 +161,7 @@ describe('setWeaveMaterial', () => {
   it('switching to band applies band defaults when values are untouched', () => {
     const p = setWeaveMaterial(withWeave({}), 'band');
     expect(p.weave).toMatchObject({ material: 'band', ...MATERIAL_DEFAULTS.band });
-    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 9, materialThickness: 1.6 });
+    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 9, materialThickness: 0.8 });
   });
 
   it('keeps user-modified values', () => {

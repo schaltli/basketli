@@ -52,3 +52,8 @@ Im Browser (Worker) liegt die Vorschau bei 0,6–0,9 s. STL „Rohr geschlossen�
 
 Druckbarkeit der Testdrucke (80 × 60 × 50 mm, Export): bei allen vier Varianten 0,00 mm² Überhang, längste Brücke 10–13,5 mm (Grenze 15 mm).
 Zum Vergleich mit derselben Prüfung: Referenz-STL des Nutzers 102 mm² Überhang (Kordelrand) und Brücken bis 9 mm; Prototyp 1 49 mm² (dünne, frei hängende Linien).
+
+## 2026-11-01 – Bänder halb so dick, Außenfase
+
+Rohr 1,2 mm, Band 0,8 mm. Außenseite oben mit 45° angefast (halbe Dicke), unten mit einer Fase, die mindestens 0,8 mm Auflage stehen lässt.
+Testdrucke 80 × 60 × 50 mm (Export): je 0,00 mm² Überhang, längste Brücke 10,3–12,6 mm, rund 80 000–103 000 Dreiecke, unter 1 s.

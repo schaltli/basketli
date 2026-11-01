@@ -151,7 +151,7 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit flachen Bändern
 **Aufbau**
 
 - **Staken**: senkrechte, runde Stäbe auf der Wandmitte, vom Boden bis in den Rand.
-- **Bänder**: Jede Reihe ist ein geschlossenes, flaches Band mit **rechteckigem Querschnitt und senkrechten Flächen** (in z extrudiert). Es schlängelt sich abwechselnd vor und hinter den Staken entlang (Leinwandbindung 1 über / 1 unter) und berührt jede Stake. Benachbarte Reihen sind um eine Stake versetzt → Schachbrett-Flechtbild.
+- **Bänder**: Jede Reihe ist ein geschlossenes, flaches Band; die **Innenseite ist senkrecht**, die **Außenseite oben mit 45° angefast** (Fase = halbe Banddicke) und **unten mit einer 45°-Fase, die mindestens 0,8 mm Auflage stehen lässt** (Entscheidung 2026-11-01: Fase nur außen, sonst druckt die Unterkante in die Luft). Die Dicke gilt senkrecht zum Band, auch auf den Schrägen der Welle. Es schlängelt sich abwechselnd vor und hinter den Staken entlang (Leinwandbindung 1 über / 1 unter) und berührt jede Stake. Benachbarte Reihen sind um eine Stake versetzt → Schachbrett-Flechtbild.
 - **Auflage**: Zwischen zwei Staken kreuzt jede Reihe die Reihe darunter und liegt dort auf; außerdem trägt jede Stake. Die erste Schicht einer Reihe überbrückt nur die Strecke zwischen diesen Auflagepunkten.
 - Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
 - **Flechtmaterial** Rohr / Band unterscheidet sich nur in Höhe und Dicke (Rohr: schmal und dicker, Band: breit und dünn); beide sind flache, senkrechte Bänder mit leicht gebrochenen Kanten.
@@ -166,15 +166,15 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit flachen Bändern
 
 **Parameter (nur im Geflecht-Modus)**
 
-| Parameter                                             | Default                                                      | Bereich            |
-| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------ |
-| Flechtmaterial                                        | Rohr                                                         | Rohr, Band         |
-| Materialhöhe (Bandhöhe)                               | Rohr 6 mm / Band 9 mm                                        | 3–40               |
-| Materialdicke                                         | Rohr 2.4 mm / Band 1.6 mm                                    | 1.0–4              |
-| Stakenabstand (Ziel, wird auf gerade Anzahl gerundet) | 12 mm                                                        | 6–40 (offen: ≤ 15) |
-| Stakendurchmesser                                     | 3 mm                                                         | 2–8                |
-| Reihenabstand (Spalt)                                 | 0 mm (geschlossen)                                           | 0–10               |
-| Auslenkung um die Staken                              | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | –                  |
+| Parameter                                                                | Default                                                      | Bereich    |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------- |
+| Flechtmaterial                                                           | Rohr                                                         | Rohr, Band |
+| Materialhöhe (Bandhöhe)                                                  | Rohr 6 mm / Band 9 mm                                        | 3–40       |
+| Materialdicke                                                            | Rohr 1.2 mm / Band 0.8 mm                                    | 0.8–4      |
+| Stakenabstand (Ziel, gerade Anzahl; tatsächlich ≤ 15 mm − Materialdicke) | 12 mm                                                        | 6–15       |
+| Stakendurchmesser                                                        | 3 mm                                                         | 2–8        |
+| Reihenabstand (Spalt)                                                    | 0 mm (geschlossen)                                           | 0–10       |
+| Auslenkung um die Staken                                                 | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | –          |
 
 **Druckbarkeit (verbindlich, automatisch geprüft)**
 

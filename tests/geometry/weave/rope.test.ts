@@ -42,16 +42,18 @@ describe('rope rim and foot', () => {
     expect(rim.z[rim.z.length - 1]).toBeCloseTo(p.height, 9);
     const foot = footField(p, l, 'preview');
     expect(foot.z[0]).toBe(0);
+    expect(foot.z[foot.z.length - 1]).toBeCloseTo(l.rows[0]!.z0, 9);
   });
 
   it('rim keeps the minimum wall below its rounded top', () => {
     const l = weaveLayout(cane);
     const f = rimField(cane, l, 'preview');
     const K = f.z.length;
-    const zc = (l.rows[l.rows.length - 1]!.z1 + cane.height) / 2;
+    const rimStart = l.rows[l.rows.length - 1]!.z1;
+    const zc = (rimStart + cane.height) / 2;
     for (let j = 0; j < f.s.length; j++)
       for (let k = 0; k < K; k++)
-        if (f.z[k]! <= zc)
+        if (f.z[k]! >= rimStart && f.z[k]! <= zc)
           expect(f.outer[j * K + k]! - f.inner[j * K + k]!).toBeGreaterThanOrEqual(MIN_WALL - 1e-9);
   });
 

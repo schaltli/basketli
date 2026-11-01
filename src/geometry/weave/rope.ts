@@ -2,7 +2,7 @@ import type { Quality } from '../basket';
 import type { BasketParams } from '../params';
 import { filteredField, samples, type Field } from './field';
 import type { WeaveLayout } from './layout';
-import { displacement } from './path';
+import { bandTopInterval } from './bands';
 
 export const MIN_WALL = 1.0;
 /** Thickness of the rope's top cap. */
@@ -48,17 +48,6 @@ function ropeInterval(rope: Rope, s: number, z: number, flatTop = false): [numbe
   return [lo, hi];
 }
 
-function bandInterval(
-  layout: WeaveLayout,
-  row: number,
-  p: BasketParams,
-  s: number,
-): [number, number] {
-  const c = displacement(layout, row, s);
-  const t = p.weave.materialThickness / 2;
-  return [c - t, c + t];
-}
-
 function columns(layout: WeaveLayout, quality: Quality): Float64Array {
   const cols = layout.stakeCount * ROPE_RESOLUTION[quality].columnsPerStake;
   return Float64Array.from({ length: cols }, (_, j) => (j / cols) * layout.path.length);
@@ -66,7 +55,8 @@ function columns(layout: WeaveLayout, quality: Quality): Float64Array {
 
 /**
  * Twisted rope rim on top of the last row. Below the rope the field follows
- * the last band, so the 45° filter grows the rope out of it.
+ * the (chamfered) top face of the last band, so the 45° filter grows the
+ * rope out of it.
  */
 export function rimField(p: BasketParams, layout: WeaveLayout, quality: Quality): Field {
   const last = layout.rows.length - 1;
@@ -81,20 +71,21 @@ export function rimField(p: BasketParams, layout: WeaveLayout, quality: Quality)
   return filteredField(
     columns(layout, quality),
     z,
-    (s, zz) => (zz < rimStart ? bandInterval(layout, last, p, s) : ropeInterval(rope, s, zz)),
+    (s, zz) => (zz < rimStart ? bandTopInterval(p, layout, last, s) : ropeInterval(rope, s, zz)),
     MIN_WALL,
   );
 }
 
 /** Twisted rope foot under the first row; flat on top so the first band rests on it. */
-export function footField(p: BasketParams, layout: WeaveLayout, quality: Quality): Field {
+export function footField(_p: BasketParams, layout: WeaveLayout, quality: Quality): Field {
   const footTop = layout.rows[0]!.z0;
   const rope: Rope = { zc: footTop / 2, rv: footTop / 2, rh: layout.span / 2, pitch: 3 * footTop };
-  const z = samples(0, footTop + OVERLAP, ROPE_RESOLUTION[quality].dz);
+  // Ends exactly at the flat top; the first band reaches down into it.
+  const z = samples(0, footTop, ROPE_RESOLUTION[quality].dz);
   return filteredField(
     columns(layout, quality),
     z,
-    (s, zz) => (zz > footTop ? bandInterval(layout, 0, p, s) : ropeInterval(rope, s, zz, true)),
+    (s, zz) => ropeInterval(rope, s, zz, true),
     MIN_WALL,
   );
 }

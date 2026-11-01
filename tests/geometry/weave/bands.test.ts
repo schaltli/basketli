@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { clampParams, DEFAULTS } from '../../../src/geometry/params';
-import { bandCenterline } from '../../../src/geometry/weave/bands';
+import { clampParams, DEFAULTS, setWeaveMaterial } from '../../../src/geometry/params';
+import {
+  bandCenterline,
+  bandField,
+  CHAMFER_RATIO,
+  MIN_BOTTOM,
+} from '../../../src/geometry/weave/bands';
 import { weaveLayout } from '../../../src/geometry/weave/layout';
 
 const p = clampParams({ ...DEFAULTS, wallStyle: 'weave' }).params;
@@ -32,5 +37,30 @@ describe('bandCenterline', () => {
       (q, i) => Math.hypot(q[0] - b[i]![0], q[1] - b[i]![1]) < p.weave.materialThickness,
     ).length;
     expect(crossings).toBeGreaterThan(l.stakeCount); // overlap near every crossing
+  });
+});
+
+describe('bandField', () => {
+  it.each([
+    ['cane 1.2', p],
+    ['band 0.8', setWeaveMaterial(p, 'band')],
+    ['thick 2.4', clampParams({ ...p, weave: { ...p.weave, materialThickness: 2.4 } }).params],
+  ] as const)('%s: inner face vertical, outer 45° chamfers, bottom ≥ 0.8 mm', (_n, q) => {
+    const lq = weaveLayout(q);
+    const f = bandField(q, lq, 1, 'preview');
+    const K = f.z.length;
+    const t = q.weave.materialThickness;
+    for (let j = 0; j < f.s.length; j++) {
+      const inner = Array.from({ length: K }, (_, k) => f.inner[j * K + k]!);
+      const outer = Array.from({ length: K }, (_, k) => f.outer[j * K + k]!);
+      expect(new Set(inner.map((v) => v.toFixed(9))).size).toBe(1);
+      // top: full chamfer (half the thickness) over the same height
+      expect(outer[2]! - outer[3]!).toBeGreaterThanOrEqual(CHAMFER_RATIO * t - 1e-9);
+      expect(f.z[3]! - f.z[2]!).toBeCloseTo(CHAMFER_RATIO * t, 9);
+      // bottom: flat width ≥ MIN_BOTTOM, chamfer not steeper than 45°
+      // values are along the wall normal, ≥ the perpendicular widths
+      expect(outer[0]! - inner[0]!).toBeGreaterThanOrEqual(Math.min(t, MIN_BOTTOM) - 1e-9);
+      expect(outer[1]! - inner[1]!).toBeGreaterThanOrEqual(t - 1e-9);
+    }
   });
 });

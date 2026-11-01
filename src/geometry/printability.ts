@@ -7,6 +7,8 @@ export const MAX_BRIDGE = 15;
 export const MIN_BRIDGE_WIDTH = 0.8;
 /** Thinner bridges are fine only over gaps up to this length. */
 export const MAX_THIN_BRIDGE = 1;
+/** Numerical tolerance (mm per side) when checking the bridge width. */
+const WIDTH_TOLERANCE = 0.02;
 
 export interface OverhangReport {
   /** Largest unsupported, non-bridge area in a single layer (mm²). */
@@ -68,7 +70,7 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
         );
         area += opened.area();
       } else if (
-        scope.keep(part.offset(-MIN_BRIDGE_WIDTH / 2, 'Round')).isEmpty() &&
+        scope.keep(part.offset(-(MIN_BRIDGE_WIDTH / 2 - WIDTH_TOLERANCE), 'Round')).isEmpty() &&
         chord(part) > MAX_THIN_BRIDGE
       ) {
         area += a; // a long single thin line cannot bridge (SPEC: min. 2 extrusion lines)

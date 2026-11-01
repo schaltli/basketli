@@ -50,7 +50,7 @@ export const LIMITS = {
   webWidth: { min: 1, max: 10 },
   borderBand: { min: 3, max: 30 },
   materialHeight: { min: 3, max: 40 },
-  materialThickness: { min: 1, max: 4 },
+  materialThickness: { min: 0.8, max: 4 },
   stakeSpacing: { min: 6, max: 40 },
   stakeDiameter: { min: 2, max: 8 },
   rowGap: { min: 0, max: 10 },
@@ -58,7 +58,7 @@ export const LIMITS = {
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
 
-/** Max. stake spacing for an open weave (longest bridge, SPEC: Druckbarkeit). */
+/** Max. stake spacing of a weave (longest bridge, SPEC: Druckbarkeit). */
 export const MAX_OPEN_SPACING = 15;
 
 /** Fixed handle cut-out geometry (SPEC: Griffmulden). */
@@ -74,8 +74,8 @@ export const MATERIAL_DEFAULTS: Record<
   WeaveMaterial,
   Pick<WeaveParams, 'materialHeight' | 'materialThickness'>
 > = {
-  cane: { materialHeight: 6, materialThickness: 2.4 },
-  band: { materialHeight: 9, materialThickness: 1.6 },
+  cane: { materialHeight: 6, materialThickness: 1.2 },
+  band: { materialHeight: 9, materialThickness: 0.8 },
 };
 
 export const DEFAULTS: BasketParams = {
@@ -212,8 +212,8 @@ export function clampParams(input: BasketParams): ClampResult {
       w.materialHeight = maxMaterial;
       rule('weave.materialHeight', maxMaterial);
     }
-    // Open weave: bands are carried by the stakes only → bridge ≤ MAX_OPEN_SPACING.
-    if (w.rowGap > 0 && w.stakeSpacing > MAX_OPEN_SPACING) {
+    // Bands bridge between stakes/crossings → spacing ≤ MAX_OPEN_SPACING.
+    if (w.stakeSpacing > MAX_OPEN_SPACING) {
       w.stakeSpacing = MAX_OPEN_SPACING;
       rule('weave.stakeSpacing', MAX_OPEN_SPACING);
     }

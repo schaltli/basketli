@@ -81,6 +81,17 @@ describe('weaveLayout', () => {
     expect(l.stakes).toHaveLength(l.stakeCount);
   });
 
+  it('real stake spacing ≤ 15 mm − material thickness (bands bridge between stakes)', () => {
+    const l = weaveLayout(
+      weave(
+        { width: 80, depth: 60, height: 50, borderBand: 5 },
+        { stakeDiameter: 8, materialThickness: 4, stakeSpacing: 15 },
+      ),
+    );
+    expect(l.path.length / l.stakeCount).toBeLessThanOrEqual(15 - 4);
+    expect(l.stakeCount % 2).toBe(0);
+  });
+
   it('woven wall stays inside the outer dimensions', () => {
     const p = weave();
     const l = weaveLayout(p);

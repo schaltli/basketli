@@ -1,4 +1,4 @@
-import type { BasketParams } from '../params';
+import { MAX_OPEN_SPACING, type BasketParams } from '../params';
 import { RoundedRectPath } from './outline';
 
 /** Strands sink this far into the stakes so they fuse into one body. */
@@ -55,7 +55,11 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
     p.depth - 2 * centerOffset,
     p.cornerRadius - centerOffset,
   );
-  const stakeCount = evenStakeCount(path.length, w.stakeSpacing);
+  let stakeCount = evenStakeCount(path.length, w.stakeSpacing);
+  // Bands bridge from stake to stake; across a wide band the far edge is
+  // further from the anchor, so the real spacing stays ≤ limit − thickness.
+  const maxStep = MAX_OPEN_SPACING - w.materialThickness;
+  while (path.length / stakeCount > maxStep) stakeCount += 2;
   const step = path.length / stakeCount;
   const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
 
