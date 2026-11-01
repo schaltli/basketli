@@ -118,7 +118,7 @@
       **Dateien:** `src/geometry/weave/index.ts`, `src/geometry/build.ts`, `src/ui/viewer/materials.ts`, `tests/geometry/weave/build.test.ts`, `docs/perf.md`
       **Umfang:** M
 
-### - [ ] T9: STL-Export und Download
+### - [x] T9: STL-Export und Download
 
 **Beschreibung:** Ein binärer STL-Writer (Mesh → Uint8Array) und ein Download-Button, der den Export in Export-Qualität im Worker erzeugt. Dateiname: `basketli_<B>x<T>x<H>.stl`.
 **Akzeptanz:**

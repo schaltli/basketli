@@ -9,4 +9,7 @@ export const de = {
   weaveBand: 'Band',
   weaveOpen: 'offen',
   triangles: 'Dreiecke',
+  downloadStl: 'STL herunterladen',
+  downloadBusy: 'Wird berechnet …',
+  downloadFailed: 'Export fehlgeschlagen.',
 } as const;

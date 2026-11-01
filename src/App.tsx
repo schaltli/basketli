@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { clampParams, DEFAULTS, setWeaveMaterial, type BasketParams } from './geometry/params';
+import { DownloadButton } from './ui/controls/DownloadButton';
 import { de } from './ui/i18n/de';
 import { useBasketMesh } from './ui/viewer/useBasketMesh';
 import { Viewer } from './ui/viewer/Viewer';
@@ -58,6 +59,7 @@ export function App() {
             </>
           )}
         </div>
+        <DownloadButton params={params} />
       </header>
       <main
         className="app-stage"

@@ -30,6 +30,33 @@
   font-size: 0.9rem;
 }
 
+.download {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.download button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #3d342a;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.download button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.download-error {
+  color: #8a2a17;
+  font-size: 0.85rem;
+}
+
 .app-stats {
   position: absolute;
   right: 16px;
