@@ -4,9 +4,6 @@ import { RoundedRectPath } from './outline';
 /** Strands sink this far into the stakes so they fuse into one body. */
 export const FUSE = 0.3;
 
-/** Relief depth limit relative to the material height. */
-export const MAX_RELIEF_RATIO = 0.3;
-
 export interface WeaveRow {
   /** Bottom and top of the material in this row (mm). */
   z0: number;
@@ -50,12 +47,8 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const w = p.weave;
   const span = w.stakeDiameter + 2 * w.materialThickness;
   const centerOffset = span / 2;
-  // Relief depth: strands reach round the stakes, but at most 30 % of the
-  // material height so the 45° transitions between rows stay short.
-  const amplitude = Math.min(
-    w.stakeDiameter / 2 + w.materialThickness / 2 - FUSE,
-    MAX_RELIEF_RATIO * w.materialHeight,
-  );
+  // Bands touch every stake (overlapping it by FUSE).
+  const amplitude = w.stakeDiameter / 2 + w.materialThickness / 2 - FUSE;
 
   const path = new RoundedRectPath(
     p.width - 2 * centerOffset,
@@ -66,19 +59,19 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const step = path.length / stakeCount;
   const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
 
-  // Rows: n rows with n + 1 gaps between the bands; the remainder is split
-  // evenly between foot and rim so no row is cut off.
+  // Rows: n rows with n − 1 gaps; foot and rim sit directly on the first
+  // and last row. The remainder is split evenly so no row is cut off.
   const usable = p.height - 2 * p.borderBand;
   const pitch = w.materialHeight + w.rowGap;
-  const n = Math.max(1, Math.floor((usable - w.rowGap) / pitch));
-  const woven = n * w.materialHeight + (n + 1) * w.rowGap;
+  const n = Math.max(1, Math.floor((usable + w.rowGap) / pitch));
+  const woven = n * w.materialHeight + (n - 1) * w.rowGap;
   const extra = (usable - woven) / 2;
   const footHeight = p.borderBand + extra;
   const rimHeight = p.borderBand + extra;
 
   const rows: WeaveRow[] = [];
   for (let i = 0; i < n; i++) {
-    const z0 = footHeight + w.rowGap + i * pitch;
+    const z0 = footHeight + i * pitch;
     rows.push({ z0, z1: z0 + w.materialHeight });
   }
 

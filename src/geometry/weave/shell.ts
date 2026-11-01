@@ -1,13 +1,13 @@
 import type { Manifold } from 'manifold-3d';
 import type { Wasm } from '../manifold';
 import type { RoundedRectPath } from './outline';
-import type { ReliefField } from './relief';
+import type { Field } from './field';
 
 /**
  * Turns a relief field into a closed shell: outer surface, inner surface,
  * bottom and top caps. Vertices: outer grid then inner grid.
  */
-export function reliefShell(wasm: Wasm, field: ReliefField, path: RoundedRectPath): Manifold {
+export function reliefShell(wasm: Wasm, field: Field, path: RoundedRectPath): Manifold {
   const N = field.s.length;
   const K = field.z.length;
   const vert = new Float32Array(2 * N * K * 3);

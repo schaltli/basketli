@@ -104,22 +104,22 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 
 ### Parameter (Defaults / Grenzen)
 
-| Parameter           | Default     | Bereich                                  | Hinweis                                     |
-| ------------------- | ----------- | ---------------------------------------- | ------------------------------------------- |
-| Breite (X, außen)   | 150 mm      | 30–400                                   |                                             |
-| Tiefe (Y, außen)    | 100 mm      | 30–400                                   |                                             |
-| Höhe (Z, außen)     | 80 mm       | 20–300                                   | = Stapelraster (s. u.)                      |
-| Wandstärke          | 1.6 mm      | 0.8–5                                    | sinnvoll: Vielfache der Linienbreite        |
-| Bodenstärke         | 1.2 mm      | 0.6–5                                    |                                             |
-| Eckenradius (außen) | 4 mm        | 0–30                                     |                                             |
-| Stapelbar           | an          | an/aus                                   |                                             |
-| Stapelspiel         | 0.3 mm      | 0.1–1.0                                  | Toleranz zwischen Absatz und Rand           |
-| Wandstil            | Waben       | Waben, Schlitze, Rauten, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
-| Lochgröße           | 10 mm       | 3–40                                     |                                             |
-| Stegbreite          | 2.5 mm      | 1–10                                     |                                             |
-| Randband oben/unten | 8 mm        | 3–30                                     | massive Zone ohne Löcher                    |
-| Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten        | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
-| Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm  | Trennwandhöhe = Innenhöhe oder einstellbar  |
+| Parameter           | Default     | Bereich                                           | Hinweis                                     |
+| ------------------- | ----------- | ------------------------------------------------- | ------------------------------------------- |
+| Breite (X, außen)   | 150 mm      | 30–400                                            |                                             |
+| Tiefe (Y, außen)    | 100 mm      | 30–400                                            |                                             |
+| Höhe (Z, außen)     | 80 mm       | 20–300                                            | = Stapelraster (s. u.)                      |
+| Wandstärke          | 1.6 mm      | 0.8–5                                             | sinnvoll: Vielfache der Linienbreite        |
+| Bodenstärke         | 1.2 mm      | 0.6–5                                             |                                             |
+| Eckenradius (außen) | 4 mm        | 0–30                                              |                                             |
+| Stapelbar           | an          | an/aus                                            |                                             |
+| Stapelspiel         | 0.3 mm      | 0.1–1.0                                           | Toleranz zwischen Absatz und Rand           |
+| Wandstil            | Waben       | Waben, Schlitze, Rauten, Voronoi, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
+| Lochgröße           | 10 mm       | 3–40                                              |                                             |
+| Stegbreite          | 2.5 mm      | 1–10                                              |                                             |
+| Randband oben/unten | 8 mm        | 3–30                                              | massive Zone ohne Löcher                    |
+| Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten                 | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
+| Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm           | Trennwandhöhe = Innenhöhe oder einstellbar  |
 
 Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße größer als die freie Wandfläche) werden **im UI abgefangen**: Wert wird begrenzt und ein Hinweis angezeigt – keine Abstürze, keine kaputten Meshes.
 
@@ -135,61 +135,63 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 - **Waben**: Sechsecke mit Spitze nach oben (stützfrei).
 - **Schlitze**: vertikale Langlöcher mit abgerundeten Enden.
 - **Rauten**: auf der Spitze stehende Quadrate (45°).
+- **Voronoi**: organische Zellen (zufällig verteilte Punkte, reproduzierbar per Startwert), Stege gleichmäßig breit; jede Zelle wird oben **spitz (≤ 45°)** abgeschlossen bzw. ihre Oberkante als Brücke ≤ 15 mm ausgelegt. Parameter: Zellgröße, Stegbreite, Startwert („neu würfeln“).
 - Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.
 
 ### Flechtmuster (Wandstil „Geflecht“)
 
-Ziel: Der Korb soll **wie geflochten aussehen**, mit plastischem Über/Unter innen und außen, und dabei **ohne Stützmaterial und ohne Brücken** druckbar sein, ohne besondere Slicer-Einstellungen.
+Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit flachen Bändern, die sich um runde Staken winden, und einem gedrehten Kordelrand. Er soll **ohne Stützmaterial** druckbar sein; kurze Brücken sind erlaubt.
 
-> **Entscheidung 2026-11-01:** Der erste Prototyp mit frei geführten Strängen war nicht druckbar (pro Schicht bis ~49 mm² ohne Auflage). Das Geflecht wird deshalb als **Relief-Wand** gebaut (Option „Relief-Wand“ gewählt; verworfen: dauerhafter Stützkern, abbrechbare Stützen im Modell).
+> **Entscheidungen 2026-11-01**
+>
+> 1. Prototyp 1 (ovale, frei geführte Stränge) war nicht druckbar: Die Strang-Unterkanten lagen nirgends auf.
+> 2. Prototyp 2 (Relief-Wand ohne Brücken) war druckbar, sah aber nicht nach Korb aus.
+> 3. **Gewählt:** Konstruktionsprinzip eines bewährten Flechtkorb-Modells (Referenz-STL des Nutzers, nur das Prinzip, keine Geometrie übernommen): flache, **senkrechte** Bänder, **Brücken bis 15 mm** zwischen den Auflagepunkten erlaubt.
 
-**Aufbau: Relief-Wand**
+**Aufbau**
 
-- Die Wand ist **eine durchgehende Schale**, deren Außen- und Innenfläche das Geflecht nachbilden: Jede Reihe wölbt sich an einer Stake nach außen, an der nächsten nach innen (Leinwandbindung 1 über / 1 unter). Benachbarte Reihen sind **um eine Stake versetzt** → Schachbrett-Flechtbild.
-- **Staken**: senkrechte, runde Rippen auf der Wandmitte; sie zeichnen sich innen ab, wo der Strang außen liegt, und außen, wo er innen liegt.
-- Jede Reihe ist ein geschlossener Ring; die Stakenzahl ist **gerade**, damit der Ring ohne Naht aufgeht.
-- Stränge haben im Schnitt eine **ovale (Rohr)** bzw. **flache, kantengerundete (Band)** Form; zwischen den Reihen entsteht eine Fuge.
-- **45°-Regel eingebaut:** Wo eine Reihe weiter außen (oder innen) liegt als die darunter, läuft ihre Unterseite in einer 45°-Schräge aus der Reihe darunter heraus. Jede Druckschicht liegt so auf der Schicht darunter auf.
-- Ecken: Die Wand läuft um die abgerundeten Ecken (Mindest-Eckenradius im Geflecht-Modus: max(10 mm, Stakendurchmesser + 2 × Materialdicke + 1 mm)).
-- **Flechtmaterial wählbar** (Rohr / Band) mit frei einstellbarer **Materialhöhe** (Rohr-Höhe bzw. Bandbreite) und **Materialdicke**.
-- **Reihenaufteilung**: n Reihen mit n + 1 Spalten (auch zu Fußband und Rand), n = ⌊(nutzbare Wandhöhe − Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe geht gleichmäßig an Fußband und Randwulst.
+- **Staken**: senkrechte, runde Stäbe auf der Wandmitte, vom Boden bis in den Rand.
+- **Bänder**: Jede Reihe ist ein geschlossenes, flaches Band mit **rechteckigem Querschnitt und senkrechten Flächen** (in z extrudiert). Es schlängelt sich abwechselnd vor und hinter den Staken entlang (Leinwandbindung 1 über / 1 unter) und berührt jede Stake. Benachbarte Reihen sind um eine Stake versetzt → Schachbrett-Flechtbild.
+- **Auflage**: Zwischen zwei Staken kreuzt jede Reihe die Reihe darunter und liegt dort auf; außerdem trägt jede Stake. Die erste Schicht einer Reihe überbrückt nur die Strecke zwischen diesen Auflagepunkten.
+- Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
+- **Flechtmaterial** Rohr / Band unterscheidet sich nur in Höhe und Dicke (Rohr: schmal und dicker, Band: breit und dünn); beide sind flache, senkrechte Bänder mit leicht gebrochenen Kanten.
+- **Reihenaufteilung**: n Reihen mit n − 1 Spalten (Fuß und Rand sitzen direkt auf der ersten bzw. letzten Reihe), n = ⌊(nutzbare Wandhöhe + Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe geht gleichmäßig an Fuß und Rand.
+- **Kordelrand** oben und **Kordelfuß** unten: gedrehte, mehrsträngige Kordel als Relief (schräge Rillen), Unterseite des oberen Rands mit 45°-Übergang; der obere Rand bildet die Stapelkante.
 - Bindung in v1 ausschließlich **Leinwandbindung**. Nur **rechteckige Körbe** mit Eckenradius; der **Boden bleibt massiv**.
-- **Oberer Rand**: gerundeter Wulst über die volle Wanddicke, Unterseite mit 45°-Übergang; bildet die Stapelkante. **Unten**: massives Fußband mit Stapel-Absatz.
 
 **Varianten**
 
 - **Geschlossen** (Default): Reihen liegen direkt übereinander.
-- **Offen**: Zwischen den Reihen entstehen **Spitzfenster** zwischen je zwei Staken: unten gerade, oben mit 45°-Spitzdach, damit nichts überbrückt werden muss. Fensterhöhe = Reihenabstand + Dachhöhe.
+- **Offen**: Spalt zwischen den Reihen; die Bänder werden dann nur von den Staken getragen (Brücke = Stakenabstand, daher Stakenabstand ≤ 15 mm im offenen Modus).
 
 **Parameter (nur im Geflecht-Modus)**
 
-| Parameter | Default | Bereich |
-| --- | --- | --- |
-| Flechtmaterial | Rohr | Rohr, Band |
-| Materialhöhe (Rohr-Höhe bzw. Bandbreite) | Rohr 6 mm / Band 15 mm | 3–40 |
-| Materialdicke | Rohr 2.4 mm / Band 1.6 mm | 1.0–4 |
-| Stakenabstand (Ziel, wird auf gerade Anzahl gerundet) | 12 mm | 6–40 |
-| Stakendurchmesser | 3 mm | 2–8 |
-| Reihenabstand (Spalt) | 0 mm (geschlossen) | 0–10 |
-| Relieftiefe (Aus-/Einwölbung je Seite) | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | – |
+| Parameter                                             | Default                                                      | Bereich            |
+| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------ |
+| Flechtmaterial                                        | Rohr                                                         | Rohr, Band         |
+| Materialhöhe (Bandhöhe)                               | Rohr 6 mm / Band 9 mm                                        | 3–40               |
+| Materialdicke                                         | Rohr 2.4 mm / Band 1.6 mm                                    | 1.0–4              |
+| Stakenabstand (Ziel, wird auf gerade Anzahl gerundet) | 12 mm                                                        | 6–40 (offen: ≤ 15) |
+| Stakendurchmesser                                     | 3 mm                                                         | 2–8                |
+| Reihenabstand (Spalt)                                 | 0 mm (geschlossen)                                           | 0–10               |
+| Auslenkung um die Staken                              | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | –                  |
 
 **Druckbarkeit (verbindlich, automatisch geprüft)**
 
-- Jeder erzeugte Körper wird in einem Test **Schicht für Schicht (0,2 mm) geschnitten**; keine Schicht darf mehr als 45° (seitlich ≤ Schichthöhe) über die darunter hinausragen. Erlaubte Restfläche pro Schicht: < 0,5 mm² (numerisches Rauschen). Brücken zählen als nicht unterstützt.
-- Mindest-Wanddicke überall ≥ 1,0 mm (2 Bahnen bei 0,4-mm-Düse).
-- Der Korb ist **ein zusammenhängender, manifold Körper**.
+- Jeder Körper wird **Schicht für Schicht (0,2 mm)** geschnitten. Jeder Teil einer Schicht muss entweder innerhalb **45°** von der Schicht darunter getragen sein **oder** eine **Brücke** sein: an mindestens zwei getrennten Stellen auf der Schicht darunter verankert, **höchstens 15 mm** lang und **mindestens 0,8 mm breit** (zwei Druckbahnen; eine einzelne dünne Linie trägt nicht – nur Zwickel bis 1 mm Länge). Frei schwebende Teile zählen immer als Fehler. Einseitig freistehende Überhänge sind verboten. Unterstützungslücken schmaler als 0,2 mm (halbe Druckbahn) werden ignoriert.
+- Mindest-Wanddicke ≥ 1,0 mm. Der Korb ist **ein zusammenhängender, manifold Körper**.
 
 **Zusammenspiel mit anderen Features**
 
-- **Griffmulden**: aus der Relief-Wand ausgeschnitten, mit massivem, gerundetem Rahmen; Oberkante der Öffnung mit 45°-Spitze bzw. -Bogen.
-- **Unterteilungen**: Trennwände bleiben massiv (glatt), mit der Wand verbunden.
-- **Stapeln**: unverändert über Fuß/Rand; Stapelraster bleibt = H.
+- **Griffmulden**: aus dem Geflecht ausgeschnitten, mit massivem, gerundetem Rahmen; Oberkante mit 45°-Spitze bzw. -Bogen.
+- **Unterteilungen**: Trennwände bleiben massiv (glatt), mit Staken/Bändern verbunden.
+- **Stapeln**: über Fuß/Rand; Stapelraster bleibt = H.
 
 **Umsetzung (technische Leitplanke)**
 
-- Die Wand wird als **Höhenfeld** über (Bogenlänge s, Höhe z) berechnet: je Spalte s eine Innen- und eine Außenkoordinate entlang der Wandnormale. Ziel-Form aus Reihen, Staken, Fußband und Rand; danach erzwingt ein **45°-Filter von unten nach oben** die Druckbarkeit und eine Mindestdicke.
-- Aus dem Feld wird direkt ein geschlossenes Schalen-Mesh erzeugt (kein CSG pro Strang); Boden per Union, Fenster/Griffe per Subtraktion.
-- Auflösung (Spalten pro Stakenabstand, Höhenschritt) als Qualitätsstufe: Vorschau grob, Export fein.
+- Bänder: wellige 2D-Ringe (Mittellinie ± Dicke/2) als CrossSection, senkrecht extrudiert; Staken als Zylinder; Vereinigung per Batch-Union.
+- Kordelrand/-fuß: Höhenfeld-Schale (Bogenlänge s × Höhe z) mit 45°-Filter von unten nach oben (Technik aus Prototyp 2).
+- Export wird auf 0,02 mm vereinfacht (`simplify`).
 
 **Vorschau-Darstellung**
 
@@ -235,15 +237,15 @@ export function hexCutters(face: WallFace, p: PatternParams): Manifold[] {
 
 ## Testing Strategy
 
-| Ebene            | Werkzeug                    | Was                                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit – Parameter | Vitest                      | Defaults, Grenzen, Clamping, URL-Roundtrip (serialize → parse = identisch)                                                                                                                                                                                                                                                                                                        |
-| Unit – Geometrie | Vitest + manifold-3d (Node) | Mesh ist **manifold** (`status === NoError`), Bounding Box = Außenmaße ± 0.01 mm, Volumen plausibel, Stapelfuß passt (Fuß-Außenmaß = Rand-Innenmaß − 2·Spiel), Muster respektieren Randbänder, Trennwände an korrekter Position                                                                                                                                                   |
-| Unit – Export    | Vitest                      | STL: Header, Dreieckszahl, Byte-Länge = 84 + 50·n; 3MF: gültiges ZIP mit `3D/3dmodel.model`, Vertex/Triangle-Zahl stimmt                                                                                                                                                                                                                                                          |
-| Unit – Geflecht  | Vitest                      | Stakenzahl immer gerade; Reihe wechselt an jeder Stake die Seite; Nachbarreihen phasenversetzt; Höhenfeld erfüllt 45°-Regel und Mindestdicke; Gesamtkörper = **eine** zusammenhängende Komponente; Mindest-Wandstärke ≥ Materialdicke; Reihenaufteilung ohne angeschnittene Reihe (Rohr und Band, Materialhöhe 3 / 15 / 40 mm) |
-| Snapshot         | Vitest                      | Dreiecks-/Vertex-Zahl für 5 Referenz-Konfigurationen (erkennt ungewollte Geometrieänderungen)                                                                                                                                                                                                                                                                                     |
-| E2E              | Playwright (Chromium)       | Start → Maß ändern → Muster wählen → Trennwand hinzufügen → STL & 3MF herunterladen; Datei nicht leer                                                                                                                                                                                                                                                                             |
-| Manuell          | PrusaSlicer / Bambu Studio  | Vor jedem Release: 3 Referenzkörbe slicen – keine Reparatur-Warnungen; 1 Stapelpaar real drucken                                                                                                                                                                                                                                                                                  |
+| Ebene            | Werkzeug                    | Was                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit – Parameter | Vitest                      | Defaults, Grenzen, Clamping, URL-Roundtrip (serialize → parse = identisch)                                                                                                                                                                                                                                                         |
+| Unit – Geometrie | Vitest + manifold-3d (Node) | Mesh ist **manifold** (`status === NoError`), Bounding Box = Außenmaße ± 0.01 mm, Volumen plausibel, Stapelfuß passt (Fuß-Außenmaß = Rand-Innenmaß − 2·Spiel), Muster respektieren Randbänder, Trennwände an korrekter Position                                                                                                    |
+| Unit – Export    | Vitest                      | STL: Header, Dreieckszahl, Byte-Länge = 84 + 50·n; 3MF: gültiges ZIP mit `3D/3dmodel.model`, Vertex/Triangle-Zahl stimmt                                                                                                                                                                                                           |
+| Unit – Geflecht  | Vitest                      | Stakenzahl immer gerade; Reihe wechselt an jeder Stake die Seite; Nachbarreihen phasenversetzt; Bänder senkrecht, berühren jede Stake; Druckbarkeitstest (45° / Brücke ≤ 15 mm) grün; Gesamtkörper = **eine** zusammenhängende Komponente; Reihenaufteilung ohne angeschnittene Reihe (Rohr und Band, Materialhöhe 3 / 15 / 40 mm) |
+| Snapshot         | Vitest                      | Dreiecks-/Vertex-Zahl für 5 Referenz-Konfigurationen (erkennt ungewollte Geometrieänderungen)                                                                                                                                                                                                                                      |
+| E2E              | Playwright (Chromium)       | Start → Maß ändern → Muster wählen → Trennwand hinzufügen → STL & 3MF herunterladen; Datei nicht leer                                                                                                                                                                                                                              |
+| Manuell          | PrusaSlicer / Bambu Studio  | Vor jedem Release: 3 Referenzkörbe slicen – keine Reparatur-Warnungen; 1 Stapelpaar real drucken                                                                                                                                                                                                                                   |
 
 Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quantifiziert (über E2E abgedeckt). Tests liegen in `tests/` und `e2e/`, gespiegelt zur `src/`-Struktur.
 
@@ -254,7 +256,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - `npm run typecheck && npm run lint && npm test` grün, bevor committet wird.
 - Geometrie-Änderungen mit einem Test belegen (TDD für `src/geometry` und `src/export`).
 - Jedes erzeugte Mesh auf Manifold-Status prüfen; fehlerhafte Geometrie nie zum Download anbieten.
-- Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45°, keine Brücken).
+- Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45° oder beidseitig verankerte Brücke ≤ 15 mm).
 - Eingaben validieren und auf erlaubte Bereiche begrenzen.
 - Spec aktualisieren, wenn sich Umfang oder Entscheidungen ändern.
 

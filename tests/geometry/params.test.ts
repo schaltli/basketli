@@ -141,6 +141,14 @@ describe('clampParams – dependent rules', () => {
     expect(w.stakeSpacing).toBeGreaterThanOrEqual(w.stakeDiameter + 2 * w.materialThickness);
   });
 
+  it('open weave: stake spacing limited so bands bridge at most 15 mm', () => {
+    const r = clampParams(withWeave({ rowGap: 4, stakeSpacing: 30 }));
+    expect(r.params.weave.stakeSpacing).toBe(15);
+    expect(r.notices).toContainEqual(
+      expect.objectContaining({ field: 'weave.stakeSpacing', kind: 'rule' }),
+    );
+  });
+
   it('is idempotent', () => {
     const once = clampParams(withWeave({ materialHeight: 40, stakeSpacing: 6 }, { height: 30 }));
     const twice = clampParams(once.params);
@@ -153,7 +161,7 @@ describe('setWeaveMaterial', () => {
   it('switching to band applies band defaults when values are untouched', () => {
     const p = setWeaveMaterial(withWeave({}), 'band');
     expect(p.weave).toMatchObject({ material: 'band', ...MATERIAL_DEFAULTS.band });
-    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 15, materialThickness: 1.6 });
+    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 9, materialThickness: 1.6 });
   });
 
   it('keeps user-modified values', () => {

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
-import {
-  FUSE,
-  MAX_RELIEF_RATIO,
-  evenStakeCount,
-  weaveLayout,
-} from '../../../src/geometry/weave/layout';
+import { FUSE, evenStakeCount, weaveLayout } from '../../../src/geometry/weave/layout';
 import { RoundedRectPath } from '../../../src/geometry/weave/outline';
 
 const weave = (patch: Partial<BasketParams> = {}, w: Partial<BasketParams['weave']> = {}) =>
@@ -95,12 +90,11 @@ describe('weaveLayout', () => {
     expect(l.span).toBeCloseTo(p.weave.stakeDiameter + 2 * p.weave.materialThickness, 9);
   });
 
-  it('relief depth reaches round the stakes, capped at 30 % of the material height', () => {
-    const fine = weaveLayout(weave({}, { materialHeight: 6 }));
-    expect(fine.amplitude).toBeCloseTo(MAX_RELIEF_RATIO * 6, 9);
-    const p = weave({}, { material: 'band', materialHeight: 15, materialThickness: 1.6 });
-    const band = weaveLayout(p);
-    expect(band.amplitude).toBeCloseTo(p.weave.stakeDiameter / 2 + 0.8 - FUSE, 9);
+  it('bands overlap the stakes by FUSE', () => {
+    const p = weave();
+    const l = weaveLayout(p);
+    const innerFaceOfBand = l.amplitude - p.weave.materialThickness / 2;
+    expect(p.weave.stakeDiameter / 2 - innerFaceOfBand).toBeCloseTo(FUSE, 9);
   });
 
   const rowCases: [string, 'cane' | 'band', number, number][] = [];
@@ -113,16 +107,18 @@ describe('weaveLayout', () => {
     const p = weave({ height: 120 }, { material, materialHeight: mh, rowGap: gap });
     const l = weaveLayout(p);
     const n = l.rows.length;
-    expect(n).toBe(Math.floor((120 - 2 * p.borderBand - gap) / (mh + gap)));
+    expect(n).toBe(Math.floor((120 - 2 * p.borderBand + gap) / (mh + gap)));
     // stack adds up exactly to the height
-    expect(l.footHeight + n * mh + (n + 1) * gap + l.rimHeight).toBeCloseTo(120, 9);
+    expect(l.footHeight + n * mh + (n - 1) * gap + l.rimHeight).toBeCloseTo(120, 9);
     expect(l.footHeight).toBeCloseTo(l.rimHeight, 9);
     expect(l.footHeight).toBeGreaterThanOrEqual(p.borderBand);
-    // rows are ordered, sized and inside the woven zone
+    // rows are ordered, sized and inside the woven zone; foot and rim touch them
+    expect(l.rows[0]!.z0).toBeCloseTo(l.footHeight, 9);
+    expect(l.rows[n - 1]!.z1).toBeCloseTo(120 - l.rimHeight, 9);
     l.rows.forEach((r, i) => {
       expect(r.z1 - r.z0).toBeCloseTo(mh, 9);
-      expect(r.z0).toBeGreaterThanOrEqual(l.footHeight + gap - 1e-9);
-      expect(r.z1).toBeLessThanOrEqual(120 - l.rimHeight - gap + 1e-9);
+      expect(r.z0).toBeGreaterThanOrEqual(l.footHeight - 1e-9);
+      expect(r.z1).toBeLessThanOrEqual(120 - l.rimHeight + 1e-9);
       if (i > 0) expect(r.z0 - l.rows[i - 1]!.z1).toBeCloseTo(gap, 9);
     });
   });

@@ -157,6 +157,20 @@
 **Dateien:** `src/geometry/weave/relief.ts`, `src/geometry/weave/index.ts`, `src/geometry/weave/windows.ts`, `tests/geometry/weave/relief.test.ts`, `tests/geometry/printability.test.ts`
 **Umfang:** M
 
+### - [x] T8B: Geflecht v3 – flache Bänder, runde Staken, Kordelrand
+
+**Beschreibung:** Ersetzt die Relief-Wand (T8R) durch das Referenz-Prinzip: Jede Reihe ist ein welliger 2D-Ring (Mittellinie ± Dicke/2), senkrecht extrudiert; dazu runde Staken. Kordelrand oben und Kordelfuß unten als Höhenfeld-Schale mit schrägen Rillen und 45°-Filter. `overhangReport` erkennt Brücken (≥ 2 Anker auf der Schicht darunter) und misst ihre Länge.
+**Akzeptanz:**
+
+- [x] Druckbarkeitstest erweitert: Brücken mit ≥ 2 Ankern und Länge ≤ 15 mm sind erlaubt, einseitige Überhänge nicht. Das Strang-Geflecht aus Prototyp 1 fällt weiterhin durch (49 mm²; dazu Regel: Brücken ≥ 0,8 mm breit).
+- [x] Alle Geflecht-Varianten (Rohr/Band × geschlossen/offen) bestehen den Test, sind eine manifold-Komponente mit exakten Außenmaßen.
+- [x] Sichtvergleich mit der Referenz: flache Bänder um runde Staken, Kordelrand; Screenshots in `docs/img/`. Vorschau < 1 s, Export < 5 s.
+
+**Prüfung:** `npx vitest run tests/geometry`; Sichtprüfung
+**Abhängig von:** T8P
+**Dateien:** `src/geometry/printability.ts`, `src/geometry/weave/bands.ts`, `src/geometry/weave/rope.ts`, `src/geometry/weave/index.ts`, `tests/geometry/weave/*.test.ts`
+**Umfang:** M
+
 ### Checkpoint B – Go/No-Go Geflecht
 
 - [ ] 4 Testdrucke: Rohr/Band × geschlossen/offen, alle ohne Stützmaterial
@@ -217,6 +231,19 @@
       **Abhängig von:** T12
       **Dateien:** `src/geometry/patterns/slots.ts`, `src/geometry/patterns/diamond.ts`, `tests/geometry/patterns/slots.test.ts`, `tests/geometry/patterns/diamond.test.ts`
       **Umfang:** S
+
+### - [ ] T13b: Voronoi-Muster
+
+**Beschreibung:** Wandstil „Voronoi“: reproduzierbare Zufallspunkte (Startwert) je Wandfläche, Voronoi-Zellen, um die halbe Stegbreite geschrumpft und ausgeschnitten. Jede Zelle bekommt oben eine Spitze (≤ 45°) oder eine Oberkante ≤ 15 mm. Parameter: Zellgröße, Stegbreite, Startwert.
+**Akzeptanz:**
+
+- [ ] Gleicher Startwert → identisches Mesh; anderer Startwert → anderes Muster.
+- [ ] Freihalteregeln wie T12; manifold; Druckbarkeitstest grün.
+
+**Prüfung:** `npx vitest run tests/geometry/patterns/voronoi.test.ts`
+**Abhängig von:** T12
+**Dateien:** `src/geometry/patterns/voronoi.ts`, `src/geometry/params.ts`, `tests/geometry/patterns/voronoi.test.ts`
+**Umfang:** M
 
 ### Checkpoint C
 

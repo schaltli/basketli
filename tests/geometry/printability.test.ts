@@ -7,7 +7,7 @@ import {
   setWeaveMaterial,
   type BasketParams,
 } from '../../src/geometry/params';
-import { overhangReport } from '../../src/geometry/printability';
+import { MAX_BRIDGE, overhangReport } from '../../src/geometry/printability';
 
 let wasm: Wasm;
 beforeAll(async () => {
@@ -43,11 +43,13 @@ const cases: [string, BasketParams][] = [
   ],
 ];
 
-describe('printability (no support, no bridges, 45° rule)', () => {
+describe('printability (no support; 45° rule or bridges ≤ 15 mm)', () => {
   it('weave cane closed, simplified export mesh', () => {
     const m = buildManifold(wasm, weave, 'export');
     try {
-      expect(overhangReport(m).maxArea).toBeLessThan(MAX_UNSUPPORTED_MM2);
+      const r = overhangReport(m);
+      expect(r.maxArea).toBeLessThan(MAX_UNSUPPORTED_MM2);
+      expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);
     } finally {
       m.delete();
     }
@@ -57,10 +59,10 @@ describe('printability (no support, no bridges, 45° rule)', () => {
     const m = buildManifold(wasm, p, 'preview');
     try {
       const r = overhangReport(m);
-      expect(r, `worst layer at z=${r.worstZ.toFixed(1)} mm`).toMatchObject({
-        maxArea: expect.any(Number),
-      });
-      expect(r.maxArea).toBeLessThan(MAX_UNSUPPORTED_MM2);
+      expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(MAX_UNSUPPORTED_MM2);
+      expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
+        MAX_BRIDGE,
+      );
     } finally {
       m.delete();
     }

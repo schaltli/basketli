@@ -37,3 +37,18 @@ Druckbarkeit (Schicht-Test, 0,2 mm): bei allen Varianten 0,000 mm² ohne Auflage
 Ziele 7a: Vorschau < 1 s ✅, Export < 5 s ✅. STL „Rohr geschlossen“ ≈ 19 MB.
 
 Screenshots: `docs/img/weave-*.png`.
+
+## 2026-11-01 – T8B (Geflecht v3: flache Bänder, runde Staken, Kordelrand)
+
+Node 22, 150 × 100 × 80 mm, Defaults:
+
+| Variante                | Vorschau | Dreiecke | Export (inkl. simplify) | Dreiecke |
+| ----------------------- | -------- | -------- | ----------------------- | -------- |
+| Rohr geschlossen        | 128 ms   | 194 234  | 2,5 s                   | 197 928  |
+| Rohr offen (Spalt 4 mm) | 130 ms   | 177 230  | 2,6 s                   | 183 838  |
+| Band geschlossen        | 98 ms    | 154 056  | 2,2 s                   | 180 162  |
+
+Im Browser (Worker) liegt die Vorschau bei 0,6–0,9 s. STL „Rohr geschlossen“ ≈ 10 MB.
+
+Druckbarkeit der Testdrucke (80 × 60 × 50 mm, Export): bei allen vier Varianten 0,00 mm² Überhang, längste Brücke 10–13,5 mm (Grenze 15 mm).
+Zum Vergleich mit derselben Prüfung: Referenz-STL des Nutzers 102 mm² Überhang (Kordelrand) und Brücken bis 9 mm; Prototyp 1 49 mm² (dünne, frei hängende Linien).

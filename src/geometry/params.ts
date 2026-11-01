@@ -58,6 +58,9 @@ export const LIMITS = {
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
 
+/** Max. stake spacing for an open weave (longest bridge, SPEC: Druckbarkeit). */
+export const MAX_OPEN_SPACING = 15;
+
 /** Fixed handle cut-out geometry (SPEC: Griffmulden). */
 export const HANDLE = {
   width: 60,
@@ -72,7 +75,7 @@ export const MATERIAL_DEFAULTS: Record<
   Pick<WeaveParams, 'materialHeight' | 'materialThickness'>
 > = {
   cane: { materialHeight: 6, materialThickness: 2.4 },
-  band: { materialHeight: 15, materialThickness: 1.6 },
+  band: { materialHeight: 9, materialThickness: 1.6 },
 };
 
 export const DEFAULTS: BasketParams = {
@@ -208,6 +211,11 @@ export function clampParams(input: BasketParams): ClampResult {
     if (w.materialHeight > maxMaterial) {
       w.materialHeight = maxMaterial;
       rule('weave.materialHeight', maxMaterial);
+    }
+    // Open weave: bands are carried by the stakes only → bridge ≤ MAX_OPEN_SPACING.
+    if (w.rowGap > 0 && w.stakeSpacing > MAX_OPEN_SPACING) {
+      w.stakeSpacing = MAX_OPEN_SPACING;
+      rule('weave.stakeSpacing', MAX_OPEN_SPACING);
     }
     const minSpacing = round(w.stakeDiameter + 2 * w.materialThickness);
     if (w.stakeSpacing < minSpacing) {

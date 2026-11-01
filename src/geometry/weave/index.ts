@@ -3,16 +3,17 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect } from '../shapes';
+import { bandSolids } from './bands';
 import { weaveLayout, type WeaveLayout } from './layout';
-import { reliefField } from './relief';
+import { footField, rimField } from './rope';
 import { reliefShell } from './shell';
-import { windowCutters } from './windows';
 
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
+export const STAKE_SEGMENTS = { preview: 12, export: 24 } as const;
 
 /**
- * Woven basket as a printable relief wall: height-field shell (rows, stake
- * ribs, foot band, rim) + solid floor, minus pointed windows for open weave.
+ * Woven basket: floor plate, rope foot, round stakes, flat vertical bands
+ * weaving round the stakes, rope rim. Returns one solid body.
  */
 export function buildWeave(
   wasm: Wasm,
@@ -22,19 +23,25 @@ export function buildWeave(
 ): { body: Manifold; layout: WeaveLayout } {
   const { Manifold, CrossSection } = wasm;
   const layout = weaveLayout(p);
+  const parts: Manifold[] = [];
 
-  const shell = scope.keep(reliefShell(wasm, reliefField(p, layout, quality), layout.path));
   const outline = scope.keep(
     CrossSection.ofPolygons([
       roundedRect(p.width, p.depth, p.cornerRadius, CORNER_SEGMENTS[quality]),
     ]),
   );
-  const floor = scope.keep(outline.extrude(p.floor));
-  let body = scope.keep(Manifold.union([shell, floor]));
+  parts.push(scope.keep(outline.extrude(p.floor)));
+  parts.push(scope.keep(reliefShell(wasm, footField(p, layout, quality), layout.path)));
+  parts.push(scope.keep(reliefShell(wasm, rimField(p, layout, quality), layout.path)));
 
-  const windows = windowCutters(wasm, scope, p, layout);
-  if (windows.length > 0) {
-    body = scope.keep(body.subtract(scope.keep(Manifold.union(windows))));
+  const r = p.weave.stakeDiameter / 2;
+  const stakeTop = p.height - layout.rimHeight / 2;
+  const stake = scope.keep(Manifold.cylinder(stakeTop, r, r, STAKE_SEGMENTS[quality]));
+  for (const s of layout.stakes) {
+    const { p: at } = layout.path.at(s);
+    parts.push(scope.keep(stake.translate(at[0], at[1], 0)));
   }
-  return { body, layout };
+
+  parts.push(...bandSolids(wasm, scope, p, layout, quality));
+  return { body: scope.keep(Manifold.union(parts)), layout };
 }
