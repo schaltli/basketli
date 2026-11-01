@@ -33,7 +33,7 @@
       **Dateien:** `src/geometry/params.ts`, `tests/geometry/params.test.ts`
       **Umfang:** S
 
-### - [ ] T3: Grundwanne als manifold-Geometrie
+### - [x] T3: Grundwanne als manifold-Geometrie
 
 **Beschreibung:** Eine glatte Wanne aus abgerundetem Rechteck mit Wandstärke und Bodenstärke, erzeugt mit manifold-3d, Ausgabe `{positions, indices}`. Gleichzeitig ein Spike: manifold-3d läuft in Vitest (Node). Die Funktion `build(params, quality)` ist der Einstiegspunkt.
 **Akzeptanz:**
