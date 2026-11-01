@@ -31,6 +31,20 @@ export class RoundedRectPath {
     this.length = acc;
   }
 
+  /** True if the arc range [s0, s1] lies on one straight side (no corner). */
+  isStraight(s0: number, s1: number): boolean {
+    const a = this.pieceAt(s0);
+    return a % 2 === 0 && a === this.pieceAt(s1) && s1 - s0 < this.length / 2;
+  }
+
+  private pieceAt(sIn: number): number {
+    const L = this.length;
+    const s = ((sIn % L) + L) % L;
+    const piece = this.ends.findIndex((e) => s <= e);
+    // pieces 0 and 8 are the two halves of the front side
+    return piece < 0 || piece === 8 ? 0 : piece;
+  }
+
   at(sIn: number): PathPoint {
     const L = this.length;
     let s = ((sIn % L) + L) % L;

@@ -139,63 +139,61 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 
 ### Flechtmuster (Wandstil „Geflecht“)
 
-Ziel: Der Korb soll **tatsächlich wie geflochten aussehen** – nicht wie eine glatte Wand mit aufgedrucktem Muster, sondern mit räumlich verlaufenden Strängen.
+Ziel: Der Korb soll **wie geflochten aussehen**, mit plastischem Über/Unter innen und außen, und dabei **ohne Stützmaterial und ohne Brücken** druckbar sein, ohne besondere Slicer-Einstellungen.
 
-**Aufbau (wie ein echter Weidenkorb)**
+> **Entscheidung 2026-11-01:** Der erste Prototyp mit frei geführten Strängen war nicht druckbar (pro Schicht bis ~49 mm² ohne Auflage). Das Geflecht wird deshalb als **Relief-Wand** gebaut (Option „Relief-Wand“ gewählt; verworfen: dauerhafter Stützkern, abbrechbare Stützen im Modell).
 
-- **Staken**: senkrechte Rundstäbe im gleichmäßigen Abstand rund um den Korb, verankert in Boden und oberem Rand.
-- **Flechtstränge**: waagerechte, umlaufende Stränge, die sich **wellenförmig abwechselnd vor und hinter** den Staken entlangführen (Leinwandbindung: 1 über, 1 unter).
-- Benachbarte Reihen sind **um eine Stake versetzt** – dadurch entsteht das typische Schachbrett-Flechtbild. Jede Reihe ist ein geschlossener, waagerechter Ring. Damit jeder Ring ohne Bruchstelle aufgeht, wird die Stakenzahl automatisch **gerade** gewählt. (Korrektur 2026-11-01: Die zuvor genannte ungerade Zahl gilt nur für einen einzigen, spiralförmig steigenden Strang.)
-- Die Stränge laufen um die **abgerundeten Ecken** herum (Mindest-Eckenradius im Geflecht-Modus: max(10 mm, Stakendurchmesser + 2 × Materialdicke + 1 mm), damit die Stränge in der Ecke nicht mit sich selbst kollidieren).
-- **Flechtmaterial wählbar** über den Querschnitt:
-  - **Rohr**: flach-ovaler Querschnitt wie geschältes Peddigrohr.
-  - **Band**: flacher Streifen mit leicht gerundeten Kanten, wie Flechtband/Papierkordel-Band.
-  - Die **Höhe des Flechtmaterials** (bei Rohr: Querschnittshöhe, bei Band: Bandbreite) ist frei einstellbar, ebenso die Dicke. So lassen sich sowohl feine Rohrgeflechte als auch breite Bandgeflechte erzeugen.
-- Staken sind rund.
-- **Reihenaufteilung**: n Reihen mit n + 1 Spalten (auch zu Fußband und Rand), n = ⌊(nutzbare Wandhöhe − Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe wird gleichmäßig auf Fußband und Randwulst verteilt, damit oben und unten keine angeschnittene Reihe entsteht.
-- Bindung in v1 ausschließlich **Leinwandbindung (1 über / 1 unter)**.
-- Nur **rechteckige Körbe** (mit Eckenradius); der **Boden bleibt massiv**.
-- **Oberer Rand**: massiver, gerundeter Abschlusswulst (optisch „Zopfrand“-ähnlich als Relief), der zugleich die Stapelkante bildet. **Unten**: massives Fußband mit Stapel-Absatz.
-- Innen- **und** Außenseite zeigen das Geflecht.
+**Aufbau: Relief-Wand**
+
+- Die Wand ist **eine durchgehende Schale**, deren Außen- und Innenfläche das Geflecht nachbilden: Jede Reihe wölbt sich an einer Stake nach außen, an der nächsten nach innen (Leinwandbindung 1 über / 1 unter). Benachbarte Reihen sind **um eine Stake versetzt** → Schachbrett-Flechtbild.
+- **Staken**: senkrechte, runde Rippen auf der Wandmitte; sie zeichnen sich innen ab, wo der Strang außen liegt, und außen, wo er innen liegt.
+- Jede Reihe ist ein geschlossener Ring; die Stakenzahl ist **gerade**, damit der Ring ohne Naht aufgeht.
+- Stränge haben im Schnitt eine **ovale (Rohr)** bzw. **flache, kantengerundete (Band)** Form; zwischen den Reihen entsteht eine Fuge.
+- **45°-Regel eingebaut:** Wo eine Reihe weiter außen (oder innen) liegt als die darunter, läuft ihre Unterseite in einer 45°-Schräge aus der Reihe darunter heraus. Jede Druckschicht liegt so auf der Schicht darunter auf.
+- Ecken: Die Wand läuft um die abgerundeten Ecken (Mindest-Eckenradius im Geflecht-Modus: max(10 mm, Stakendurchmesser + 2 × Materialdicke + 1 mm)).
+- **Flechtmaterial wählbar** (Rohr / Band) mit frei einstellbarer **Materialhöhe** (Rohr-Höhe bzw. Bandbreite) und **Materialdicke**.
+- **Reihenaufteilung**: n Reihen mit n + 1 Spalten (auch zu Fußband und Rand), n = ⌊(nutzbare Wandhöhe − Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe geht gleichmäßig an Fußband und Randwulst.
+- Bindung in v1 ausschließlich **Leinwandbindung**. Nur **rechteckige Körbe** mit Eckenradius; der **Boden bleibt massiv**.
+- **Oberer Rand**: gerundeter Wulst über die volle Wanddicke, Unterseite mit 45°-Übergang; bildet die Stapelkante. **Unten**: massives Fußband mit Stapel-Absatz.
 
 **Varianten**
 
-- **Geschlossen** (Default): Reihen liegen dicht aneinander, kaum Durchblick – stabil, für Kleinteile.
-- **Offen**: Spalt zwischen den Reihen einstellbar, Durchblick zwischen Staken und Strängen – luftig, für Obst/Textilien.
+- **Geschlossen** (Default): Reihen liegen direkt übereinander.
+- **Offen**: Zwischen den Reihen entstehen **Spitzfenster** zwischen je zwei Staken: unten gerade, oben mit 45°-Spitzdach, damit nichts überbrückt werden muss. Fensterhöhe = Reihenabstand + Dachhöhe.
 
 **Parameter (nur im Geflecht-Modus)**
 
-| Parameter                                               | Default                                           | Bereich    |
-| ------------------------------------------------------- | ------------------------------------------------- | ---------- |
-| Flechtmaterial                                          | Rohr                                              | Rohr, Band |
-| Materialhöhe (Rohr-Höhe bzw. Bandbreite)                | Rohr 6 mm / Band 15 mm                            | 3–40       |
-| Materialdicke                                           | Rohr 2.4 mm / Band 1.6 mm                         | 1.0–4      |
-| Stakenabstand (Ziel, wird auf gerade Anzahl gerundet) | 12 mm                                             | 6–40       |
-| Stakendurchmesser                                       | 3 mm                                              | 2–8        |
-| Reihenabstand (Spalt)                                   | 0 mm (geschlossen)                                | 0–10       |
-| Wellen-Amplitude (Aus-/Einschwingen um Staken)          | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm (Überlappung, damit Strang und Stake verschmelzen) | –          |
+| Parameter | Default | Bereich |
+| --- | --- | --- |
+| Flechtmaterial | Rohr | Rohr, Band |
+| Materialhöhe (Rohr-Höhe bzw. Bandbreite) | Rohr 6 mm / Band 15 mm | 3–40 |
+| Materialdicke | Rohr 2.4 mm / Band 1.6 mm | 1.0–4 |
+| Stakenabstand (Ziel, wird auf gerade Anzahl gerundet) | 12 mm | 6–40 |
+| Stakendurchmesser | 3 mm | 2–8 |
+| Reihenabstand (Spalt) | 0 mm (geschlossen) | 0–10 |
+| Relieftiefe (Aus-/Einwölbung je Seite) | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm | – |
 
-**Druckbarkeit**
+**Druckbarkeit (verbindlich, automatisch geprüft)**
 
-- Stränge berühren/verschmelzen an jeder Kreuzung mit den Staken – das Geflecht ist **ein zusammenhängender, manifold Körper**, kein loses Teilgeflecht.
-- Unterseiten der Stränge mit Querschnitt so gerundet/angefast, dass keine Überhänge > 45° entstehen; im offenen Modus sind Spalte max. 10 mm, damit kurze Überbrückungen sicher gelingen.
-- Mindest-Strangdicke 1.0 mm = mind. 2 Druckbahnen bei 0.4 mm Düse.
+- Jeder erzeugte Körper wird in einem Test **Schicht für Schicht (0,2 mm) geschnitten**; keine Schicht darf mehr als 45° (seitlich ≤ Schichthöhe) über die darunter hinausragen. Erlaubte Restfläche pro Schicht: < 0,5 mm² (numerisches Rauschen). Brücken zählen als nicht unterstützt.
+- Mindest-Wanddicke überall ≥ 1,0 mm (2 Bahnen bei 0,4-mm-Düse).
+- Der Korb ist **ein zusammenhängender, manifold Körper**.
 
 **Zusammenspiel mit anderen Features**
 
-- **Griffmulden**: werden aus dem Geflecht ausgeschnitten und mit einem massiven, gerundeten Rahmen eingefasst (wie ein eingeflochtener Griff).
-- **Unterteilungen**: Trennwände bleiben massiv (glatt), werden an Staken/Strängen verbunden.
+- **Griffmulden**: aus der Relief-Wand ausgeschnitten, mit massivem, gerundetem Rahmen; Oberkante der Öffnung mit 45°-Spitze bzw. -Bogen.
+- **Unterteilungen**: Trennwände bleiben massiv (glatt), mit der Wand verbunden.
 - **Stapeln**: unverändert über Fuß/Rand; Stapelraster bleibt = H.
 
 **Umsetzung (technische Leitplanke)**
 
-- Strangpfade werden als Kurven um den Korbumriss berechnet (Offset-Pfad mit sinusförmiger Normalenverschiebung, phasenrichtig an Stakenpositionen).
-- Jeder umlaufende Strang wird als **geschlossenes Rohr-Mesh** (Querschnitt entlang Pfad gesweept) direkt erzeugt und als Manifold importiert, dann mit Staken, Boden und Rand vereinigt.
-- Auflösung (Segmente pro mm, Querschnittspunkte) ist im Code als Qualitätsstufe einstellbar: Vorschau grob, Export fein.
+- Die Wand wird als **Höhenfeld** über (Bogenlänge s, Höhe z) berechnet: je Spalte s eine Innen- und eine Außenkoordinate entlang der Wandnormale. Ziel-Form aus Reihen, Staken, Fußband und Rand; danach erzwingt ein **45°-Filter von unten nach oben** die Druckbarkeit und eine Mindestdicke.
+- Aus dem Feld wird direkt ein geschlossenes Schalen-Mesh erzeugt (kein CSG pro Strang); Boden per Union, Fenster/Griffe per Subtraktion.
+- Auflösung (Spalten pro Stakenabstand, Höhenschritt) als Qualitätsstufe: Vorschau grob, Export fein.
 
 **Vorschau-Darstellung**
 
-- Im Geflecht-Modus nutzt die 3D-Ansicht ein **naturfarbenes Material** (Peddigrohr/Rattan-Ton, leichte Lichtreflexe), damit die Wirkung beurteilbar ist; Farbe hat keinen Einfluss auf den Export.
+- Im Geflecht-Modus nutzt die 3D-Ansicht ein **naturfarbenes Material** (Rattan-Ton); die Farbe hat keinen Einfluss auf den Export.
 
 ### UI-Fluss (angelehnt an Bento3D)
 
@@ -242,7 +240,7 @@ export function hexCutters(face: WallFace, p: PatternParams): Manifold[] {
 | Unit – Parameter | Vitest                      | Defaults, Grenzen, Clamping, URL-Roundtrip (serialize → parse = identisch)                                                                                                                                                                                                                                                                                                        |
 | Unit – Geometrie | Vitest + manifold-3d (Node) | Mesh ist **manifold** (`status === NoError`), Bounding Box = Außenmaße ± 0.01 mm, Volumen plausibel, Stapelfuß passt (Fuß-Außenmaß = Rand-Innenmaß − 2·Spiel), Muster respektieren Randbänder, Trennwände an korrekter Position                                                                                                                                                   |
 | Unit – Export    | Vitest                      | STL: Header, Dreieckszahl, Byte-Länge = 84 + 50·n; 3MF: gültiges ZIP mit `3D/3dmodel.model`, Vertex/Triangle-Zahl stimmt                                                                                                                                                                                                                                                          |
-| Unit – Geflecht  | Vitest                      | Stakenzahl immer gerade; Strang wechselt an jeder Stake die Seite (Vorzeichen der Normalenverschiebung alterniert); Nachbarreihen phasenversetzt; Rohr-Mesh pro Strang geschlossen & manifold; Gesamtkörper = **eine** zusammenhängende Komponente; Mindest-Wandstärke ≥ Materialdicke; Reihenaufteilung ohne angeschnittene Reihe (Rohr und Band, Materialhöhe 3 / 15 / 40 mm) |
+| Unit – Geflecht  | Vitest                      | Stakenzahl immer gerade; Reihe wechselt an jeder Stake die Seite; Nachbarreihen phasenversetzt; Höhenfeld erfüllt 45°-Regel und Mindestdicke; Gesamtkörper = **eine** zusammenhängende Komponente; Mindest-Wandstärke ≥ Materialdicke; Reihenaufteilung ohne angeschnittene Reihe (Rohr und Band, Materialhöhe 3 / 15 / 40 mm) |
 | Snapshot         | Vitest                      | Dreiecks-/Vertex-Zahl für 5 Referenz-Konfigurationen (erkennt ungewollte Geometrieänderungen)                                                                                                                                                                                                                                                                                     |
 | E2E              | Playwright (Chromium)       | Start → Maß ändern → Muster wählen → Trennwand hinzufügen → STL & 3MF herunterladen; Datei nicht leer                                                                                                                                                                                                                                                                             |
 | Manuell          | PrusaSlicer / Bambu Studio  | Vor jedem Release: 3 Referenzkörbe slicen – keine Reparatur-Warnungen; 1 Stapelpaar real drucken                                                                                                                                                                                                                                                                                  |
@@ -256,6 +254,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - `npm run typecheck && npm run lint && npm test` grün, bevor committet wird.
 - Geometrie-Änderungen mit einem Test belegen (TDD für `src/geometry` und `src/export`).
 - Jedes erzeugte Mesh auf Manifold-Status prüfen; fehlerhafte Geometrie nie zum Download anbieten.
+- Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45°, keine Brücken).
 - Eingaben validieren und auf erlaubte Bereiche begrenzen.
 - Spec aktualisieren, wenn sich Umfang oder Entscheidungen ändern.
 

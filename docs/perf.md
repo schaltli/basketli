@@ -21,3 +21,19 @@ Beobachtung: Ein binäres STL des Exports „Rohr geschlossen“ wäre etwa 40 M
 In T22 prüfen, ob 14 statt 20 Abtastpunkte pro Stake optisch genügen.
 
 Screenshots: `docs/img/weave-cane-closed.png`, `docs/img/weave-band-open.png`.
+
+## 2026-11-01 – T8R (Relief-Wand, ersetzt T8)
+
+Node 22, Windows 11, 150 × 100 × 80 mm, Defaults. Der Export wird mit `simplify(0,02 mm)` vereinfacht.
+
+| Variante                | Vorschau | Dreiecke | Export (inkl. simplify) | Dreiecke |
+| ----------------------- | -------- | -------- | ----------------------- | -------- |
+| Rohr geschlossen        | 218 ms   | 257 864  | ≈ 2,1 s                 | 385 918  |
+| Rohr offen (Spalt 4 mm) | 191 ms   | 241 248  | ≈ 1,9 s                 | 358 920  |
+| Band geschlossen        | 220 ms   | 257 880  | ≈ 1,9 s                 | 151 106  |
+
+Das Höhenfeld selbst kostet 12–35 ms; den Rest brauchen Mesh-Import, die Union mit dem Boden und die Fenster-Subtraktion.
+Druckbarkeit (Schicht-Test, 0,2 mm): bei allen Varianten 0,000 mm² ohne Auflage, auch nach `simplify`.
+Ziele 7a: Vorschau < 1 s ✅, Export < 5 s ✅. STL „Rohr geschlossen“ ≈ 19 MB.
+
+Screenshots: `docs/img/weave-*.png`.

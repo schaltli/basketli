@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
-import { FUSE, evenStakeCount, weaveLayout } from '../../../src/geometry/weave/layout';
+import {
+  FUSE,
+  MAX_RELIEF_RATIO,
+  evenStakeCount,
+  weaveLayout,
+} from '../../../src/geometry/weave/layout';
 import { RoundedRectPath } from '../../../src/geometry/weave/outline';
 
 const weave = (patch: Partial<BasketParams> = {}, w: Partial<BasketParams['weave']> = {}) =>
@@ -90,11 +95,12 @@ describe('weaveLayout', () => {
     expect(l.span).toBeCloseTo(p.weave.stakeDiameter + 2 * p.weave.materialThickness, 9);
   });
 
-  it('strands overlap the stakes by FUSE', () => {
-    const p = weave();
-    const l = weaveLayout(p);
-    const innerFaceOfStrand = l.amplitude - p.weave.materialThickness / 2;
-    expect(p.weave.stakeDiameter / 2 - innerFaceOfStrand).toBeCloseTo(FUSE, 9);
+  it('relief depth reaches round the stakes, capped at 30 % of the material height', () => {
+    const fine = weaveLayout(weave({}, { materialHeight: 6 }));
+    expect(fine.amplitude).toBeCloseTo(MAX_RELIEF_RATIO * 6, 9);
+    const p = weave({}, { material: 'band', materialHeight: 15, materialThickness: 1.6 });
+    const band = weaveLayout(p);
+    expect(band.amplitude).toBeCloseTo(p.weave.stakeDiameter / 2 + 0.8 - FUSE, 9);
   });
 
   const rowCases: [string, 'cane' | 'band', number, number][] = [];

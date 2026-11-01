@@ -4,6 +4,9 @@ import { RoundedRectPath } from './outline';
 /** Strands sink this far into the stakes so they fuse into one body. */
 export const FUSE = 0.3;
 
+/** Relief depth limit relative to the material height. */
+export const MAX_RELIEF_RATIO = 0.3;
+
 export interface WeaveRow {
   /** Bottom and top of the material in this row (mm). */
   z0: number;
@@ -47,7 +50,12 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const w = p.weave;
   const span = w.stakeDiameter + 2 * w.materialThickness;
   const centerOffset = span / 2;
-  const amplitude = w.stakeDiameter / 2 + w.materialThickness / 2 - FUSE;
+  // Relief depth: strands reach round the stakes, but at most 30 % of the
+  // material height so the 45° transitions between rows stay short.
+  const amplitude = Math.min(
+    w.stakeDiameter / 2 + w.materialThickness / 2 - FUSE,
+    MAX_RELIEF_RATIO * w.materialHeight,
+  );
 
   const path = new RoundedRectPath(
     p.width - 2 * centerOffset,

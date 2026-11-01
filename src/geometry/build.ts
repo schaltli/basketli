@@ -6,6 +6,9 @@ import { buildWeave } from './weave';
 
 export type { Quality };
 
+/** Max. surface deviation (mm) allowed when simplifying the export mesh. */
+export const EXPORT_TOLERANCE = 0.02;
+
 /** Plain triangle mesh, independent of manifold and three.js. */
 export interface MeshData {
   positions: Float32Array;
@@ -23,8 +26,12 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       params.wallStyle === 'weave'
         ? buildWeave(wasm, scope, params, quality).body
         : buildTub(wasm, scope, params, quality);
-    // A transformed copy is a new object that survives scope.dispose().
-    return body.translate(0, 0, 0);
+    // Woven export: drop vertices that move the surface by less than 0.02 mm
+    // (the dense relief grid would otherwise be ~1M triangles).
+    // Both calls return a new object that survives scope.dispose().
+    return quality === 'export' && params.wallStyle === 'weave'
+      ? body.simplify(EXPORT_TOLERANCE)
+      : body.translate(0, 0, 0);
   } finally {
     scope.dispose();
   }

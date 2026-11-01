@@ -57,6 +57,8 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 - [x] T7: Sweep-Mesh für Rohr und Band
 - [x] T8: Geflechtkorb zusammensetzen und in der Vorschau anzeigen
 - [x] T9: STL-Export und Download-Button
+- [x] T8P: Druckbarkeitstest Schicht für Schicht (nachträglich, 2026-11-01)
+- [x] T8R: Geflecht als druckbare Relief-Wand (ersetzt die Stränge aus T7/T8)
 
 **Checkpoint B – Go/No-Go Geflecht:** Du druckst 4 Testkörbe (Rohr/Band × geschlossen/offen). Abgenommen ist das Geflecht, wenn es ohne Stützmaterial druckbar ist, das Über/Unter-Bild klar erkennbar ist und die Rechenzeit unter 1 s (Vorschau) bzw. unter 5 s (Export) bleibt. Bei No-Go passen wir Spec und Ansatz an, bevor die übrige Oberfläche darauf aufbaut.
 

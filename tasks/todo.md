@@ -130,6 +130,33 @@
       **Dateien:** `src/export/stl.ts`, `src/export/download.ts`, `src/ui/controls/DownloadButton.tsx`, `tests/export/stl.test.ts`
       **Umfang:** S
 
+### - [x] T8P: Druckbarkeitstest (Schicht für Schicht)
+
+**Beschreibung:** `overhangReport()` schneidet einen Körper in 0,2-mm-Schichten und misst die Fläche, die nicht innerhalb 45° von der Schicht darunter getragen wird. Brücken zählen als nicht getragen. Der Test läuft für alle Wandstile.
+**Akzeptanz:**
+
+- [x] Das alte Strang-Geflecht fällt durch (~49 mm² pro Schicht), die glatte Wanne besteht.
+- [x] Alle Wandstile und Varianten bestehen (< 0,5 mm² pro Schicht) – erfüllt mit T8R.
+
+**Prüfung:** `npx vitest run tests/geometry/printability.test.ts`
+**Abhängig von:** T3
+**Dateien:** `src/geometry/printability.ts`, `tests/geometry/printability.test.ts`
+**Umfang:** S
+
+### - [x] T8R: Geflecht als druckbare Relief-Wand
+
+**Beschreibung:** Ersetzt die frei geführten Stränge (T7/T8) durch ein Höhenfeld über (s, z) mit Innen- und Außenfläche: Reihenwellen, Strangquerschnitt (Rohr/Band), Staken-Rippen, Fußband und Randwulst als Zielform; danach 45°-Filter von unten nach oben und Mindestdicke 1 mm. Daraus ein geschlossenes Schalen-Mesh; Boden per Union. Offene Variante: Spitzfenster (45°-Dach) zwischen den Staken per Subtraktion. Sweep/Profil-Code aus T7 entfällt.
+**Akzeptanz:**
+
+- [x] Höhenfeld: in jeder Spalte steigt die Außenfläche pro Höhenschritt höchstens um den Höhenschritt nach außen, die Innenfläche höchstens um den Höhenschritt nach innen; Dicke überall ≥ 1 mm.
+- [x] Alle Geflecht-Varianten (Rohr/Band × geschlossen/offen, klein und Default) bestehen den Druckbarkeitstest und sind eine manifold-Komponente mit exakten Außenmaßen.
+- [x] Vorschau < 1 s, Export < 5 s (Default 150×100×80); Screenshots in `docs/img/` zeigen klar erkennbares Über/Unter.
+
+**Prüfung:** `npx vitest run tests/geometry`; Sichtprüfung im Browser
+**Abhängig von:** T8P
+**Dateien:** `src/geometry/weave/relief.ts`, `src/geometry/weave/index.ts`, `src/geometry/weave/windows.ts`, `tests/geometry/weave/relief.test.ts`, `tests/geometry/printability.test.ts`
+**Umfang:** M
+
 ### Checkpoint B – Go/No-Go Geflecht
 
 - [ ] 4 Testdrucke: Rohr/Band × geschlossen/offen, alle ohne Stützmaterial

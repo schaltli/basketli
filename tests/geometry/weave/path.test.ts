@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS } from '../../../src/geometry/params';
 import { weaveLayout } from '../../../src/geometry/weave/layout';
-import { displacement, SAMPLES_PER_STAKE, strandPath } from '../../../src/geometry/weave/path';
+import { displacement } from '../../../src/geometry/weave/path';
 
 const p = clampParams({ ...DEFAULTS, wallStyle: 'weave', cornerRadius: 12 }).params;
 const layout = weaveLayout(p);
@@ -37,27 +37,5 @@ describe('displacement', () => {
       expect(displacement(layout, row, L)).toBeCloseTo(displacement(layout, row, 0), 9);
       expect(displacement(layout, row, L + 1.7)).toBeCloseTo(displacement(layout, row, 1.7), 9);
     }
-  });
-});
-
-describe('strandPath', () => {
-  it('has the expected sample count and row heights', () => {
-    const path = strandPath(layout, 1, 'preview');
-    expect(path.points).toHaveLength(layout.stakeCount * SAMPLES_PER_STAKE.preview);
-    expect(path.z0).toBe(layout.rows[1]!.z0);
-    expect(path.z1).toBe(layout.rows[1]!.z1);
-  });
-
-  it('stays inside the basket footprint', () => {
-    const path = strandPath(layout, 0, 'export');
-    const t = p.weave.materialThickness / 2;
-    for (const [x, y] of path.points) {
-      expect(Math.abs(x) + t).toBeLessThanOrEqual(p.width / 2 + 1e-6);
-      expect(Math.abs(y) + t).toBeLessThanOrEqual(p.depth / 2 + 1e-6);
-    }
-  });
-
-  it('rejects an unknown row', () => {
-    expect(() => strandPath(layout, layout.rows.length, 'preview')).toThrow(RangeError);
   });
 });

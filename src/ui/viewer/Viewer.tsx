@@ -7,18 +7,19 @@ import type { MeshData } from '../../geometry/build';
 import type { BasketParams } from '../../geometry/params';
 import { materialFor } from './materials';
 
-const CREASE_ANGLE = Math.PI / 6;
+/** Edges sharper than this stay hard; the woven relief is shaded smoothly. */
+const CREASE_ANGLE = { hard: Math.PI / 6, smooth: (Math.PI * 11) / 36 } as const;
 
-function useGeometry(mesh: MeshData | undefined): BufferGeometry | undefined {
+function useGeometry(mesh: MeshData | undefined, crease: number): BufferGeometry | undefined {
   const geometry = useMemo(() => {
     if (!mesh) return undefined;
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(mesh.positions, 3));
     g.setIndex(new BufferAttribute(mesh.indices, 1));
-    const creased = toCreasedNormals(g, CREASE_ANGLE);
+    const creased = toCreasedNormals(g, crease);
     g.dispose();
     return creased;
-  }, [mesh]);
+  }, [mesh, crease]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
   return geometry;
 }
@@ -30,7 +31,10 @@ interface ViewerProps {
 
 /** 3D scene. Geometry uses Z-up (mm); the group rotates it into three.js Y-up. */
 export function Viewer({ mesh, params }: ViewerProps) {
-  const geometry = useGeometry(mesh);
+  const geometry = useGeometry(
+    mesh,
+    params.wallStyle === 'weave' ? CREASE_ANGLE.smooth : CREASE_ANGLE.hard,
+  );
   const size = Math.max(params.width, params.depth, params.height);
   const dist = size * 1.8;
 
