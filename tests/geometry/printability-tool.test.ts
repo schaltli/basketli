@@ -61,6 +61,49 @@ describe('overhangReport (the tool itself)', () => {
     expect(overhangReport(bridge(20)).maxBridge).toBeCloseTo(20, 0);
   });
 
+  describe('in-plane line extensions in a thin wall (with envelope)', () => {
+    // 40 × 1.6 × 20 wall with a hole whose roof rises at `deg` from the horizontal
+    const wallWithHole = (deg: number) => {
+      const wall = box(40, 1.6, 20, [0, 0, 0]);
+      const rise = 10 * Math.tan((deg * Math.PI) / 180);
+      const hole = wasm.Manifold.extrude(
+        [
+          [
+            [10, 4],
+            [30, 4],
+            [30, 8],
+            [20, 8 + rise],
+            [10, 8],
+          ],
+        ],
+        4,
+      )
+        .rotate([90, 0, 0])
+        .translate([0, 3, 0]);
+      return { body: wall.subtract(hole), envelope: wall };
+    };
+
+    it('a 20° hole roof fails the plain test but passes inside the wall plane', () => {
+      const { body, envelope } = wallWithHole(20);
+      expect(overhangReport(body).maxArea).toBeGreaterThan(0.5);
+      expect(overhangReport(body, { envelope }).maxArea).toBeLessThan(0.5);
+    });
+
+    it('a flat hole top is a bridge', () => {
+      const { body, envelope } = wallWithHole(0);
+      const r = overhangReport(body, { envelope });
+      expect(r.maxArea).toBe(0);
+      expect(r.maxBridge).toBeGreaterThan(19);
+    });
+
+    it('a ledge sticking out of the wall still fails', () => {
+      const wall = box(40, 1.6, 20, [0, 0, 0]);
+      const ledge = box(20, 3, 1, [10, -3, 12]);
+      const r = overhangReport(wasm.Manifold.union([wall, ledge]), { envelope: wall });
+      expect(r.maxArea).toBeGreaterThan(10);
+    });
+  });
+
   it('a 45° slope is supported', () => {
     // wedge: extruded right triangle leaning out at 45°
     const wedge = wasm.Manifold.extrude(

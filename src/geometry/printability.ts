@@ -8,6 +8,12 @@ export const MAX_BRIDGE = 15;
  * (mm²): the bridge has to run into its support, not just touch it.
  */
 export const MIN_ANCHOR_AREA = 0.08;
+/**
+ * Inside a thin wall, extrusion lines run along the wall. A one-sided piece
+ * that stays inside the wall and reaches at most this far (mm) beyond the
+ * layer below just extends those lines lengthwise – that prints fine.
+ */
+export const MAX_LINE_EXTENSION = 2;
 
 export interface OverhangReport {
   /** Largest unsupported, non-bridge area in a single layer (mm²). */
@@ -25,6 +31,11 @@ export interface OverhangOptions {
   tolerance?: number;
   /** One-sided specks narrower than this are ignored (half a 0.4 mm line). */
   minFeature?: number;
+  /**
+   * The same body without its holes (e.g. the plain tub of a perforated
+   * wall). One-sided pieces that lie inside it are in-plane line extensions.
+   */
+  envelope?: Manifold;
 }
 
 /**
@@ -34,7 +45,8 @@ export interface OverhangOptions {
  * places, each anchor overlapping by at least MIN_ANCHOR_AREA (a single
  * extrusion line may bridge if it runs into its supports). Bridges are
  * measured. Floating regions always count as unsupported; one-sided
- * overhangs count unless thinner than `minFeature`.
+ * overhangs count unless thinner than `minFeature` or – with an `envelope` –
+ * short line extensions within the wall plane.
  */
 export function overhangReport(m: Manifold, options: OverhangOptions = {}): OverhangReport {
   const layer = options.layer ?? 0.2;
@@ -52,6 +64,7 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
     const cur = scope.keep(m.slice(z));
     const supported = scope.keep(prev.offset(reach, 'Round'));
     const unsupported = scope.keep(cur.subtract(supported));
+    const wall = options.envelope ? scope.keep(options.envelope.slice(z)) : undefined;
 
     let area = 0;
     for (const part of unsupported.decompose()) {
@@ -65,6 +78,7 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
       if (anchors === 0) {
         area += a; // floating in mid-air: always a failure, however thin
       } else if (anchors === 1) {
+        if (wall && inPlaneExtension(scope, part, contact, wall)) continue;
         // Cantilever: specks thinner than minFeature cannot droop measurably.
         const opened = scope.keep(
           scope.keep(part.offset(-minFeature / 2, 'Round')).offset(minFeature / 2, 'Round'),
@@ -91,6 +105,22 @@ export function overhangReport(m: Manifold, options: OverhangOptions = {}): Over
   }
   prevScope.dispose();
   return report;
+}
+
+/**
+ * A one-sided piece inside the wall whose every point lies within
+ * MAX_LINE_EXTENSION of its anchor: the wall lines are just extended.
+ */
+function inPlaneExtension(
+  scope: Scope,
+  part: CrossSection,
+  contact: CrossSection,
+  wall: CrossSection,
+): boolean {
+  const outside = scope.keep(part.subtract(scope.keep(wall.offset(0.01, 'Round')))).area();
+  if (outside >= 0.01) return false;
+  const reach = scope.keep(contact.offset(MAX_LINE_EXTENSION, 'Round'));
+  return scope.keep(part.subtract(reach)).area() < 0.01;
 }
 
 /** Number of separate places where a part overlaps the layer below by >= minArea. */

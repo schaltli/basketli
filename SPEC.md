@@ -117,7 +117,7 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 | Wandstil            | Waben       | Waben, Schlitze, Rauten, Voronoi, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
 | Lochgröße           | 10 mm       | 3–40                                              |                                             |
 | Stegbreite          | 2.5 mm      | 1–10                                              |                                             |
-| Randband oben/unten | 8 mm        | 3–30                                              | massive Zone ohne Löcher                    |
+| Randband oben/unten | 4 mm        | 3–30                                              | massive Zone ohne Löcher                    |
 | Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten                 | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
 | Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm           | Trennwandhöhe = Innenhöhe oder einstellbar  |
 
@@ -135,7 +135,7 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 - **Waben**: Sechsecke mit Spitze nach oben (stützfrei).
 - **Schlitze**: vertikale Langlöcher mit abgerundeten Enden.
 - **Rauten**: auf der Spitze stehende Quadrate (45°).
-- **Voronoi**: organische Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: Jedes Loch wird oben dort **waagerecht abgeschnitten**, wo sein Umriss flacher als 45° wird – es bleiben steile Seiten und eine kurze, beidseitig verankerte **Brücke** (höchstens 13 mm, sonst bekommt das Loch senkrechte Seiten). Löcher werden dadurch nur kleiner, nie größer. Das Muster läuft **umlaufend ohne Naht** um den ganzen Korb (periodisch auf der abgewickelten Außenwand), die Löcher folgen der Eckenrundung; Randbänder oben und unten bleiben massiv. Mindest-Eckenradius 8 mm, damit die Stege innen in den Ecken ≥ 80 % der Stegbreite behalten. Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“).
+- **Voronoi**: echte, unregelmäßige Voronoi-Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), umlaufend ohne Naht um den ganzen Korb (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: In der dünnen Wand laufen die Druckbahnen längs der Wand – schräge Lochoberkanten verlängern die Bahnen nur in Laufrichtung. Ein Scan von oben nach unten verkleinert jedes Loch nur dort, wo sich eine Seite pro 0,2-mm-Schicht um mehr als ~1,4 mm (flacher als 8°) schließen müsste; die letzte Öffnung oben schließt als Brücke (Lochbreite höchstens 13 mm). Löcher werden nur kleiner, nie größer. Mindest-Eckenradius 8 mm (Stege innen ≥ 80 %). Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“). (Entscheidung 2026-11-01: der frühere 45°-Flachschnitt machte alle Zellen oben flach – verworfen.)
 - Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.
 
 ### Flechtmuster (Wandstil „Geflecht“)
@@ -260,6 +260,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - Geometrie-Änderungen mit einem Test belegen (TDD für `src/geometry` und `src/export`).
 - Jedes erzeugte Mesh auf Manifold-Status prüfen; fehlerhafte Geometrie nie zum Download anbieten.
 - Jeder Wandstil und jede Feature-Kombination besteht den Schicht-für-Schicht-Druckbarkeitstest (45° oder beidseitig eindringende Brücke ≤ 15 mm).
+- Bei durchbrochenen dünnen Wänden (Lochmuster, Voronoi) gilt zusätzlich: Ein einseitiges Teilstück **innerhalb der Wandebene** ist zulässig, wenn es höchstens 2 mm über seinen Anker hinausreicht (Bahnverlängerung in Laufrichtung). Seitlich aus der Wand ragende Überhänge bleiben verboten.
 - Eingaben validieren und auf erlaubte Bereiche begrenzen.
 - Spec aktualisieren, wenn sich Umfang oder Entscheidungen ändern.
 

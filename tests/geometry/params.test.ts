@@ -28,7 +28,7 @@ describe('DEFAULTS', () => {
       wallStyle: 'hex',
       holeSize: 10,
       webWidth: 2.5,
-      borderBand: 8,
+      borderBand: 4,
       handles: 'ends',
     });
     expect(DEFAULTS.weave).toEqual({

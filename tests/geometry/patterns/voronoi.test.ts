@@ -5,6 +5,7 @@ import { loadManifold, Scope, type Wasm } from '../../../src/geometry/manifold';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
 import {
   MAX_HOLE_TOP,
+  MIN_TOP_DEG,
   printableHole,
   voronoiCutters,
   voronoiHoles,
@@ -46,28 +47,74 @@ describe('voronoi cells', () => {
   });
 });
 
+/** Width of a convex polygon at height y (0 outside). */
+function widthAt(poly: Vec2[], y: number): [number, number] | undefined {
+  const xs: number[] = [];
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    if ((a[1] - y) * (b[1] - y) > 0 || a[1] === b[1]) return;
+    xs.push(a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]));
+  });
+  return xs.length >= 2 ? [Math.min(...xs), Math.max(...xs)] : undefined;
+}
+
+function isInside(poly: Vec2[], q: Vec2): boolean {
+  return poly.every((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    return (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]) >= -1e-6;
+  });
+}
+
 describe('printableHole', () => {
-  it('cuts the shallow top of a circle-like hole flat', () => {
-    const circle: Vec2[] = Array.from({ length: 32 }, (_, i) => {
-      const a = (i / 32) * 2 * Math.PI;
-      return [5 * Math.cos(a), 5 * Math.sin(a)];
-    });
-    const hole = printableHole(circle);
-    const top = Math.max(...hole.map((q) => q[1]));
-    expect(top).toBeLessThan(5);
-    expect(top).toBeGreaterThan(5 * Math.SQRT1_2 - 0.5); // ~ where the outline reaches 45°
-    // every upper edge is either steep (≥ 45°) or the flat top
-    hole.forEach((q, i) => {
-      const r = hole[(i + 1) % hole.length]!;
-      const dx = r[0] - q[0];
-      const dy = r[1] - q[1];
-      if (dx < 0 && Math.abs(dy) > 1e-9)
-        expect(Math.abs(dy)).toBeGreaterThanOrEqual(Math.abs(dx) - 1e-9);
-    });
-    expect(polygonArea(hole)).toBeLessThan(polygonArea(circle));
+  const circle: Vec2[] = Array.from({ length: 48 }, (_, i) => {
+    const a = (i / 48) * 2 * Math.PI;
+    return [5 * Math.cos(a), 5 * Math.sin(a)];
+  });
+  // convex cell whose top flattens out (rounded corner + nearly flat top)
+  const flatTop: Vec2[] = [
+    [0, 0],
+    [10, 0],
+    [10, 6],
+    [9.5, 7.5],
+    [8, 8.2],
+    [2, 8.6], // ~4° top edge
+    [0, 7],
+  ];
+
+  it.each([
+    ['circle', circle],
+    ['flat top', flatTop],
+  ] as const)('%s: only shrinks, closes ≤ MIN_TOP_DEG per side, flat bridge on top', (_n, cell) => {
+    const hole = printableHole(cell);
+    hole.forEach((q) => expect(isInside(cell, q)).toBe(true));
+    const tan = Math.tan((MIN_TOP_DEG * Math.PI) / 180);
+    const maxStep = (0.2 / tan) * 1.001;
+    const ys = hole.map((q) => q[1]);
+    const top = Math.max(...ys);
+    for (let y = Math.min(...ys) + 0.2; y < top - 0.2; y += 0.2) {
+      const lower = widthAt(hole, y)!;
+      const upper = widthAt(hole, y + 0.2);
+      if (!upper) continue;
+      expect(upper[0] - lower[0]).toBeLessThanOrEqual(maxStep); // left side closes in
+      expect(lower[1] - upper[1]).toBeLessThanOrEqual(maxStep); // right side closes in
+    }
   });
 
-  it('never leaves a flat top wider than MAX_HOLE_TOP', () => {
+  it('keeps steep parts of the real cell shape', () => {
+    const cell: Vec2[] = [
+      [0, 0],
+      [6, 0],
+      [7, 6],
+      [3, 10],
+      [-1, 6],
+    ];
+    const hole = printableHole(cell);
+    // the steep lower flanks are unchanged
+    expect(widthAt(hole, 3)![0]).toBeCloseTo(widthAt(cell, 3)![0], 1);
+    expect(widthAt(hole, 3)![1]).toBeCloseTo(widthAt(cell, 3)![1], 1);
+  });
+
+  it('never leaves a hole wider than MAX_HOLE_TOP', () => {
     const wide: Vec2[] = [
       [-12, 0],
       [12, 0],
@@ -179,7 +226,7 @@ describe('voronoi basket', () => {
       expect(parts.length).toBe(1);
       parts.forEach((x) => x.delete());
       expect(m.volume()).toBeLessThan(tub.volume() * 0.9); // holes really cut
-      const r = overhangReport(m);
+      const r = overhangReport(m, { envelope: tub });
       expect(r.maxArea, `z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
       expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);
     } finally {

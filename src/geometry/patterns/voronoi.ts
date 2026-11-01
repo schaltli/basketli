@@ -94,30 +94,108 @@ export function voronoiCells(
 }
 
 /**
- * Makes a convex hole printable without support: above the height where its
- * upper outline becomes flatter than 45°, it is cut off flat. What remains is
- * steep sides plus a flat top that bridges between them. Returns the clipped
- * hole (only ever smaller than the input, so webs never get thinner).
+ * Upper hole outlines flatter than this (degrees) are not printed as they are:
+ * every layer would extend the wall lines lengthwise by more than ~1.4 mm.
+ */
+export const MIN_TOP_DEG = 8;
+/** Layer height the hole tops are designed for (mm). */
+const LAYER = 0.2;
+/** Height step of the scan (mm). */
+const SCAN = 0.1;
+
+/** Keeps the part of `poly` where nx·x + ny·y ≤ c. */
+function clipLine(poly: Vec2[], nx: number, ny: number, c: number): Vec2[] {
+  const out: Vec2[] = [];
+  const f = (q: Vec2) => nx * q[0] + ny * q[1] - c;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    const fa = f(a);
+    const fb = f(b);
+    if (fa <= 0) out.push(a);
+    if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) {
+      const t = fa / (fa - fb);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  return out;
+}
+
+/** [left, right] where the horizontal line at height y crosses a convex polygon. */
+function span(poly: Vec2[], y: number): [number, number] | undefined {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    if ((a[1] - y) * (b[1] - y) > 0 || a[1] === b[1]) continue;
+    const x = a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]);
+    lo = Math.min(lo, x);
+    hi = Math.max(hi, x);
+  }
+  return hi > lo ? [lo, hi] : undefined;
+}
+
+/**
+ * Keeps the Voronoi shape as far as printing allows. In a thin wall the
+ * extrusion lines run along the wall: going up, each side of a hole may close
+ * in by at most LAYER / tan(MIN_TOP_DEG) per layer (lines get extended
+ * lengthwise), and the last opening at the very top is closed by one bridge.
+ * A top-down scan enforces this by making the hole smaller where needed –
+ * flat shoulders, rounded corners and flat tops alike. Holes wider than
+ * MAX_HOLE_TOP are first trimmed to vertical sides.
  */
 export function printableHole(hole: Vec2[]): Vec2[] {
-  let cut = Infinity;
-  for (let i = 0; i < hole.length; i++) {
-    const p = hole[i]!;
-    const q = hole[(i + 1) % hole.length]!;
-    const dx = q[0] - p[0];
-    const dy = q[1] - p[1];
-    // Counter-clockwise: an edge running leftwards is on the upper outline.
-    if (dx < 0 && Math.abs(dy) < Math.abs(dx)) cut = Math.min(cut, p[1], q[1]);
+  let poly = hole;
+  const xs = poly.map((q) => q[0]);
+  if (Math.max(...xs) - Math.min(...xs) > MAX_HOLE_TOP) {
+    const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+    poly = clipLine(poly, 1, 0, mid + MAX_HOLE_TOP / 2);
+    poly = clipLine(poly, -1, 0, -(mid - MAX_HOLE_TOP / 2));
   }
-  let out = hole;
-  if (cut !== Infinity) out = clipHalfPlane(out, [0, cut - 1], [0, cut + 1]);
-  // Safety net: holes wider than MAX_HOLE_TOP get vertical sides, so the flat
-  // top never bridges further than that.
-  const xs = out.map((q) => q[0]);
-  const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const half = MAX_HOLE_TOP / 2;
-  out = clipHalfPlane(out, [mid, 0], [mid + 2 * half, 0]);
-  out = clipHalfPlane(out, [mid, 0], [mid - 2 * half, 0]);
+  const ys = poly.map((q) => q[1]);
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  const steps = Math.ceil((y1 - y0) / SCAN);
+  const step = (SCAN / LAYER / Math.tan((MIN_TOP_DEG * Math.PI) / 180)) * LAYER;
+
+  // Scan heights strictly inside the hole, from the top down.
+  const rows: { y: number; l: number; r: number }[] = [];
+  let above: { l: number; r: number } | undefined;
+  for (let k = steps - 1; k >= 1; k--) {
+    const y = y0 + ((y1 - y0) * k) / steps;
+    const sp = span(poly, y);
+    if (!sp) continue;
+    let [l, r] = sp;
+    if (above) {
+      // Below a row the hole may only be wider by `step` per side.
+      l = Math.max(l, above.l - step);
+      r = Math.min(r, above.r + step);
+    }
+    if (r - l < 1e-6) continue;
+    rows.push({ y, l, r });
+    above = { l, r };
+  }
+  if (rows.length < 2) return [];
+  rows.reverse(); // bottom → top
+  const out: Vec2[] = [];
+  const bottom = span(poly, y0 + 1e-6);
+  if (bottom) out.push([bottom[0], y0], [bottom[1], y0]);
+  for (const row of rows) out.push([row.r, row.y]);
+  for (let i = rows.length - 1; i >= 0; i--) out.push([rows[i]!.l, rows[i]!.y]);
+  return dropCollinear(out);
+}
+
+/** Removes points that lie on the straight line through their neighbours. */
+function dropCollinear(poly: Vec2[]): Vec2[] {
+  const out: Vec2[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = out[out.length - 1] ?? poly[poly.length - 1]!;
+    const b = poly[i]!;
+    const c = poly[(i + 1) % poly.length]!;
+    const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    if (Math.abs(cross) > 1e-4) out.push(b);
+  }
   return out;
 }
 
