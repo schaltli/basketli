@@ -70,6 +70,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 - [ ] T12: Wandflächen-Modell und Wabenmuster
 - [ ] T13: Schlitz- und Rautenmuster
 - [x] T13b: Voronoi-Muster (Prototyp, vorgezogen)
+- [x] T13c: Streckmetall (Prototyp)
 
 **Checkpoint C:** Alle Wandstile erzeugen manifold-Meshes und lassen sich stapeln; ein gedrucktes Stapelpaar ergibt 2·H ± 0,5 mm.
 

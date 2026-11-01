@@ -245,6 +245,18 @@
 **Dateien:** `src/geometry/patterns/voronoi.ts`, `src/geometry/params.ts`, `tests/geometry/patterns/voronoi.test.ts`
 **Umfang:** M
 
+### - [x] T13c: Streckmetall (Prototyp)
+
+**Beschreibung:** Wandstil „Streckmetall“: stehende Linsen im versetzten Rautengitter, umlaufend; verdrehte Stege als Sägezahn-Relief (Höhenfeld mit 45°-Filter).
+**Akzeptanz:**
+
+- [x] Stege überall ≥ Stegbreite (Gitterteilung per Abstandsrechnung); ganze Zahl Linsen pro Reihe.
+- [x] Ein manifold-Körper, exakte Außenmaße, Druckbarkeitstest grün (keine Brücken nötig: Linsen oben spitz).
+- [x] Vorschau ≈ 0,13 s, Export ≈ 1 s (150 × 100 × 80 mm).
+
+**Dateien:** `src/geometry/patterns/expanded.ts`, `src/geometry/patterns/wallcut.ts`, `tests/geometry/patterns/expanded.test.ts`
+**Umfang:** M
+
 ### Checkpoint C
 
 - [ ] Alle Wandstile × stapelbar an/aus ergeben manifold-Meshes

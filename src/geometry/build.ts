@@ -2,6 +2,7 @@ import type { Manifold } from 'manifold-3d';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
+import { buildExpanded } from './patterns/expanded';
 import { voronoiCutters } from './patterns/voronoi';
 import { buildWeave } from './weave';
 
@@ -26,6 +27,8 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     let body: Manifold;
     if (params.wallStyle === 'weave') {
       body = buildWeave(wasm, scope, params, quality).body;
+    } else if (params.wallStyle === 'expanded') {
+      body = buildExpanded(wasm, scope, params, quality);
     } else {
       body = buildTub(wasm, scope, params, quality);
       if (params.wallStyle === 'voronoi') {
@@ -37,7 +40,7 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
-    return quality === 'export' && params.wallStyle === 'weave'
+    return quality === 'export' && (params.wallStyle === 'weave' || params.wallStyle === 'expanded')
       ? body.simplify(EXPORT_TOLERANCE)
       : body.translate(0, 0, 0);
   } finally {

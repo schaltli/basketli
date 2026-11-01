@@ -5,6 +5,7 @@ export const de = {
   wallStyleSolid: 'Glatt',
   wallStyleWeave: 'Geflecht',
   wallStyleVoronoi: 'Voronoi',
+  wallStyleExpanded: 'Streckmetall',
   voronoiReroll: 'Neu würfeln',
   weaveMaterial: 'Material',
   weaveCane: 'Rohr',

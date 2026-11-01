@@ -4,6 +4,7 @@ import type { BasketParams } from '../params';
 import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
+import { bentCutter } from './wallcut';
 
 /** Corner radius of the holes (organic look), scaled down for small cells. */
 export const CORNER_ROUND = 1.5;
@@ -199,9 +200,6 @@ function dropCollinear(poly: Vec2[]): Vec2[] {
   return out;
 }
 
-/** Longest step (mm) along the wall between two cutter vertices (follows the corners). */
-const MAX_SEGMENT = 0.5;
-
 /**
  * Voronoi holes in wall coordinates (x = arc length along the outer wall,
  * starting at the middle of the front, counter-clockwise; y = height).
@@ -238,57 +236,13 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
   return holes;
 }
 
-/** Inserts points so no edge is longer than `max` (keeps curved walls smooth). */
-function subdivide(poly: Vec2[], max: number): Vec2[] {
-  const out: Vec2[] = [];
-  poly.forEach((a, i) => {
-    const b = poly[(i + 1) % poly.length]!;
-    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / max));
-    for (let k = 0; k < n; k++)
-      out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
-  });
-  return out;
-}
-
 /**
- * One cutter body for all holes: every (convex) hole is bent onto the wall
- * along the outer outline and pushed through it from 1 mm outside to 1 mm
- * inside, so holes follow the rounded corners.
+ * One cutter body for all holes, bent onto the wall along the outer outline
+ * and reaching from 1 mm outside to 1 mm inside the wall.
  */
 export function voronoiCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
   const holes = voronoiHoles(wasm, scope, p);
   if (holes.length === 0) return [];
   const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
-  const uOut = 1;
-  const uIn = -(p.wall + 1);
-  const vert: number[] = [];
-  const tri: number[] = [];
-  const put = (x: number, y: number, u: number) => {
-    const { p: at, n } = path.at(x);
-    vert.push(at[0] + n[0] * u, at[1] + n[1] * u, y);
-    return vert.length / 3 - 1;
-  };
-
-  for (const hole of holes) {
-    const ring = subdivide(hole, MAX_SEGMENT);
-    const cx = ring.reduce((a, q) => a + q[0], 0) / ring.length;
-    const cy = ring.reduce((a, q) => a + q[1], 0) / ring.length;
-    const m = ring.length;
-    const cO = put(cx, cy, uOut);
-    const cI = put(cx, cy, uIn);
-    const O = ring.map(([x, y]) => put(x, y, uOut));
-    const I = ring.map(([x, y]) => put(x, y, uIn));
-    for (let i = 0; i < m; i++) {
-      const j = (i + 1) % m;
-      tri.push(cO, O[i]!, O[j]!); // outer cap, facing outwards
-      tri.push(cI, I[j]!, I[i]!); // inner cap, facing inwards
-      tri.push(O[i]!, I[j]!, O[j]!, O[i]!, I[i]!, I[j]!); // side wall
-    }
-  }
-  const mesh = new wasm.Mesh({
-    numProp: 3,
-    vertProperties: Float32Array.from(vert),
-    triVerts: Uint32Array.from(tri),
-  });
-  return [scope.keep(new wasm.Manifold(mesh))];
+  return [scope.keep(bentCutter(wasm, holes, path, 1, -(p.wall + 1)))];
 }

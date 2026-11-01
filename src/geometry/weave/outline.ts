@@ -31,6 +31,28 @@ export class RoundedRectPath {
     this.length = acc;
   }
 
+  /**
+   * Arc positions that sample the path exactly: both ends of every straight
+   * piece and points at most `arcStep` apart on the corner arcs.
+   */
+  breakpoints(arcStep: number): number[] {
+    const out: number[] = [0];
+    let start = 0;
+    this.ends.forEach((end, piece) => {
+      if (piece % 2 === 1 && end > start) {
+        const n = Math.max(1, Math.ceil((end - start) / arcStep));
+        for (let i = 1; i <= n; i++) out.push(start + ((end - start) * i) / n);
+      } else {
+        out.push(end);
+      }
+      start = end;
+    });
+    // drop the closing point (= 0) and duplicates
+    return [...new Set(out.filter((s) => s < this.length - 1e-9).map((s) => +s.toFixed(9)))].sort(
+      (a, b) => a - b,
+    );
+  }
+
   /** True if the arc range [s0, s1] lies on one straight side (no corner). */
   isStraight(s0: number, s1: number): boolean {
     const a = this.pieceAt(s0);

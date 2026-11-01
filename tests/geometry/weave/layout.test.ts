@@ -38,6 +38,16 @@ describe('RoundedRectPath', () => {
     expect(prev[1]).toBeCloseTo(-30, 9);
   });
 
+  it('breakpoints: straight ends plus fine steps on the arcs', () => {
+    const b = path.breakpoints(1);
+    expect(b[0]).toBe(0);
+    b.forEach((s, i) => i > 0 && expect(s).toBeGreaterThan(b[i - 1]!));
+    expect(b[b.length - 1]).toBeLessThan(path.length);
+    // 4 arcs of length π/2·10 ≈ 15.7 → 16 steps each, plus the straight ends
+    expect(b.length).toBeGreaterThanOrEqual(4 * 16);
+    expect(b.length).toBeLessThan(4 * 16 + 10);
+  });
+
   it('has outward unit normals and points on the rounded rectangle', () => {
     for (let i = 0; i < 400; i++) {
       const { p, n } = path.at((i / 400) * path.length);

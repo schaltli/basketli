@@ -104,22 +104,22 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 
 ### Parameter (Defaults / Grenzen)
 
-| Parameter           | Default     | Bereich                                           | Hinweis                                     |
-| ------------------- | ----------- | ------------------------------------------------- | ------------------------------------------- |
-| Breite (X, außen)   | 150 mm      | 30–400                                            |                                             |
-| Tiefe (Y, außen)    | 100 mm      | 30–400                                            |                                             |
-| Höhe (Z, außen)     | 80 mm       | 20–300                                            | = Stapelraster (s. u.)                      |
-| Wandstärke          | 1.6 mm      | 0.8–5                                             | sinnvoll: Vielfache der Linienbreite        |
-| Bodenstärke         | 1.2 mm      | 0.6–5                                             |                                             |
-| Eckenradius (außen) | 4 mm        | 0–30                                              |                                             |
-| Stapelbar           | an          | an/aus                                            |                                             |
-| Stapelspiel         | 0.3 mm      | 0.1–1.0                                           | Toleranz zwischen Absatz und Rand           |
-| Wandstil            | Waben       | Waben, Schlitze, Rauten, Voronoi, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
-| Lochgröße           | 10 mm       | 3–40                                              |                                             |
-| Stegbreite          | 2.5 mm      | 1–10                                              |                                             |
-| Randband oben/unten | 4 mm        | 3–30                                              | massive Zone ohne Löcher                    |
-| Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten                 | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
-| Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm           | Trennwandhöhe = Innenhöhe oder einstellbar  |
+| Parameter           | Default     | Bereich                                                         | Hinweis                                     |
+| ------------------- | ----------- | --------------------------------------------------------------- | ------------------------------------------- |
+| Breite (X, außen)   | 150 mm      | 30–400                                                          |                                             |
+| Tiefe (Y, außen)    | 100 mm      | 30–400                                                          |                                             |
+| Höhe (Z, außen)     | 80 mm       | 20–300                                                          | = Stapelraster (s. u.)                      |
+| Wandstärke          | 1.6 mm      | 0.8–5                                                           | sinnvoll: Vielfache der Linienbreite        |
+| Bodenstärke         | 1.2 mm      | 0.6–5                                                           |                                             |
+| Eckenradius (außen) | 4 mm        | 0–30                                                            |                                             |
+| Stapelbar           | an          | an/aus                                                          |                                             |
+| Stapelspiel         | 0.3 mm      | 0.1–1.0                                                         | Toleranz zwischen Absatz und Rand           |
+| Wandstil            | Waben       | Waben, Schlitze, Rauten, Voronoi, Streckmetall, Geflecht, keins | Geflecht: eigene Parameter, s. u.           |
+| Lochgröße           | 10 mm       | 3–40                                                            |                                             |
+| Stegbreite          | 2.5 mm      | 1–10                                                            |                                             |
+| Randband oben/unten | 4 mm        | 3–30                                                            | massive Zone ohne Löcher                    |
+| Griffmulden         | Stirnseiten | keine / Stirnseiten / alle Seiten                               | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
+| Unterteilungen      | keine       | Raster X×Y, je Trennwand Position in mm                         | Trennwandhöhe = Innenhöhe oder einstellbar  |
 
 Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße größer als die freie Wandfläche) werden **im UI abgefangen**: Wert wird begrenzt und ein Hinweis angezeigt – keine Abstürze, keine kaputten Meshes.
 
@@ -136,6 +136,7 @@ Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße gr�
 - **Schlitze**: vertikale Langlöcher mit abgerundeten Enden.
 - **Rauten**: auf der Spitze stehende Quadrate (45°).
 - **Voronoi**: echte, unregelmäßige Voronoi-Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), umlaufend ohne Naht um den ganzen Korb (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: In der dünnen Wand laufen die Druckbahnen längs der Wand – schräge Lochoberkanten verlängern die Bahnen nur in Laufrichtung. Ein Scan von oben nach unten verkleinert jedes Loch nur dort, wo sich eine Seite pro 0,2-mm-Schicht um mehr als ~1,4 mm (flacher als 8°) schließen müsste; die letzte Öffnung oben schließt als Brücke (Lochbreite höchstens 13 mm). Löcher werden nur kleiner, nie größer. Mindest-Eckenradius 8 mm (Stege innen ≥ 80 %). Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“). (Entscheidung 2026-11-01: der frühere 45°-Flachschnitt machte alle Zellen oben flach – verworfen.)
+- **Streckmetall** (Prototyp 2026-11-01): **stehende Linsen-Löcher** (zwei Kreisbögen, spitze Enden oben und unten, lange Achse senkrecht – oben spitz statt Brücke) im versetzten Rautengitter; Teilung so berechnet, dass jeder Steg mindestens die Stegbreite hat; umlaufend ohne Naht um die Ecken. Die **verdrehten Stege** werden als Sägezahn-Relief nachgebildet: zwischen zwei Knotenreihen neigt sich das Blech nach außen, an jedem Knoten springt es zurück (innen mit 45°-Fase). Parameter: Linsenbreite 3–15 mm (5), Linsenhöhe 6–40 mm (12, mind. 1,5 × Breite), Stegbreite 1–4 mm (1,6), Verdrehung 0–2 mm (0,8). Mindest-Eckenradius 8 mm.
 - Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.
 
 ### Flechtmuster (Wandstil „Geflecht“)

@@ -13,7 +13,7 @@ import { Viewer } from './ui/viewer/Viewer';
 import './App.css';
 
 /** Wall styles offered by the provisional controls (until T15). */
-const TEMP_STYLES: WallStyle[] = ['solid', 'voronoi', 'weave'];
+const TEMP_STYLES: WallStyle[] = ['solid', 'voronoi', 'expanded', 'weave'];
 
 export function App() {
   const [params, setParams] = useState(DEFAULTS);
@@ -37,6 +37,7 @@ export function App() {
             >
               <option value="solid">{de.wallStyleSolid}</option>
               <option value="voronoi">{de.wallStyleVoronoi}</option>
+              <option value="expanded">{de.wallStyleExpanded}</option>
               <option value="weave">{de.wallStyleWeave}</option>
             </select>
           </label>

@@ -1,6 +1,6 @@
 /** All lengths in mm. */
 
-export type WallStyle = 'solid' | 'hex' | 'slots' | 'diamond' | 'voronoi' | 'weave';
+export type WallStyle = 'solid' | 'hex' | 'slots' | 'diamond' | 'voronoi' | 'expanded' | 'weave';
 export type HandleMode = 'none' | 'ends' | 'all';
 export type WeaveMaterial = 'cane' | 'band';
 
@@ -14,6 +14,16 @@ export interface WeaveParams {
   stakeDiameter: number;
   /** Gap between rows; 0 = closed weave. */
   rowGap: number;
+}
+
+/** Expanded metal ("Streckmetall"): standing lens holes, twisted strands. */
+export interface ExpandedParams {
+  lensWidth: number;
+  lensHeight: number;
+  /** Narrowest strand between two lenses. */
+  strand: number;
+  /** Depth of the sawtooth relief that imitates the twisted strands. */
+  twist: number;
 }
 
 export interface VoronoiParams {
@@ -39,6 +49,7 @@ export interface BasketParams {
   handles: HandleMode;
   weave: WeaveParams;
   voronoi: VoronoiParams;
+  expanded: ExpandedParams;
 }
 
 export interface Range {
@@ -64,6 +75,10 @@ export const LIMITS = {
   rowGap: { min: 0, max: 10 },
   cellSize: { min: 6, max: 12 },
   seed: { min: 0, max: 9999 },
+  lensWidth: { min: 3, max: 15 },
+  lensHeight: { min: 6, max: 40 },
+  strand: { min: 1, max: 4 },
+  twist: { min: 0, max: 2 },
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
@@ -105,6 +120,7 @@ export const DEFAULTS: BasketParams = {
   borderBand: 4,
   handles: 'ends',
   voronoi: { cellSize: 12, seed: 1 },
+  expanded: { lensWidth: 5, lensHeight: 12, strand: 1.6, twist: 0.8 },
   weave: {
     material: 'cane',
     ...MATERIAL_DEFAULTS.cane,
@@ -190,6 +206,15 @@ export function clampParams(input: BasketParams): ClampResult {
     notices.push({ field, kind: 'rule', value });
 
   for (const k of TOP_NUMBERS) p[k] = fit(k, p[k], LIMITS[k], DEFAULTS[k]);
+  p.expanded = { ...input.expanded };
+  for (const k of ['lensWidth', 'lensHeight', 'strand', 'twist'] as const)
+    p.expanded[k] = fit(`expanded.${k}`, p.expanded[k], LIMITS[k], DEFAULTS.expanded[k]);
+  // Lenses stand upright: clearly taller than wide (pointed, steep tops).
+  const minHeight = round(1.5 * p.expanded.lensWidth);
+  if (p.expanded.lensHeight < minHeight) {
+    p.expanded.lensHeight = Math.min(minHeight, LIMITS.lensHeight.max);
+    rule('expanded.lensHeight', p.expanded.lensHeight);
+  }
   p.voronoi = { ...input.voronoi };
   p.voronoi.cellSize = fit(
     'voronoi.cellSize',
@@ -211,7 +236,10 @@ export function clampParams(input: BasketParams): ClampResult {
     p.cornerRadius = maxRadius;
     rule('cornerRadius', maxRadius);
   }
-  if (p.wallStyle === 'voronoi' && p.cornerRadius < MIN_VORONOI_CORNER_RADIUS) {
+  if (
+    (p.wallStyle === 'voronoi' || p.wallStyle === 'expanded') &&
+    p.cornerRadius < MIN_VORONOI_CORNER_RADIUS
+  ) {
     // Holes run round the corners; tighter corners squeeze the inner webs.
     p.cornerRadius = Math.min(MIN_VORONOI_CORNER_RADIUS, maxRadius);
     rule('cornerRadius', p.cornerRadius);
