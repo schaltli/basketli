@@ -54,7 +54,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 
 - [x] T5: Geflecht-Layout (Staken, gerade Anzahl, Reihenaufteilung)
 - [x] T6: Strangpfade (Über/Unter, Phasenversatz)
-- [ ] T7: Sweep-Mesh für Rohr und Band
+- [x] T7: Sweep-Mesh für Rohr und Band
 - [ ] T8: Geflechtkorb zusammensetzen und in der Vorschau anzeigen
 - [ ] T9: STL-Export und Download-Button
 

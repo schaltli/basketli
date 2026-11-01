@@ -92,7 +92,7 @@
       **Dateien:** `src/geometry/weave/path.ts`, `tests/geometry/weave/path.test.ts`
       **Umfang:** S
 
-### - [ ] T7: Sweep-Mesh für Rohr und Band
+### - [x] T7: Sweep-Mesh für Rohr und Band
 
 **Beschreibung:** Ein Querschnitt-Profil wird entlang eines geschlossenen Pfads geführt und ergibt ein geschlossenes Rohr-Mesh mit stabiler Ausrichtung (z bleibt oben, keine Verdrehung). Zwei Profile: Rohr (flach-oval) und Band (Rechteck mit gerundeten Kanten), beide mit Unterkante für ≤ 45° Überhang. Das Mesh wird als Manifold importiert.
 **Akzeptanz:**
