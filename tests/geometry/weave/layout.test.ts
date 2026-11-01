@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
-import { FUSE, oddStakeCount, weaveLayout } from '../../../src/geometry/weave/layout';
+import { FUSE, evenStakeCount, weaveLayout } from '../../../src/geometry/weave/layout';
 import { RoundedRectPath } from '../../../src/geometry/weave/outline';
 
 const weave = (patch: Partial<BasketParams> = {}, w: Partial<BasketParams['weave']> = {}) =>
@@ -51,18 +51,18 @@ describe('RoundedRectPath', () => {
   });
 });
 
-describe('oddStakeCount', () => {
+describe('evenStakeCount', () => {
   it.each([
     [100, 12],
     [120, 40],
     [480, 12],
     [1500, 6],
     [37, 12],
-  ])('length %d / spacing %d → odd, closest of the odd candidates', (length, spacing) => {
-    const n = oddStakeCount(length, spacing);
-    expect(n % 2).toBe(1);
-    expect(n).toBeGreaterThanOrEqual(3);
-    for (const other of [n - 2, n + 2].filter((k) => k >= 3)) {
+  ])('length %d / spacing %d → even, closest of the even candidates', (length, spacing) => {
+    const n = evenStakeCount(length, spacing);
+    expect(n % 2).toBe(0);
+    expect(n).toBeGreaterThanOrEqual(4);
+    for (const other of [n - 2, n + 2].filter((k) => k >= 4)) {
       expect(Math.abs(length / n - spacing)).toBeLessThanOrEqual(
         Math.abs(length / other - spacing),
       );
@@ -71,9 +71,9 @@ describe('oddStakeCount', () => {
 });
 
 describe('weaveLayout', () => {
-  it('defaults: odd stake count, spacing within ±15 % of the target', () => {
+  it('defaults: even stake count, spacing within ±15 % of the target', () => {
     const l = weaveLayout(weave());
-    expect(l.stakeCount % 2).toBe(1);
+    expect(l.stakeCount % 2).toBe(0);
     const spacing = l.path.length / l.stakeCount;
     expect(
       Math.abs(spacing - DEFAULTS.weave.stakeSpacing) / DEFAULTS.weave.stakeSpacing,

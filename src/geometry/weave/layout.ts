@@ -29,10 +29,14 @@ export interface WeaveLayout {
   rimHeight: number;
 }
 
-/** Odd stake count whose spacing is closest to the target spacing (min 3). */
-export function oddStakeCount(length: number, targetSpacing: number): number {
+/**
+ * Even stake count whose spacing is closest to the target spacing (min 4).
+ * Each row is a closed ring that alternates over/under, so it only closes
+ * without a seam when the count is even.
+ */
+export function evenStakeCount(length: number, targetSpacing: number): number {
   const x = length / targetSpacing;
-  const lower = Math.max(3, Math.floor(x) % 2 === 1 ? Math.floor(x) : Math.floor(x) - 1);
+  const lower = Math.max(4, Math.floor(x / 2) * 2);
   const upper = lower + 2;
   const err = (n: number) => Math.abs(length / n - targetSpacing);
   return err(upper) < err(lower) ? upper : lower;
@@ -50,7 +54,7 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
     p.depth - 2 * centerOffset,
     p.cornerRadius - centerOffset,
   );
-  const stakeCount = oddStakeCount(path.length, w.stakeSpacing);
+  const stakeCount = evenStakeCount(path.length, w.stakeSpacing);
   const step = path.length / stakeCount;
   const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
 
