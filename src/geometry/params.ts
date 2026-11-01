@@ -67,6 +67,8 @@ export const LIMITS = {
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
+/** Voronoi wraps round the corners: keeps inner webs at ≥ 80 % (wall 1.6 mm). */
+export const MIN_VORONOI_CORNER_RADIUS = 8;
 
 /** Max. stake spacing of a weave (longest bridge, SPEC: Druckbarkeit). */
 export const MAX_OPEN_SPACING = 15;
@@ -208,6 +210,11 @@ export function clampParams(input: BasketParams): ClampResult {
   if (p.cornerRadius > maxRadius) {
     p.cornerRadius = maxRadius;
     rule('cornerRadius', maxRadius);
+  }
+  if (p.wallStyle === 'voronoi' && p.cornerRadius < MIN_VORONOI_CORNER_RADIUS) {
+    // Holes run round the corners; tighter corners squeeze the inner webs.
+    p.cornerRadius = Math.min(MIN_VORONOI_CORNER_RADIUS, maxRadius);
+    rule('cornerRadius', p.cornerRadius);
   }
   if (isWeave) {
     // Strands must not self-intersect where they bend round the corners.

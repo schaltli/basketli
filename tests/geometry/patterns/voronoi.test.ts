@@ -1,3 +1,4 @@
+import type { CrossSection } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildManifold } from '../../../src/geometry/build';
 import { loadManifold, Scope, type Wasm } from '../../../src/geometry/manifold';
@@ -6,6 +7,7 @@ import {
   MAX_HOLE_TOP,
   printableHole,
   voronoiCutters,
+  voronoiHoles,
   voronoiCells,
   voronoiSites,
   type Rect,
@@ -79,24 +81,69 @@ describe('printableHole', () => {
 });
 
 describe('voronoi webs', () => {
-  it.each([6, 9, 12])('cell size %d: no web thinner than webWidth', async (cellSize) => {
-    const p = clampParams({
+  const params = (cellSize: number) =>
+    clampParams({
       ...DEFAULTS,
       handles: 'none',
       wallStyle: 'voronoi',
       voronoi: { cellSize, seed: 1 },
     }).params;
-    const wasmLocal = await loadManifold();
+
+  /** True if no two of the holes come closer than `gap`. */
+  function apart(cs: CrossSection, gap: number, scope: Scope): boolean {
+    const grown = scope.keep(cs.offset(gap / 2, 'Round'));
+    const merged = grown.decompose();
+    const separate = cs.decompose();
+    const ok = merged.length === separate.length;
+    [...merged, ...separate].forEach((x) => x.delete());
+    return ok;
+  }
+
+  it.each([6, 9, 12])('cell size %d: webs exactly webWidth on the outside', (cellSize) => {
+    const p = params(cellSize);
     const scope = new Scope();
     try {
-      const cutters = voronoiCutters(wasmLocal, scope, p);
-      // Slice the front-face cutters at mid height: holes there must be at
-      // least webWidth apart (allow 2 % for polygonised round corners).
-      const holes = scope.keep(wasmLocal.Manifold.union(cutters)).slice(p.height / 2);
-      const grown = scope.keep(holes.offset((p.webWidth / 2) * 0.98, 'Round'));
-      const merged = grown.decompose().length;
-      const separate = holes.decompose().length;
-      expect(merged).toBe(separate);
+      const holes = voronoiHoles(wasm, scope, p);
+      const cs = scope.keep(wasm.CrossSection.ofPolygons(holes));
+      // 2 % allowance for polygonised round corners
+      expect(apart(cs, p.webWidth * 0.98, scope)).toBe(true);
+      expect(apart(cs, p.webWidth * 1.1, scope)).toBe(false); // and not much wider
+    } finally {
+      scope.dispose();
+    }
+  });
+
+  it.each([6, 9, 12])('cell size %d: inner corner webs ≥ 80 % of webWidth', (cellSize) => {
+    const p = params(cellSize);
+    const scope = new Scope();
+    try {
+      const cutters = voronoiCutters(wasm, scope, p);
+      const cut = scope.keep(scope.keep(wasm.Manifold.union(cutters)).slice(p.height / 2));
+      // only the part of each hole that lies inside the wall material
+      const tub = scope.keep(buildManifold(wasm, { ...p, wallStyle: 'solid' }, 'export'));
+      const wall = scope.keep(tub.slice(p.height / 2));
+      const holes = scope.keep(cut.intersect(wall));
+      expect(apart(holes, p.webWidth * 0.8 * 0.98, scope)).toBe(true);
+    } finally {
+      scope.dispose();
+    }
+  });
+
+  it('runs round the corners (holes on the corner arcs)', () => {
+    const p = params(9);
+    const scope = new Scope();
+    try {
+      const L = 2 * (p.width + p.depth) - (8 - 2 * Math.PI) * p.cornerRadius;
+      const firstCorner = (p.width - 2 * p.cornerRadius) / 2; // arc length of the first corner start
+      const arc = (Math.PI / 2) * p.cornerRadius;
+      const holes = voronoiHoles(wasm, scope, p);
+      const onCorner = holes.filter((h) =>
+        h.some(([x]) => {
+          const s = ((x % L) + L) % L;
+          return s > firstCorner && s < firstCorner + arc;
+        }),
+      );
+      expect(onCorner.length).toBeGreaterThan(0);
     } finally {
       scope.dispose();
     }

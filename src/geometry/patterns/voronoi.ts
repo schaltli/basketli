@@ -3,6 +3,7 @@ import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
+import { RoundedRectPath } from '../weave/outline';
 
 /** Corner radius of the holes (organic look), scaled down for small cells. */
 export const CORNER_ROUND = 1.5;
@@ -64,9 +65,18 @@ function clipHalfPlane(poly: Vec2[], a: Vec2, b: Vec2): Vec2[] {
   return out;
 }
 
-/** Voronoi cells of `sites`, clipped to `domain` (convex, counter-clockwise). */
-export function voronoiCells(domain: Rect, sites: Vec2[], cellSize: number): Vec2[][] {
+/**
+ * Voronoi cells of `sites`, clipped to `domain` (convex, counter-clockwise).
+ * `ghosts` only act as neighbours (e.g. periodic copies), they get no cell.
+ */
+export function voronoiCells(
+  domain: Rect,
+  sites: Vec2[],
+  cellSize: number,
+  ghosts: Vec2[] = [],
+): Vec2[][] {
   const reach = 3 * cellSize;
+  const all = [...sites, ...ghosts];
   return sites.map((a) => {
     let cell: Vec2[] = [
       [domain.x0, domain.y0],
@@ -74,7 +84,7 @@ export function voronoiCells(domain: Rect, sites: Vec2[], cellSize: number): Vec
       [domain.x1, domain.y1],
       [domain.x0, domain.y1],
     ];
-    for (const b of sites) {
+    for (const b of all) {
       if (b === a || Math.abs(b[0] - a[0]) > reach || Math.abs(b[1] - a[1]) > reach) continue;
       cell = clipHalfPlane(cell, a, b);
       if (cell.length < 3) break;
@@ -111,73 +121,96 @@ export function printableHole(hole: Vec2[]): Vec2[] {
   return out;
 }
 
-/** Straight wall faces of the outer outline: center, tangent (CCW), outward normal, length. */
-function wallFaces(p: BasketParams) {
-  const lx = p.width - 2 * p.cornerRadius;
-  const ly = p.depth - 2 * p.cornerRadius;
-  return [
-    { c: [0, -p.depth / 2], t: [1, 0], n: [0, -1], len: lx },
-    { c: [p.width / 2, 0], t: [0, 1], n: [1, 0], len: ly },
-    { c: [0, p.depth / 2], t: [-1, 0], n: [0, 1], len: lx },
-    { c: [-p.width / 2, 0], t: [0, -1], n: [-1, 0], len: ly },
-  ] as const;
+/** Longest step (mm) along the wall between two cutter vertices (follows the corners). */
+const MAX_SEGMENT = 0.5;
+
+/**
+ * Voronoi holes in wall coordinates (x = arc length along the outer wall,
+ * starting at the middle of the front, counter-clockwise; y = height).
+ * The pattern is periodic in x, so it runs round the corners without a seam.
+ */
+export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][] {
+  const { CrossSection } = wasm;
+  const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+  const L = path.length;
+  const y0 = p.floor + p.borderBand;
+  const y1 = p.height - p.borderBand;
+  if (y1 - y0 < p.voronoi.cellSize / 2) return [];
+
+  const sites = voronoiSites({ x0: 0, y0, x1: L, y1 }, p.voronoi.cellSize, p.voronoi.seed);
+  const ghosts = sites.flatMap(([x, y]): Vec2[] => [
+    [x - L, y],
+    [x + L, y],
+  ]);
+  const domain: Rect = { x0: -L, y0, x1: 2 * L, y1 };
+  const round = cornerRound(p.voronoi.cellSize);
+  const holes: Vec2[][] = [];
+  for (const cell of voronoiCells(domain, sites, p.voronoi.cellSize, ghosts)) {
+    // Shrink by half the web plus the corner radius, then grow back by the
+    // radius: rounded corners, webs exactly webWidth wide (on the outside).
+    const cs = scope.keep(CrossSection.ofPolygons([cell]));
+    const inset = scope.keep(cs.offset(-p.webWidth / 2 - round, 'Miter'));
+    const shrunk = scope.keep(inset.offset(round, 'Round', 2, 16));
+    for (const poly of shrunk.toPolygons()) {
+      if (poly.length < 3) continue;
+      const hole = printableHole(poly.map(([x, y]) => [x, y] as Vec2));
+      if (hole.length >= 3) holes.push(hole);
+    }
+  }
+  return holes;
+}
+
+/** Inserts points so no edge is longer than `max` (keeps curved walls smooth). */
+function subdivide(poly: Vec2[], max: number): Vec2[] {
+  const out: Vec2[] = [];
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / max));
+    for (let k = 0; k < n; k++)
+      out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  });
+  return out;
 }
 
 /**
- * Hole cutters for the Voronoi wall style: one prism per cell, through the
- * wall, on each straight face. Corners and the border bands stay solid.
+ * One cutter body for all holes: every (convex) hole is bent onto the wall
+ * along the outer outline and pushed through it from 1 mm outside to 1 mm
+ * inside, so holes follow the rounded corners.
  */
 export function voronoiCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
-  const { CrossSection } = wasm;
-  const cutters: Manifold[] = [];
-  const v0 = p.floor + p.borderBand;
-  const v1 = p.height - p.borderBand;
-  if (v1 - v0 < p.voronoi.cellSize / 2) return cutters;
-  const depth = 4 * p.wall + 2;
+  const holes = voronoiHoles(wasm, scope, p);
+  if (holes.length === 0) return [];
+  const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+  const uOut = 1;
+  const uIn = -(p.wall + 1);
+  const vert: number[] = [];
+  const tri: number[] = [];
+  const put = (x: number, y: number, u: number) => {
+    const { p: at, n } = path.at(x);
+    vert.push(at[0] + n[0] * u, at[1] + n[1] * u, y);
+    return vert.length / 3 - 1;
+  };
 
-  wallFaces(p).forEach((face, f) => {
-    const half = face.len / 2 - p.webWidth;
-    if (half * 2 < p.voronoi.cellSize / 2) return;
-    const domain: Rect = { x0: -half, y0: v0, x1: half, y1: v1 };
-    const sites = voronoiSites(domain, p.voronoi.cellSize, p.voronoi.seed * 4 + f);
-    const holes: Vec2[][] = [];
-    for (const cell of voronoiCells(domain, sites, p.voronoi.cellSize)) {
-      // Shrink by half the web plus the corner radius, then grow back by the
-      // radius: rounded corners, webs exactly webWidth wide.
-      const round = cornerRound(p.voronoi.cellSize);
-      const cs = scope.keep(CrossSection.ofPolygons([cell]));
-      const inset = scope.keep(cs.offset(-p.webWidth / 2 - round, 'Miter'));
-      const shrunk = scope.keep(inset.offset(round, 'Round', 2, 16));
-      for (const poly of shrunk.toPolygons()) {
-        if (poly.length < 3) continue;
-        const hole = printableHole(poly.map(([x, y]) => [x, y] as Vec2));
-        if (hole.length >= 3) holes.push(hole);
-      }
+  for (const hole of holes) {
+    const ring = subdivide(hole, MAX_SEGMENT);
+    const cx = ring.reduce((a, q) => a + q[0], 0) / ring.length;
+    const cy = ring.reduce((a, q) => a + q[1], 0) / ring.length;
+    const m = ring.length;
+    const cO = put(cx, cy, uOut);
+    const cI = put(cx, cy, uIn);
+    const O = ring.map(([x, y]) => put(x, y, uOut));
+    const I = ring.map(([x, y]) => put(x, y, uIn));
+    for (let i = 0; i < m; i++) {
+      const j = (i + 1) % m;
+      tri.push(cO, O[i]!, O[j]!); // outer cap, facing outwards
+      tri.push(cI, I[j]!, I[i]!); // inner cap, facing inwards
+      tri.push(O[i]!, I[j]!, O[j]!, O[i]!, I[i]!, I[j]!); // side wall
     }
-    if (holes.length === 0) return;
-    const prism = scope.keep(
-      scope.keep(CrossSection.ofPolygons(holes)).extrude(depth, 0, 0, [1, 1], true),
-    );
-    // Columns: local x → tangent, local y → up, local z → outward normal.
-    const m = prism.transform([
-      face.t[0],
-      face.t[1],
-      0,
-      0,
-      0,
-      0,
-      1,
-      0,
-      face.n[0],
-      face.n[1],
-      0,
-      0,
-      face.c[0],
-      face.c[1],
-      0,
-      1,
-    ]);
-    cutters.push(scope.keep(m));
+  }
+  const mesh = new wasm.Mesh({
+    numProp: 3,
+    vertProperties: Float32Array.from(vert),
+    triVerts: Uint32Array.from(tri),
   });
-  return cutters;
+  return [scope.keep(new wasm.Manifold(mesh))];
 }
