@@ -105,7 +105,7 @@
       **Dateien:** `src/geometry/weave/profile.ts`, `src/geometry/weave/sweep.ts`, `tests/geometry/weave/sweep.test.ts`
       **Umfang:** M
 
-### - [ ] T8: Geflechtkorb zusammensetzen
+### - [x] T8: Geflechtkorb zusammensetzen
 
 **Beschreibung:** `build()` erzeugt im Wandstil „Geflecht“ den Korb aus massivem Boden, Fußband, Staken, allen Strängen und einem gerundeten Randwulst, vereinigt in einem Batch-Union. In der Vorschau bekommt der Geflecht-Modus ein Rattan-Material. Dazu eine provisorische Umschaltung „massiv/Geflecht“ und „Rohr/Band“ in der Oberfläche (wird in T15 ersetzt). Zeitmessung im Worker.
 **Akzeptanz:**

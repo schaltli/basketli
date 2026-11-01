@@ -5,6 +5,7 @@ import { BufferAttribute, BufferGeometry } from 'three';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { MeshData } from '../../geometry/build';
 import type { BasketParams } from '../../geometry/params';
+import { materialFor } from './materials';
 
 const CREASE_ANGLE = Math.PI / 6;
 
@@ -45,7 +46,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
       <group rotation={[-Math.PI / 2, 0, 0]}>
         {geometry && (
           <mesh geometry={geometry}>
-            <meshStandardMaterial color="#d9cbb3" roughness={0.65} metalness={0} />
+            <meshStandardMaterial {...materialFor(params.wallStyle)} />
           </mesh>
         )}
       </group>

@@ -2,6 +2,7 @@ import type { Manifold } from 'manifold-3d';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
+import { buildWeave } from './weave';
 
 export type { Quality };
 
@@ -18,9 +19,12 @@ export interface MeshData {
 export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality): Manifold {
   const scope = new Scope();
   try {
-    const tub = buildTub(wasm, scope, params, quality);
+    const body =
+      params.wallStyle === 'weave'
+        ? buildWeave(wasm, scope, params, quality).body
+        : buildTub(wasm, scope, params, quality);
     // A transformed copy is a new object that survives scope.dispose().
-    return tub.translate(0, 0, 0);
+    return body.translate(0, 0, 0);
   } finally {
     scope.dispose();
   }
