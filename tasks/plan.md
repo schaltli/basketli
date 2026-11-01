@@ -52,7 +52,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 
 ### Phase 2 – Geflecht-Prototyp (Risiko zuerst)
 
-- [ ] T5: Geflecht-Layout (Staken, ungerade Anzahl, Reihenaufteilung)
+- [x] T5: Geflecht-Layout (Staken, ungerade Anzahl, Reihenaufteilung)
 - [ ] T6: Strangpfade (Über/Unter, Phasenversatz)
 - [ ] T7: Sweep-Mesh für Rohr und Band
 - [ ] T8: Geflechtkorb zusammensetzen und in der Vorschau anzeigen

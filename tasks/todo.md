@@ -67,13 +67,13 @@
 
 ## Phase 2 – Geflecht-Prototyp
 
-### - [ ] T5: Geflecht-Layout
+### - [x] T5: Geflecht-Layout
 
 **Beschreibung:** Eine reine Rechenfunktion `weaveLayout(params)` liefert den Umrisspfad (abgerundetes Rechteck auf der Wandmitte), die Stakenpositionen (Bogenlänge, Punkt, Normale) und die Reihen (z-Mitte, Höhe), außerdem die resultierende Höhe von Fußband und Randwulst.
 **Akzeptanz:**
 
-- [ ] Die Stakenzahl ist immer ungerade; der Abstand weicht höchstens ±15 % vom Zielwert ab.
-- [ ] Reihenanzahl = ⌊nutzbare Höhe / (Materialhöhe + Spalt)⌋; der Rest geht je zur Hälfte an Fußband und Randwulst. Getestet mit Rohr und Band bei 3, 15 und 40 mm.
+- [ ] Die Stakenzahl ist immer ungerade; gewählt wird die ungerade Zahl mit dem Abstand am nächsten zum Zielwert; bei den Defaults weicht er höchstens ±15 % ab.
+- [ ] Reihenanzahl n = ⌊(nutzbare Höhe − Spalt) / (Materialhöhe + Spalt)⌋ mit n + 1 Spalten; der Rest geht je zur Hälfte an Fußband und Randwulst. Getestet mit Rohr und Band bei 3, 15 und 40 mm.
       **Prüfung:** `npx vitest run tests/geometry/weave/layout.test.ts`
       **Abhängig von:** T2
       **Dateien:** `src/geometry/weave/layout.ts`, `src/geometry/weave/outline.ts`, `tests/geometry/weave/layout.test.ts`
@@ -86,7 +86,7 @@
 
 - [ ] An den Staken wechselt das Vorzeichen der Verschiebung von Stake zu Stake (auch über die Naht des geschlossenen Pfads hinweg).
 - [ ] Benachbarte Reihen haben an derselben Stake entgegengesetzte Vorzeichen.
-- [ ] Amplitude = Stakendurchmesser/2 + Materialdicke/2.
+- [ ] Amplitude = Stakendurchmesser/2 + Materialdicke/2 − FUSE (0,3 mm Überlappung).
       **Prüfung:** `npx vitest run tests/geometry/weave/path.test.ts`
       **Abhängig von:** T5
       **Dateien:** `src/geometry/weave/path.ts`, `tests/geometry/weave/path.test.ts`

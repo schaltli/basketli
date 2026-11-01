@@ -146,13 +146,13 @@ Ziel: Der Korb soll **tatsächlich wie geflochten aussehen** – nicht wie eine 
 - **Staken**: senkrechte Rundstäbe im gleichmäßigen Abstand rund um den Korb, verankert in Boden und oberem Rand.
 - **Flechtstränge**: waagerechte, umlaufende Stränge, die sich **wellenförmig abwechselnd vor und hinter** den Staken entlangführen (Leinwandbindung: 1 über, 1 unter).
 - Benachbarte Reihen sind **um eine Stake versetzt** – dadurch entsteht das typische Schachbrett-Flechtbild. Damit das umlaufend ohne Bruchstelle aufgeht, wird die Stakenzahl automatisch **ungerade** gewählt (klassischer Korbmacher-Trick).
-- Die Stränge laufen um die **abgerundeten Ecken** herum (Mindest-Eckenradius im Geflecht-Modus: 10 mm).
+- Die Stränge laufen um die **abgerundeten Ecken** herum (Mindest-Eckenradius im Geflecht-Modus: max(10 mm, Stakendurchmesser + 2 × Materialdicke + 1 mm), damit die Stränge in der Ecke nicht mit sich selbst kollidieren).
 - **Flechtmaterial wählbar** über den Querschnitt:
   - **Rohr**: flach-ovaler Querschnitt wie geschältes Peddigrohr.
   - **Band**: flacher Streifen mit leicht gerundeten Kanten, wie Flechtband/Papierkordel-Band.
   - Die **Höhe des Flechtmaterials** (bei Rohr: Querschnittshöhe, bei Band: Bandbreite) ist frei einstellbar, ebenso die Dicke. So lassen sich sowohl feine Rohrgeflechte als auch breite Bandgeflechte erzeugen.
 - Staken sind rund.
-- **Reihenaufteilung**: Anzahl Reihen = ⌊nutzbare Wandhöhe / (Materialhöhe + Reihenabstand)⌋; die Resthöhe wird gleichmäßig auf Fußband und Randwulst verteilt, damit oben und unten keine angeschnittene Reihe entsteht.
+- **Reihenaufteilung**: n Reihen mit n + 1 Spalten (auch zu Fußband und Rand), n = ⌊(nutzbare Wandhöhe − Reihenabstand) / (Materialhöhe + Reihenabstand)⌋; die Resthöhe wird gleichmäßig auf Fußband und Randwulst verteilt, damit oben und unten keine angeschnittene Reihe entsteht.
 - Bindung in v1 ausschließlich **Leinwandbindung (1 über / 1 unter)**.
 - Nur **rechteckige Körbe** (mit Eckenradius); der **Boden bleibt massiv**.
 - **Oberer Rand**: massiver, gerundeter Abschlusswulst (optisch „Zopfrand“-ähnlich als Relief), der zugleich die Stapelkante bildet. **Unten**: massives Fußband mit Stapel-Absatz.
@@ -173,7 +173,7 @@ Ziel: Der Korb soll **tatsächlich wie geflochten aussehen** – nicht wie eine 
 | Stakenabstand (Ziel, wird auf ungerade Anzahl gerundet) | 12 mm                                             | 6–40       |
 | Stakendurchmesser                                       | 3 mm                                              | 2–8        |
 | Reihenabstand (Spalt)                                   | 0 mm (geschlossen)                                | 0–10       |
-| Wellen-Amplitude (Aus-/Einschwingen um Staken)          | automatisch = Stakendurchmesser/2 + Strangdicke/2 | –          |
+| Wellen-Amplitude (Aus-/Einschwingen um Staken)          | automatisch = Stakendurchmesser/2 + Materialdicke/2 − 0,3 mm (Überlappung, damit Strang und Stake verschmelzen) | –          |
 
 **Druckbarkeit**
 

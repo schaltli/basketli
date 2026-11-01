@@ -185,9 +185,14 @@ export function clampParams(input: BasketParams): ClampResult {
     p.cornerRadius = maxRadius;
     rule('cornerRadius', maxRadius);
   }
-  if (isWeave && p.cornerRadius < MIN_WEAVE_CORNER_RADIUS) {
-    p.cornerRadius = MIN_WEAVE_CORNER_RADIUS;
-    rule('cornerRadius', MIN_WEAVE_CORNER_RADIUS);
+  if (isWeave) {
+    // Strands must not self-intersect where they bend round the corners.
+    const span = p.weave.stakeDiameter + 2 * p.weave.materialThickness;
+    const minRadius = Math.max(MIN_WEAVE_CORNER_RADIUS, round(span + 1));
+    if (p.cornerRadius < minRadius) {
+      p.cornerRadius = Math.min(minRadius, maxRadius);
+      rule('cornerRadius', p.cornerRadius);
+    }
   }
 
   // Border bands must leave a usable wall zone.

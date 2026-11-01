@@ -101,6 +101,17 @@ describe('clampParams – dependent rules', () => {
     );
   });
 
+  it('weave: corner radius leaves room for thick strands to bend', () => {
+    const r = clampParams(
+      withWeave({ stakeDiameter: 8, materialThickness: 4, stakeSpacing: 20 }, { cornerRadius: 10 }),
+    );
+    // span = 8 + 2*4 = 16 → radius must be >= span + 1
+    expect(r.params.cornerRadius).toBe(17);
+    expect(r.notices).toContainEqual(
+      expect.objectContaining({ field: 'cornerRadius', kind: 'rule' }),
+    );
+  });
+
   it('border bands leave room in the wall', () => {
     const r = clampParams(withP({ height: 20, borderBand: 30, handles: 'none' }));
     expect(r.params.borderBand * 2).toBeLessThan(r.params.height);
