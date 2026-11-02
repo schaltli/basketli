@@ -64,7 +64,11 @@ function contour(p: BasketParams, inset: number, quality: Quality) {
 
 const lift = (pts: Vec2[], z: number): [number, number, number][] => pts.map(([x, y]) => [x, y, z]);
 
-/** Outer shape of a stackable basket: drawn-in foot, 45° chamfer, full outline. */
+/**
+ * Outer shape of a stackable basket: drawn-in foot, 45° chamfer, full outline.
+ * Above the foot the shape is convex (one hull); the foot prism reaches into
+ * it, so the two parts share no faces and the union leaves no slivers.
+ */
 export function stackEnvelope(
   wasm: Wasm,
   scope: Scope,
@@ -72,27 +76,27 @@ export function stackEnvelope(
   quality: Quality,
 ): Manifold {
   const { Manifold, CrossSection } = wasm;
-  const inset = footInset(p);
-  const foot = contour(p, inset, quality);
+  const foot = contour(p, footInset(p), quality);
   const full = contour(p, 0, quality);
-  const footSolid = scope.keep(scope.keep(CrossSection.ofPolygons([foot])).extrude(FOOT_HEIGHT));
-  const chamfer = scope.keep(
-    Manifold.hull([...lift(foot, FOOT_HEIGHT), ...lift(full, FOOT_HEIGHT + inset)]),
+  const footPrism = scope.keep(scope.keep(CrossSection.ofPolygons([foot])).extrude(socketTop(p)));
+  const upper = scope.keep(
+    Manifold.hull([
+      ...lift(foot, FOOT_HEIGHT),
+      ...lift(full, socketTop(p)),
+      ...lift(full, p.height),
+    ]),
   );
-  const top = socketTop(p);
-  const body = scope.keep(
-    scope
-      .keep(scope.keep(CrossSection.ofPolygons([full])).extrude(p.height - top))
-      .translate(0, 0, top),
-  );
-  return scope.keep(Manifold.union([footSolid, chamfer, body]));
+  return scope.keep(footPrism.add(upper));
 }
 
-/** Solid socket ring (foot + chamfer zone) around a floor plate. */
-export function socketSolid(wasm: Wasm, scope: Scope, p: BasketParams, quality: Quality): Manifold {
+/**
+ * Solid socket ring around the floor plate, up to the end of the chamfer.
+ * It is a plain prism: the envelope cuts foot and chamfer once, for the
+ * whole basket, so no two booleans have to agree on the chamfer plane.
+ */
+export function socketRing(wasm: Wasm, scope: Scope, p: BasketParams, quality: Quality): Manifold {
   const { CrossSection } = wasm;
   const top = socketTop(p);
-  const env = stackEnvelope(wasm, scope, p, quality);
   const slab = scope.keep(
     scope.keep(CrossSection.ofPolygons([contour(p, 0, quality)])).extrude(top),
   );
@@ -105,7 +109,7 @@ export function socketSolid(wasm: Wasm, scope: Scope, p: BasketParams, quality: 
       )
       .translate(0, 0, p.floor),
   );
-  return scope.keep(scope.keep(env.intersect(slab)).subtract(cavity));
+  return scope.keep(slab.subtract(cavity));
 }
 
 /** Gives any basket body the shared stacking interface. */
@@ -118,6 +122,6 @@ export function withStacking(
 ): Manifold {
   if (!p.stackable) return body;
   const env = stackEnvelope(wasm, scope, p, quality);
-  const merged = scope.keep(wasm.Manifold.union([body, socketSolid(wasm, scope, p, quality)]));
+  const merged = scope.keep(wasm.Manifold.union([body, socketRing(wasm, scope, p, quality)]));
   return scope.keep(merged.intersect(env));
 }

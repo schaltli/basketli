@@ -12,6 +12,7 @@ import { overhangReport } from '../../src/geometry/printability';
 import {
   FOOT_HEIGHT,
   footInset,
+  socketTop,
   STACK_INSET,
   stackPitch,
   wallIntrusion,
@@ -79,6 +80,67 @@ describe('stacking interface', () => {
       cut.delete();
     } finally {
       m.delete();
+    }
+  });
+});
+
+/**
+ * Normals of all triangles lying wholly in the socket zone. The socket only
+ * has vertical walls, horizontal floors and the 45° chamfer, so any other
+ * normal is a sliver from a boolean (bug seen at 150×100×80, radius 15).
+ */
+function oddSocketFaces(m: Manifold, p: BasketParams): number {
+  const mesh = m.getMesh();
+  const v = mesh.vertProperties;
+  const n = mesh.numProp;
+  const t = mesh.triVerts;
+  const top = socketTop(p) - 1e-4;
+  let odd = 0;
+  for (let i = 0; i < t.length; i += 3) {
+    const [a, b, c] = [t[i]! * n, t[i + 1]! * n, t[i + 2]! * n];
+    if (v[a + 2]! > top || v[b + 2]! > top || v[c + 2]! > top) continue;
+    const u = [v[b]! - v[a]!, v[b + 1]! - v[a + 1]!, v[b + 2]! - v[a + 2]!];
+    const w = [v[c]! - v[a]!, v[c + 1]! - v[a + 1]!, v[c + 2]! - v[a + 2]!];
+    const cx = u[1]! * w[2]! - u[2]! * w[1]!;
+    const cy = u[2]! * w[0]! - u[0]! * w[2]!;
+    const cz = u[0]! * w[1]! - u[1]! * w[0]!;
+    const len = Math.hypot(cx, cy, cz);
+    if (len < 1e-9) continue;
+    const nz = cz / len;
+    const ok =
+      Math.abs(nz) < 0.02 ||
+      Math.abs(Math.abs(nz) - 1) < 0.02 ||
+      Math.abs(Math.abs(nz) - Math.SQRT1_2) < 0.02;
+    if (!ok) odd++;
+  }
+  return odd;
+}
+
+describe('socket surface', () => {
+  const reported = clampParams({
+    ...DEFAULTS,
+    width: 150,
+    depth: 100,
+    height: 80,
+    cornerRadius: 15,
+    floor: 2,
+    wall: 2,
+    webWidth: 3.6,
+    wallStyle: 'voronoi',
+  }).params;
+  const cases: [string, BasketParams][] = [['Voronoi 150×100×80 r15', reported], ...styles];
+  it.each(cases)('%s: only vertical, horizontal and 45° faces', (_n, p) => {
+    // Weave and expanded exports are simplified (EXPORT_TOLERANCE), which may
+    // tilt long foot faces by a few hundredths of a mm – that is intended.
+    const simplified = p.wallStyle === 'weave' || p.wallStyle === 'expanded';
+    const qualities = simplified ? (['preview'] as const) : (['preview', 'export'] as const);
+    for (const q of qualities) {
+      const m = buildManifold(wasm, p, q);
+      try {
+        expect(oddSocketFaces(m, p), q).toBe(0);
+      } finally {
+        m.delete();
+      }
     }
   });
 });
