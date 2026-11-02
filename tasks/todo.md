@@ -302,17 +302,17 @@
       **Dateien:** `src/ui/viewer/DimensionLabels.tsx`, `src/ui/viewer/Viewer.tsx`
       **Umfang:** S
 
-### - [ ] T17: Ansichten Einzeln / Stapel / Explosion
+### - [x] T17: ~~Ansichten Einzeln / Stapel / Explosion~~ → Stapel-Matrix (Test)
 
-**Beschreibung:** Ein Ansichtsschalter: einzelner Korb, zwei Körbe gestapelt (zweite Instanz um H versetzt) oder Explosion mit Slider für den Abstand. Das Mesh wird nicht neu berechnet, nur instanziert.
+**Entscheid 2026-11-02:** Eine Stapelvorschau bringt wenig, wenn das Stapeln nachweislich funktioniert. Statt der Ansichten misst ein Test das Stapeln nach.
 **Akzeptanz:**
 
-- [ ] Die Stapelansicht zeigt zwei Körbe exakt im Abstand H.
-- [ ] Der Explosions-Slider bewegt flüssig (≥ 50 fps bei Default-Geflecht).
-      **Prüfung:** `npm run dev`, Sichtprüfung
-      **Abhängig von:** T15, T10
-      **Dateien:** `src/ui/viewer/StackView.tsx`, `src/ui/controls/ViewSwitch.tsx`
-      **Umfang:** S
+- [x] Für jeden Wandstil wird ein 100×100×100-mm-Korb in Export-Qualität erzeugt; alle 25 Paare (unten × oben) werden geprüft.
+- [x] Der obere Korb liegt genau beim berechneten Stapelmaß auf: 0,05 mm darüber kein Kontakt, 0,05 mm darunter Kontakt.
+- [x] Der Fuß klemmt nicht: 0,3 mm angehoben lässt er sich in alle vier Richtungen um 0,25 mm verschieben, ohne die Wand zu berühren.
+- [x] Gegenprobe: Mit absichtlich falschem Stapelmaß bzw. zu schmalem Fußeinzug schlägt der Test fehl.
+      **Prüfung:** `npx vitest run tests/geometry/stacking.test.ts`
+      **Dateien:** `tests/geometry/stacking.test.ts`
 
 ### Checkpoint D
 
@@ -376,7 +376,7 @@
 - [ ] Der Test läuft stabil (3 Durchläufe ohne Flake).
 - [ ] Die heruntergeladenen Dateien sind > 0 Byte, und das STL hat die erwartete Byte-Länge.
       **Prüfung:** `npm run e2e`
-      **Abhängig von:** T16, T17, T18, T20, T11
+      **Abhängig von:** T16, T18, T20, T11
       **Dateien:** `e2e/main-flow.spec.ts`
       **Umfang:** S
 

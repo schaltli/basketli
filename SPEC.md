@@ -21,7 +21,7 @@ Maker:innen mit FDM-3D-Drucker (Bambu, Prusa, Creality …), die Körbe für Wer
    2a. Alternativ wähle ich ein **Flechtmuster**: Der Korb sieht aus wie echt geflochten – Flechtstränge laufen sichtbar abwechselnd über und unter den senkrechten Staken, mit echter 3D-Tiefe innen und außen.
 3. Ich aktiviere **Griffmulden** an den Stirnseiten (und optional an den Längsseiten).
 4. Ich **unterteile** den Korb über ein Raster mit „+“-Buttons am rechten und unteren Rand in Fächer; ich kann Trennwände verschieben (Maß eintippen) und wieder entfernen.
-5. Ich stelle ein, ob der Korb **stapelbar** ist; die Vorschau kann zwei Körbe übereinander zeigen (Stapelvorschau / Explosionsansicht per Slider).
+5. Ich stelle ein, ob der Korb **stapelbar** ist. (Eine Stapel-/Explosionsvorschau entfällt, Entscheid 2026-11-02: das Stapeln wird stattdessen automatisch für alle Stil-Kombinationen nachgemessen.)
 6. Ich lade den Korb als **STL oder 3MF** herunter und kann ihn ohne Reparatur im Slicer drucken.
 7. Ich kann meine Konfiguration per **Link teilen** (Parameter in der URL) und beim Neuladen wiederherstellen.
 
@@ -85,7 +85,7 @@ src/
   export/          → stl.ts, threemf.ts (reine Funktionen: Mesh → Uint8Array)
   state/           → zustand-Store, URL-Serialisierung der Parameter
   ui/
-    viewer/        → 3D-Szene, Kamera, Maß-Overlays, Stapel-/Explosionsansicht
+    viewer/        → 3D-Szene, Kamera, Maß-Overlays
     controls/      → Toolbar, Parameter-Dialog, Maß-Eingaben, Raster-Editor
     i18n/de.ts     → Alle UI-Texte
   App.tsx
@@ -211,7 +211,7 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit dünnen Bändern
 ### UI-Fluss (angelehnt an Bento3D)
 
 1. Start: Standard-Korb in der 3D-Ansicht, Maße als anklickbare Labels an den Kanten.
-2. **Toolbar oben**: Parameter-Dialog · Raster-Modus · Ansicht (Einzeln / Stapel / Explosion) · Download (STL | 3MF).
+2. **Toolbar oben**: Parameter-Dialog · Raster-Modus · Download (STL | 3MF).
 3. **Maße**: Klick auf ein Maß → Eingabefeld; alternativ Slider.
 4. **Raster-Modus**: Draufsicht, „+“ am rechten und unteren Rand fügt Trennwände ein; Trennwand anklicken → Position eintippen oder löschen.
 5. Jede Änderung erzeugt die Geometrie neu (entprellt), die Vorschau aktualisiert sich ohne Seitenreload.
@@ -313,4 +313,5 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Keine Stapel-/Explosionsansicht (T17 entfällt). Stattdessen misst ein Test für jede Kombination aus unterem und oberem Wandstil (100×100×100 mm, Export-Qualität) nach: Auflage genau beim Stapelmaß (±0,05 mm) und Fuß ohne Klemmen (0,3 mm angehoben seitlich ±0,25 mm frei).
 - 2026-11-02 · Geflecht bekommt ein glattes Abschlussband (Variante 1), neuer Parameter Abschlussband 5 mm (3–10).

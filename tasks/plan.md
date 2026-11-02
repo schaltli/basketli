@@ -32,7 +32,7 @@ T1 Setup
          ├─ T10 Stapeln ◄─────────────────────────────────────┤
          ├─ T12/T13 Lochmuster                                │
          │                                                    │
-T2 ─ T14 Store+URL ─ T15 Param-Dialog ─ T16 Maß-Labels ─ T17 Ansichten
+T2 ─ T14 Store+URL ─ T15 Param-Dialog ─ T16 Maß-Labels
 T3/T8 ─ T18 Griffmulden
 T3/T8 ─ T19 Trennwände (Geometrie) ─ T20 Raster-Editor (UI, braucht T14)
 T9 ─ T11 3MF
@@ -79,7 +79,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 - [x] T14: Store und URL-Serialisierung
 - [x] T15: Toolbar und Parameter-Dialog (inkl. Geflecht-Abschnitt, Hinweise beim Begrenzen)
 - [x] T16: Maß-Labels am Modell (Klick, Eingabe, Slider)
-- [ ] T17: Ansichten Einzeln / Stapel / Explosion
+- [x] ~~T17: Ansichten Einzeln / Stapel / Explosion~~ entfällt (2026-11-02), ersetzt durch die Stapel-Matrix aller Stile (Test)
 
 **Checkpoint D:** Der komplette Ablauf vom Start bis zum Download geht nur mit der Maus. Ein geteilter Link stellt die Konfiguration 1:1 wieder her. Du prüfst die Bedienung.
 

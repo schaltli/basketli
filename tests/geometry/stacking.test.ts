@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Manifold } from 'manifold-3d';
 import { buildManifold } from '../../src/geometry/build';
 import { loadManifold, type Wasm } from '../../src/geometry/manifold';
@@ -195,45 +195,79 @@ describe('socket inside', () => {
   });
 });
 
-/** Largest overlap volume when `upper` is lifted by dz onto `lower`. */
-function overlap(lower: Manifold, upper: Manifold, dz: number): number {
-  const lifted = upper.translate([0, 0, dz]);
-  const both = lower.intersect(lifted);
-  const v = both.volume();
-  both.delete();
-  lifted.delete();
-  return v;
-}
-
-describe('cross-style stacking', () => {
-  const pairs: [string, string][] = [
-    ['Streckmetall', 'Streckmetall'],
-    ['Geflecht geschlossen', 'Streckmetall'],
-    ['Streckmetall', 'Geflecht offen'],
-    ['Voronoi', 'Geflecht geschlossen'],
-    ['Waben', 'Voronoi'],
-    ['Geflecht offen', 'Waben'],
+/**
+ * Measured stacking for every pair of wall styles on a 100×100×100 mm basket
+ * in export quality (what gets printed). Only the zones that can touch are
+ * compared: the top of the lower basket and the bottom of the upper one.
+ */
+describe('stacking matrix 100×100×100 (export quality)', () => {
+  const SIZE = 100;
+  const big = (wallStyle: WallStyle, rowGap = 0): BasketParams =>
+    clampParams({
+      ...DEFAULTS,
+      width: SIZE,
+      depth: SIZE,
+      height: SIZE,
+      handles: 'none',
+      stackable: true,
+      wallStyle,
+      weave: { ...DEFAULTS.weave, rowGap },
+    }).params;
+  const kinds: [string, BasketParams][] = [
+    ['Streckmetall', big('expanded')],
+    ['Waben', big('hex')],
+    ['Voronoi', big('voronoi')],
+    ['Geflecht geschlossen', big('weave')],
+    ['Geflecht offen', big('weave', 4)],
   ];
-  const byName = Object.fromEntries(styles);
+  const tops = new Map<string, Manifold>();
+  const feet = new Map<string, Manifold>();
 
-  it.each(pairs)('%s below, %s on top: nests, rests on the chamfer, no collision', (lo, up) => {
-    const pl = byName[lo]!;
-    const pu = byName[up]!;
-    const lower = buildManifold(wasm, pl, 'preview');
-    const upper = buildManifold(wasm, pu, 'preview');
-    try {
-      const pitch = stackPitch(pl, pu);
-      expect(pitch).toBeLessThan(pl.height); // the foot really nests
-      expect(overlap(lower, upper, pitch + 0.05)).toBeLessThan(0.5); // sits without collision
-      expect(overlap(lower, upper, pitch - 0.4)).toBeGreaterThan(0.5); // and actually rests there
-      // lateral: the foot is inside the lower basket's opening
-      const opening = lower.slice(pl.height - 0.1).bounds();
-      const foot = upper.slice(FOOT_HEIGHT / 2).bounds();
-      expect(foot.max[0]).toBeLessThan(opening.max[0]);
-      expect(foot.min[0]).toBeGreaterThan(opening.min[0]);
-    } finally {
-      lower.delete();
-      upper.delete();
+  beforeAll(() => {
+    for (const [name, p] of kinds) {
+      const m = buildManifold(wasm, p, 'export');
+      const box = (z0: number, z1: number) =>
+        wasm.Manifold.cube([1000, 1000, z1 - z0]).translate([-500, -500, z0]);
+      const topZone = box(SIZE - 15, SIZE + 1);
+      const footZone = box(-1, 15);
+      tops.set(name, m.intersect(topZone));
+      feet.set(name, m.intersect(footZone));
+      [m, topZone, footZone].forEach((x) => x.delete());
     }
+  }, 120000);
+
+  afterAll(() => {
+    for (const m of [...tops.values(), ...feet.values()]) m.delete();
+  });
+
+  /** Volume (mm³) the upper foot shares with the lower top when moved by (dx, dy, dz). */
+  const clash = (lo: string, up: string, dx: number, dy: number, dz: number) => {
+    const moved = feet.get(up)!.translate([dx, dy, dz]);
+    const both = tops.get(lo)!.intersect(moved);
+    const v = both.volume();
+    both.delete();
+    moved.delete();
+    return v;
+  };
+
+  const pairs: [string, string][] = kinds.flatMap(([lo]) =>
+    kinds.map(([up]) => [lo, up] as [string, string]),
+  );
+  const params = Object.fromEntries(kinds);
+
+  it.each(pairs)('%s below, %s on top', (lo, up) => {
+    const pitch = stackPitch(params[lo]!, params[up]!);
+    expect(pitch).toBeLessThan(SIZE); // the foot really nests
+    // rests exactly at the computed pitch: free just above, touching just below
+    expect(clash(lo, up, 0, 0, pitch + 0.05)).toBeLessThan(1e-3);
+    expect(clash(lo, up, 0, 0, pitch - 0.05)).toBeGreaterThan(1e-3);
+    // the foot does not jam: lifted a little, it can move sideways freely
+    for (const [dx, dy] of [
+      [0.25, 0],
+      [-0.25, 0],
+      [0, 0.25],
+      [0, -0.25],
+    ] as const)
+      expect(clash(lo, up, dx, dy, pitch + 0.3), `shift ${dx},${dy}`).toBeLessThan(1e-3);
   });
 });
