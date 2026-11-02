@@ -8,6 +8,9 @@ export type WallStyle = (typeof WALL_STYLES)[number];
 /** Cut-out from the top edge: none, on one end wall, or on both end walls. */
 export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
 export type HandleMode = (typeof HANDLE_MODES)[number];
+/** Handle kind: cut-out from the top edge, or a closed slot below the rim. */
+export const HANDLE_TYPES = ['notch', 'slot'] as const;
+export type HandleType = (typeof HANDLE_TYPES)[number];
 /** Floor: closed, or holes in one of these patterns. */
 export const FLOOR_PATTERNS = ['closed', 'hex', 'voronoi', 'diamond', 'slots'] as const;
 export type FloorPattern = (typeof FLOOR_PATTERNS)[number];
@@ -66,6 +69,11 @@ export interface BasketParams {
   /** Width and depth of the cut-out from the top edge (mm). */
   handleWidth: number;
   handleDepth: number;
+  handleType: HandleType;
+  /** Closed slot: width, height of the hole and of the solid bar above it (mm). */
+  slotWidth: number;
+  slotHeight: number;
+  slotBar: number;
   /**
    * Divider positions (centers, mm from the outer left / front edge):
    * dividersX split the width, dividersY the depth.
@@ -114,6 +122,9 @@ export const LIMITS = {
   twist: { min: 0, max: 2 },
   handleWidth: { min: 30, max: 120 },
   handleDepth: { min: 10, max: 40 },
+  slotWidth: { min: 40, max: 120 },
+  slotHeight: { min: 15, max: 40 },
+  slotBar: { min: 8, max: 30 },
   dividerHeight: { min: 0, max: 300 },
   floorHoleSize: { min: 4, max: 30 },
   floorWebWidth: { min: 1.5, max: 10 },
@@ -156,6 +167,10 @@ export const DEFAULTS: BasketParams = {
   handles: 'none',
   handleWidth: 60,
   handleDepth: 20,
+  handleType: 'notch',
+  slotWidth: 80,
+  slotHeight: 25,
+  slotBar: 15,
   dividersX: [],
   dividersY: [],
   dividerHeight: 0,
@@ -208,6 +223,9 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'borderBand',
   'handleWidth',
   'handleDepth',
+  'slotWidth',
+  'slotHeight',
+  'slotBar',
   'dividerHeight',
   'floorHoleSize',
   'floorWebWidth',
@@ -387,9 +405,34 @@ export function clampParams(input: BasketParams): ClampResult {
     }
   }
 
-  // Handle cut-outs: framed, inside the straight part of the end walls, and
+  // Handles: framed, inside the straight part of the end walls, and
   // above the socket / bottom zone.
-  if (p.handles !== 'none') {
+  if (p.handles !== 'none' && p.handleType === 'slot') {
+    const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
+    const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
+    // bar + hole + frame below must stay above the socket / bottom zone
+    const room = round(p.height - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
+    if (maxWidth < LIMITS.slotWidth.min || room < LIMITS.slotBar.min + LIMITS.slotHeight.min) {
+      p.handles = 'none';
+      rule('handles', 'none');
+    } else {
+      if (p.slotWidth > maxWidth) {
+        p.slotWidth = maxWidth;
+        rule('slotWidth', maxWidth);
+      }
+      // compare against the rounded limits, or a second pass would clamp again
+      const maxBar = round(room - LIMITS.slotHeight.min);
+      if (p.slotBar > maxBar) {
+        p.slotBar = maxBar;
+        rule('slotBar', maxBar);
+      }
+      const maxHeight = round(room - p.slotBar);
+      if (p.slotHeight > maxHeight) {
+        p.slotHeight = maxHeight;
+        rule('slotHeight', maxHeight);
+      }
+    }
+  } else if (p.handles !== 'none') {
     const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
     const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
     const maxDepth = round(p.height - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);

@@ -2,7 +2,14 @@ import type { Manifold } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildTub } from '../../src/geometry/basket';
 import { buildManifold } from '../../src/geometry/build';
-import { handleArcCenters } from '../../src/geometry/handles';
+import {
+  handleArcCenters,
+  RIB_NECK,
+  RIB_WIDTH,
+  ribOutline,
+  ribPositions,
+  slotGeometry,
+} from '../../src/geometry/handles';
 import { loadManifold, Scope, type Wasm } from '../../src/geometry/manifold';
 import {
   clampParams,
@@ -159,4 +166,130 @@ describe('stacking with cut-outs', () => {
       up.delete();
     }
   });
+});
+
+const slotBasket = (wallStyle: WallStyle, handles: HandleMode, rowGap = 0): BasketParams =>
+  clampParams({
+    ...DEFAULTS,
+    wallStyle,
+    handles,
+    handleType: 'slot',
+    weave: { ...DEFAULTS.weave, rowGap },
+  }).params;
+
+describe('slot geometry', () => {
+  it('ribs stand at most 12 mm apart over the flat part, outermost at the round ends', () => {
+    const p = slotBasket('hex', 'ends');
+    const ribs = ribPositions(p);
+    const { uc } = slotGeometry(p);
+    expect(ribs[0]).toBeCloseTo(-uc, 9);
+    expect(ribs.at(-1)).toBeCloseTo(uc, 9);
+    for (let i = 1; i < ribs.length; i++)
+      expect(ribs[i]! - ribs[i - 1]!).toBeLessThanOrEqual(12 + 1e-9);
+    expect(ribPositions({ ...p, handleType: 'notch' })).toEqual([]);
+  });
+
+  it('rib necks are one line wide and widen at no more than 45°', () => {
+    const p = slotBasket('hex', 'ends');
+    const rib = ribOutline(p, 0);
+    const xs = rib.map((q) => q[0]);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(RIB_WIDTH, 9);
+    const { top, bottom } = slotGeometry(p);
+    const at = (z: number) => rib.filter((q) => Math.abs(q[1] - z) < 1e-9).map((q) => q[0]);
+    const bottomContact = at(bottom - 0.1);
+    expect(Math.max(...bottomContact) - Math.min(...bottomContact)).toBeCloseTo(RIB_NECK, 9);
+    const topContact = at(top + 0.1);
+    expect(Math.max(...topContact) - Math.min(...topContact)).toBeCloseTo(RIB_NECK, 9);
+    for (let i = 0; i < rib.length; i++) {
+      const [a, b] = [rib[i]!, rib[(i + 1) % rib.length]!];
+      const dx = Math.abs(b[0] - a[0]);
+      const dz = Math.abs(b[1] - a[1]);
+      // the contact edges themselves lie inside the wall
+      const contact = [bottom - 0.1, top + 0.1].some((z) => Math.abs(a[1] - z) < 1e-9);
+      if (dx > 1e-9 && !(contact && dz < 1e-9)) expect(dz).toBeGreaterThanOrEqual(dx - 1e-9);
+    }
+  });
+
+  it('clamps the slot into the wall, or drops it when the basket is too low', () => {
+    const low = clampParams({ ...DEFAULTS, height: 50, handles: 'ends', handleType: 'slot' });
+    expect(low.params.handles).toBe('ends');
+    expect(low.params.slotBar + low.params.slotHeight).toBeLessThanOrEqual(
+      50 - 3 - HANDLE_FRAME - 5 + 1e-9,
+    );
+    expect(low.notices.some((n) => n.field === 'slotHeight')).toBe(true);
+    const tiny = clampParams({ ...DEFAULTS, height: 30, handles: 'ends', handleType: 'slot' });
+    expect(tiny.params.handles).toBe('none');
+    const narrow = clampParams({ ...DEFAULTS, depth: 90, handles: 'one', handleType: 'slot' });
+    expect(narrow.params.slotWidth).toBe(90 - 2 * 10 - 2 * (HANDLE_FRAME + 5));
+  });
+});
+
+describe.each(styles)('%s with a closed slot', (_name, style, gap) => {
+  it.each(['one', 'ends'] as const)(
+    '%s: open slot, solid bar, ribs, one printable body',
+    (mode) => {
+      const p = slotBasket(style, mode, gap);
+      expect(p.handles).toBe(mode);
+      expect(p.handleType).toBe('slot');
+      const m = buildManifold(wasm, p, 'preview');
+      const scope = new Scope();
+      try {
+        expect(m.status()).toBe('NoError');
+        const parts = m.decompose();
+        expect(parts.length).toBe(1);
+        parts.forEach((x) => x.delete());
+
+        const T = wallIntrusion(p);
+        const X = p.width / 2;
+        const { top, bottom, uc } = slotGeometry(p);
+        const ribs = ribPositions(p);
+        for (const sx of mode === 'ends' ? [1, -1] : [1]) {
+          const x0 = sx > 0 ? X - T - 0.5 : -X - 0.5;
+          // open between the ribs (only the ribs remain in the hole)
+          const ribVolume = RIB_WIDTH * T * (top - bottom);
+          const hole = inBox(m, [x0, -uc, bottom + 0.5], [x0 + T + 1, uc, top - 0.5]);
+          expect(hole).toBeLessThan(ribs.length * ribVolume);
+          expect(hole).toBeGreaterThan(0.5 * ribs.length * ribVolume);
+          // and nothing at all just beside a rib
+          const between = (ribs[0]! + ribs[1]!) / 2;
+          expect(
+            inBox(m, [x0, between - 2, bottom + 0.5], [x0 + T + 1, between + 2, top - 0.5]),
+          ).toBeLessThan(1e-3);
+        }
+        // solid bar above the slot, full wall thickness
+        const bar: [[number, number, number], [number, number, number]] = [
+          [X - T + 0.05, -uc, top + 0.3],
+          [X - 0.05, uc, top + Math.min(4, p.slotBar - 2)],
+        ];
+        const barVol = (bar[1][0] - bar[0][0]) * (bar[1][1] - bar[0][1]) * (bar[1][2] - bar[0][2]);
+        expect(inBox(m, ...bar) / barVol).toBeGreaterThan(0.97);
+        // solid frame below it
+        const under: [[number, number, number], [number, number, number]] = [
+          [X - T + 0.05, -5, bottom - 1.2],
+          [X - 0.05, 5, bottom - 0.3],
+        ];
+        const underVol =
+          (under[1][0] - under[0][0]) * (under[1][1] - under[0][1]) * (under[1][2] - under[0][2]);
+        expect(inBox(m, ...under) / underVol).toBeGreaterThan(0.97);
+        // the other end keeps its wall
+        if (mode === 'one')
+          expect(inBox(m, [-X - 0.5, -3, bottom + 5], [-X + T, 3, top - 5])).toBeGreaterThan(1);
+
+        // printable: the bar only bridges from rib to rib. Above the round
+        // ends the wall lines just run on lengthwise (in-plane extension).
+        const envelope =
+          style === 'expanded'
+            ? buildExpanded(wasm, scope, p, 'preview', true)
+            : buildTub(wasm, scope, { ...p, wall: T, wallStyle: 'solid' }, 'preview');
+        const r = overhangReport(m, { envelope });
+        expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
+        expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
+          MAX_BRIDGE,
+        );
+      } finally {
+        m.delete();
+        scope.dispose();
+      }
+    },
+  );
 });

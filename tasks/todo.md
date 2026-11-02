@@ -334,6 +334,19 @@
       **Prüfung:** `npx vitest run tests/geometry/handles.test.ts`
       **Dateien:** `src/geometry/handles.ts`, `src/geometry/build.ts`, `src/geometry/patterns/{hex,voronoi}.ts`, `src/geometry/weave/bands.ts`, `src/ui/controls/ParamsPanel.tsx`, `tests/geometry/handles.test.ts`
 
+### - [x] T18b: Geschlossenes Griffloch mit eingebauten Stützrippen
+
+**Entscheid 2026-11-02:** Neben der Aussparung von oben gibt es als Griffart ein echtes Langloch unter einem massiven Steg (Breite 80 mm, Höhe 25 mm, Steg 15 mm). Die waagrechte Oberkante tragen Stützrippen im Modell, die nach dem Druck herausgebrochen werden.
+**Akzeptanz:**
+
+- [x] Alle Wandstile × eine/beide Stirnseiten: ein Körper, Loch zwischen den Rippen offen, Steg und Rahmen massiv, Druckbarkeitstest grün (Brücken ≤ 15 mm, nur von Rippe zu Rippe).
+- [x] Rippen ≤ 12 mm Abstand, Hals 0,4 mm oben und unten, Verbreiterung ≤ 45°.
+- [x] Zu niedriger/schmaler Korb: Steg, Höhe, Breite begrenzt oder Griff abgeschaltet, mit Hinweis.
+- [ ] Testdruck: Rippen lassen sich sauber herausbrechen.
+
+**Prüfung:** `npx vitest run tests/geometry/handles.test.ts tests/ui/params-panel.test.tsx`
+**Dateien:** `src/geometry/handles.ts`, `src/geometry/build.ts`, `src/geometry/params.ts`, `src/state/url.ts`, `src/ui/controls/ParamsPanel.tsx`, `src/ui/i18n/de.ts`, `tests/geometry/handles.test.ts`
+
 ### T19: Trennwände (Entscheid 2026-11-02: Muster pro Fach ausrichten, Trennwände mit Wandmuster, Höhe einstellbar mit Standard „maximal“, durchgehende Trennwände)
 
 #### - [x] T19a: Datenmodell und massive Trennwände

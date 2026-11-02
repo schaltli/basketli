@@ -3,6 +3,7 @@ import { dividerTop } from '../../geometry/dividers';
 import {
   FLOOR_PATTERNS,
   HANDLE_MODES,
+  HANDLE_TYPES,
   LIMITS,
   MIN_DIVIDER_HEIGHT,
   setWeaveMaterial,
@@ -30,6 +31,9 @@ type NumericPath =
   | 'floorHoleSize'
   | 'floorWebWidth'
   | 'handleDepth'
+  | 'slotWidth'
+  | 'slotHeight'
+  | 'slotBar'
   | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
   | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`;
@@ -69,6 +73,9 @@ const STEP: Partial<Record<NumericPath, number>> = {
   floorHoleSize: 0.5,
   floorWebWidth: 0.5,
   handleDepth: 1,
+  slotWidth: 1,
+  slotHeight: 1,
+  slotBar: 1,
 };
 
 const FLOOR_LABEL = {
@@ -80,6 +87,7 @@ const FLOOR_LABEL = {
 } as const;
 
 const HANDLE_LABEL = { none: de.handlesNone, one: de.handlesOne, ends: de.handlesEnds } as const;
+const HANDLE_TYPE_LABEL = { notch: de.handleTypeNotch, slot: de.handleTypeSlot } as const;
 
 const CHOICE_LABEL: Record<StyleChoice, string> = {
   expanded: de.wallStyleExpanded,
@@ -238,9 +246,34 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
               </option>
             ))}
           </select>
-          <p className="field-hint">{de.handlesHint}</p>
         </div>
-        {params.handles !== 'none' && (['handleWidth', 'handleDepth'] as const).map(field)}
+        {params.handles !== 'none' && (
+          <div className="field">
+            <label htmlFor="handle-type">{de.fields.handleType}</label>
+            <select
+              id="handle-type"
+              value={params.handleType}
+              onChange={(e) => {
+                const next = HANDLE_TYPES.find((t) => t === e.target.value) ?? 'notch';
+                update((p) => ({ ...p, handleType: next }));
+              }}
+            >
+              {HANDLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {HANDLE_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">
+              {params.handleType === 'slot' ? de.slotHint : de.handlesHint}
+            </p>
+          </div>
+        )}
+        {params.handles !== 'none' &&
+          (params.handleType === 'slot'
+            ? (['slotWidth', 'slotHeight', 'slotBar'] as const)
+            : (['handleWidth', 'handleDepth'] as const)
+          ).map(field)}
       </fieldset>
 
       <fieldset>

@@ -33,13 +33,25 @@ describe('ParamsPanel', () => {
 
   it('handle cut-out: off by default, width and depth appear when switched on', () => {
     panel();
-    const select = screen.getByLabelText('Griffaussparung');
+    const select = screen.getByLabelText('Griffe');
     expect((select as HTMLSelectElement).value).toBe('none');
     expect(screen.queryByLabelText('Tiefe', { selector: 'input[type=text]' })).toBeTruthy(); // basket depth
     fireEvent.change(select, { target: { value: 'one' } });
     expect(useBasket.getState().params.handles).toBe('one');
     expect(screen.getAllByLabelText('Breite', { selector: 'input[type=text]' })).toHaveLength(2);
     expect(screen.getAllByLabelText('Tiefe', { selector: 'input[type=text]' })).toHaveLength(2);
+  });
+
+  it('closed slot: own width, height and bar instead of the cut-out depth', () => {
+    panel();
+    fireEvent.change(screen.getByLabelText('Griffe'), { target: { value: 'ends' } });
+    const type = screen.getByLabelText('Griffart') as HTMLSelectElement;
+    expect(type.value).toBe('notch');
+    fireEvent.change(type, { target: { value: 'slot' } });
+    expect(useBasket.getState().params.handleType).toBe('slot');
+    expect(screen.getAllByLabelText('Tiefe', { selector: 'input[type=text]' })).toHaveLength(1);
+    expect(screen.getByLabelText('Steg darüber', { selector: 'input[type=text]' })).toBeTruthy();
+    expect(screen.getByText(/Stützrippen sind eingebaut/)).toBeTruthy();
   });
 
   it('offers plain walls; only the wall thickness stays as a wall setting', () => {

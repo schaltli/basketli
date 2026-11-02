@@ -80,11 +80,38 @@ export function notchOutline(p: BasketParams): Vec2[] {
   ];
 }
 
+/**
+ * Closed slot below the rim (u along the wall, z up): a stadium with flat
+ * top and bottom and round ends. Its flat top is carried by breakaway ribs.
+ */
+export function slotGeometry(p: BasketParams) {
+  const r = p.slotHeight / 2;
+  const top = p.height - p.slotBar;
+  const bottom = top - p.slotHeight;
+  /** Centers of the round ends at ±uc. */
+  const uc = Math.max(0, p.slotWidth / 2 - r);
+  return { r, top, bottom, uc, zc: bottom + r };
+}
+
+export function slotOutline(p: BasketParams): Vec2[] {
+  const { r, uc, zc } = slotGeometry(p);
+  return [...arc(uc, zc, r, -PI / 2, PI / 2), ...arc(-uc, zc, r, PI / 2, (3 * PI) / 2)];
+}
+
+/** The opening a handle band frames: half width, lowest point, bottom corner radius. */
+function opening(p: BasketParams): { half: number; bottom: number; rb: number } {
+  if (p.handleType === 'slot') {
+    const g = slotGeometry(p);
+    return { half: p.slotWidth / 2, bottom: g.bottom, rb: g.r };
+  }
+  return { half: p.handleWidth / 2, bottom: p.height - p.handleDepth, rb: bottomRadius(p) };
+}
+
 /** Where the level bottom of the default band outline ends (|u|). */
 function flatEnd(p: BasketParams): number {
-  const rb = bottomRadius(p);
+  const { half, rb } = opening(p);
   const R = rb + HANDLE_FRAME;
-  return p.handleWidth / 2 - rb + R * Math.SQRT1_2 - R * (1 - Math.SQRT1_2);
+  return half - rb + R * Math.SQRT1_2 - R * (1 - Math.SQRT1_2);
 }
 
 /**
@@ -98,8 +125,9 @@ function flatEnd(p: BasketParams): number {
 export function bandOutline(p: BasketParams, ends?: { left: number; right: number }): Vec2[] {
   const H = p.height;
   const F = HANDLE_FRAME;
-  const side = p.handleWidth / 2 + F;
-  const zf = H - p.handleDepth - F;
+  const o = opening(p);
+  const side = o.half + F;
+  const zf = o.bottom - F;
   if (ends) {
     const pts: Vec2[] = [
       [-side, zf + Math.abs(ends.left - side)],
@@ -114,7 +142,7 @@ export function bandOutline(p: BasketParams, ends?: { left: number; right: numbe
       return Math.hypot(q[0] - prev[0], q[1] - prev[1]) > 1e-9;
     });
   }
-  const R = bottomRadius(p) + F;
+  const R = o.rb + F;
   const cx = side - R;
   const cz = zf + R;
   const flat = flatEnd(p);
@@ -152,12 +180,71 @@ const frame = (a: number[], b: number[], e: number[], to: number[]): Mat4 => [
 const onWall = ({ n, t, c }: Site): Mat4 =>
   frame([t[0], t[1], 0], [0, 0, 1], [n[0], n[1], 0], [c[0], c[1], 0]);
 
-/** Cutters for all cut-outs, reaching through the whole wall. */
-export function handleNotches(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
+/** Cutters for all cut-outs or slots, reaching through the whole wall. */
+export function handleCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
   const T = wallIntrusion(p);
-  const shape = scope.keep(wasm.CrossSection.ofPolygons([notchOutline(p)]));
+  const outline = p.handleType === 'slot' ? slotOutline(p) : notchOutline(p);
+  const shape = scope.keep(wasm.CrossSection.ofPolygons([outline]));
   const prism = scope.keep(scope.keep(shape.extrude(T + 2)).translate([0, 0, -(T + 1)]));
   return sites(p).map((site) => scope.keep(prism.transform(onWall(site))));
+}
+
+/** Breakaway ribs: body width, neck width at both contacts, neck height (mm). */
+export const RIB_WIDTH = 0.8;
+export const RIB_NECK = 0.4;
+const NECK_HEIGHT = 0.4;
+/** Ribs reach this far into the wall above and below (fused, not touching). */
+const RIB_OVERLAP = 0.1;
+/** Target distance between ribs, well inside MAX_BRIDGE. */
+const RIB_SPACING = 12;
+
+/** Rib centers along the slot (u): evenly over its flat part, outermost at the round ends. */
+export function ribPositions(p: BasketParams): number[] {
+  if (p.handleType !== 'slot') return [];
+  const { uc } = slotGeometry(p);
+  const gaps = Math.ceil((2 * uc) / RIB_SPACING);
+  if (gaps === 0) return [0];
+  return Array.from({ length: gaps + 1 }, (_, i) => -uc + (2 * uc * i) / gaps);
+}
+
+/** One rib in wall coordinates: a thin plate, necked at the top and bottom contact. */
+export function ribOutline(p: BasketParams, u: number): Vec2[] {
+  const { top, bottom } = slotGeometry(p);
+  const a = RIB_WIDTH / 2;
+  const n = RIB_NECK / 2;
+  // widens 45° above the bottom neck; narrows towards the top neck
+  const lo = bottom + NECK_HEIGHT;
+  const hi = top - NECK_HEIGHT;
+  return [
+    [u - n, bottom - RIB_OVERLAP],
+    [u + n, bottom - RIB_OVERLAP],
+    [u + n, lo],
+    [u + a, lo + (a - n)],
+    [u + a, hi - (a - n)],
+    [u + n, hi],
+    [u + n, top + RIB_OVERLAP],
+    [u - n, top + RIB_OVERLAP],
+    [u - n, hi],
+    [u - a, hi - (a - n)],
+    [u - a, lo + (a - n)],
+    [u - n, lo],
+  ];
+}
+
+/**
+ * Support built into the model: thin ribs standing in each slot, at most
+ * RIB_SPACING apart, so the bar above it only bridges short spans. Each rib
+ * is joined to the wall by a one-line neck at the top and bottom, so it
+ * snaps off after printing.
+ */
+export function handleSupports(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
+  if (p.handleType !== 'slot') return [];
+  const T = wallIntrusion(p);
+  const ribs = scope.keep(
+    wasm.CrossSection.ofPolygons(ribPositions(p).map((u) => ribOutline(p, u))),
+  );
+  const plate = scope.keep(scope.keep(ribs.extrude(T)).translate([0, 0, -T]));
+  return sites(p).map((site) => scope.keep(plate.transform(onWall(site))));
 }
 
 /** Pieces of a cut hole smaller than this share of the hole are dropped (no slivers). */

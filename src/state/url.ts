@@ -4,6 +4,7 @@ import {
   DIVIDER_STYLES,
   FLOOR_PATTERNS,
   HANDLE_MODES,
+  HANDLE_TYPES,
   WALL_STYLES,
   WEAVE_MATERIALS,
   type BasketParams,
@@ -23,6 +24,7 @@ type Kind =
 const ENUMS: Record<string, readonly string[]> = {
   wallStyle: WALL_STYLES,
   handles: HANDLE_MODES,
+  handleType: HANDLE_TYPES,
   dividerStyle: DIVIDER_STYLES,
   floorPattern: FLOOR_PATTERNS,
   'weave.material': WEAVE_MATERIALS,
