@@ -1,4 +1,5 @@
 import type { Manifold } from 'manifold-3d';
+import { dividerSolids } from './dividers';
 import { handleBands, handleNotches } from './handles';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
@@ -46,6 +47,8 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
           body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
       }
     }
+    const dividers = dividerSolids(wasm, scope, params, quality);
+    if (dividers.length > 0) body = scope.keep(wasm.Manifold.union([body, ...dividers]));
     if (params.handles !== 'none') {
       // Open walls get a band closing the cut edges; hole patterns leave
       // that band solid already (clipHoles).

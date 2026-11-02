@@ -11,7 +11,11 @@ import {
 /** Version of the URL format; bump when keys or meanings change. */
 export const URL_VERSION = 1;
 
-type Kind = { type: 'number' } | { type: 'bool' } | { type: 'enum'; values: readonly string[] };
+type Kind =
+  | { type: 'number' }
+  | { type: 'bool' }
+  | { type: 'list' }
+  | { type: 'enum'; values: readonly string[] };
 
 /** Allowed values for string-valued parameters, by dotted path. */
 const ENUMS: Record<string, readonly string[]> = {
@@ -26,7 +30,8 @@ export const FIELDS: { path: string; kind: Kind }[] = (() => {
   const walk = (obj: Record<string, unknown>, prefix: string) => {
     for (const [k, v] of Object.entries(obj)) {
       const path = prefix ? `${prefix}.${k}` : k;
-      if (typeof v === 'number') out.push({ path, kind: { type: 'number' } });
+      if (Array.isArray(v)) out.push({ path, kind: { type: 'list' } });
+      else if (typeof v === 'number') out.push({ path, kind: { type: 'number' } });
       else if (typeof v === 'boolean') out.push({ path, kind: { type: 'bool' } });
       else if (typeof v === 'string')
         out.push({ path, kind: { type: 'enum', values: ENUMS[path] ?? [v] } });
@@ -59,6 +64,13 @@ export function serialize(p: BasketParams): string {
   q.set('v', String(URL_VERSION));
   for (const { path, kind } of FIELDS) {
     const value = get(p, path);
+    if (kind.type === 'list') {
+      // number lists as "40,85.5"
+      const list = value as number[];
+      if (list.join(',') !== (get(DEFAULTS, path) as number[]).join(','))
+        q.set(path, list.join(','));
+      continue;
+    }
     if (value === get(DEFAULTS, path)) continue;
     q.set(path, kind.type === 'bool' ? (value ? '1' : '0') : String(value));
   }
@@ -82,7 +94,11 @@ export function parse(search: string): { params: BasketParams; notices: Notice[]
       notices.push({ field: key, kind: 'unknown', value: raw });
       continue;
     }
-    if (kind.type === 'number') {
+    if (kind.type === 'list') {
+      const items = raw.trim() === '' ? [] : raw.split(',').map(Number);
+      if (items.every(Number.isFinite)) set(p, key, items);
+      else notices.push({ field: key, kind: 'invalid', value: '' });
+    } else if (kind.type === 'number') {
       const n = Number(raw);
       if (raw.trim() === '' || !Number.isFinite(n))
         notices.push({ field: key, kind: 'invalid', value: String(get(DEFAULTS, key)) });

@@ -1,4 +1,5 @@
 /** All lengths in mm. */
+import { dividerTop, fitDividers } from './dividers';
 import { patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
@@ -59,6 +60,14 @@ export interface BasketParams {
   /** Width and depth of the cut-out from the top edge (mm). */
   handleWidth: number;
   handleDepth: number;
+  /**
+   * Divider positions (centers, mm from the outer left / front edge):
+   * dividersX split the width, dividersY the depth.
+   */
+  dividersX: number[];
+  dividersY: number[];
+  /** Divider top above the bottom (mm); 0 = as high as stacking allows. */
+  dividerHeight: number;
   weave: WeaveParams;
   voronoi: VoronoiParams;
   expanded: ExpandedParams;
@@ -94,6 +103,7 @@ export const LIMITS = {
   twist: { min: 0, max: 2 },
   handleWidth: { min: 30, max: 120 },
   handleDepth: { min: 10, max: 40 },
+  dividerHeight: { min: 0, max: 300 },
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
@@ -106,6 +116,8 @@ export const MAX_OPEN_SPACING = 15;
 /** Solid frame round a handle cut-out, and solid wall left before a corner (mm). */
 export const HANDLE_FRAME = 3;
 export const HANDLE_MARGIN = 5;
+/** Lowest divider (above the floor plate, mm). */
+export const MIN_DIVIDER_HEIGHT = 10;
 
 export const MATERIAL_DEFAULTS: Record<
   WeaveMaterial,
@@ -131,6 +143,9 @@ export const DEFAULTS: BasketParams = {
   handles: 'none',
   handleWidth: 60,
   handleDepth: 20,
+  dividersX: [],
+  dividersY: [],
+  dividerHeight: 0,
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
   weave: {
@@ -176,6 +191,7 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'borderBand',
   'handleWidth',
   'handleDepth',
+  'dividerHeight',
 ];
 const WEAVE_NUMBERS: WeaveNumberKey[] = [
   'materialHeight',
@@ -200,7 +216,12 @@ export function straightWallLengths(p: BasketParams): { ends: number; sides: num
  * satisfied. Pure: never mutates its input. Idempotent.
  */
 export function clampParams(input: BasketParams): ClampResult {
-  const p: BasketParams = { ...input, weave: { ...input.weave } };
+  const p: BasketParams = {
+    ...input,
+    dividersX: [...(input.dividersX ?? [])],
+    dividersY: [...(input.dividersY ?? [])],
+    weave: { ...input.weave },
+  };
   const notices: Notice[] = [];
 
   const fit = (field: string, value: number, range: Range, fallback: number): number => {
@@ -358,6 +379,30 @@ export function clampParams(input: BasketParams): ClampResult {
         p.handleDepth = maxDepth;
         rule('handleDepth', maxDepth);
       }
+    }
+  }
+
+  // Dividers: in order, every compartment wide enough, below a stacked basket.
+  const t = wallIntrusion(p);
+  for (const [key, size] of [
+    ['dividersX', p.width],
+    ['dividersY', p.depth],
+  ] as const) {
+    const fit = fitDividers(p[key], size, t);
+    if (fit.changed) {
+      p[key] = fit.positions;
+      rule(key, fit.positions.length);
+    }
+  }
+  if (p.dividerHeight > 0) {
+    const max = round(dividerTop(p));
+    const min = round(p.floor + MIN_DIVIDER_HEIGHT);
+    if (p.dividerHeight > max) {
+      p.dividerHeight = max;
+      rule('dividerHeight', max);
+    } else if (p.dividerHeight < min) {
+      p.dividerHeight = min;
+      rule('dividerHeight', min);
     }
   }
 

@@ -334,17 +334,20 @@
       **Prüfung:** `npx vitest run tests/geometry/handles.test.ts`
       **Dateien:** `src/geometry/handles.ts`, `src/geometry/build.ts`, `src/geometry/patterns/{hex,voronoi}.ts`, `src/geometry/weave/bands.ts`, `src/ui/controls/ParamsPanel.tsx`, `tests/geometry/handles.test.ts`
 
-### - [ ] T19: Trennwände (Geometrie)
+### T19: Trennwände (Entscheid 2026-11-02: Muster pro Fach ausrichten, Trennwände mit Wandmuster, Höhe einstellbar mit Standard „maximal“, durchgehende Trennwände)
 
-**Beschreibung:** Das Datenmodell für das Raster bekommt Trennwand-Positionen in X und Y (in mm, gemessen von der Innenkante). Die Trennwände sind massiv, durchgehend und so hoch wie die Innenhöhe (bzw. ein eingestellter Wert). Sie werden mit der Wand bzw. mit Staken und Strängen vereinigt. Die Erweiterung von `BasketParams` und der URL gehört dazu.
-**Akzeptanz:**
+#### - [x] T19a: Datenmodell und massive Trennwände
 
-- [ ] Jede Trennwand liegt an der angegebenen Position ± 0,01 mm; Positionen werden auf den gültigen Bereich begrenzt (Mindestfach 10 mm).
-- [ ] Das Mesh ist manifold und besteht aus einer Komponente (auch beim Geflecht).
-      **Prüfung:** `npx vitest run tests/geometry/dividers.test.ts`
-      **Abhängig von:** T3, T8, T14
-      **Dateien:** `src/geometry/dividers.ts`, `src/geometry/params.ts`, `src/state/url.ts`, `tests/geometry/dividers.test.ts`
-      **Umfang:** M
+`dividersX`/`dividersY` (Mitte, mm vom linken/vorderen Außenrand), `dividerHeight` (0 = so hoch wie möglich: 0,5 mm unter dem Fuß eines aufgesetzten Korbs). Dicke = Wandstärke des Stils. Positionen werden sortiert, Fächer ≥ 10 mm, Unpassendes entfällt mit Hinweis. Link-Format: `dividersX=50,100.5`.
+**Prüfung:** `npx vitest run tests/geometry/dividers.test.ts` (alle Stile: ein Körper, Lage, Höhe, Stapeln)
+
+#### - [ ] T19b: Wandmuster pro Fach ausrichten
+
+Waben/Streckmetall: ganze Zellen je Fach, zentriert, massiver Anschluss-Steg; Geflecht: Stake an jedem Anschluss (gerade Gesamtzahl); Voronoi: Zellen am Steg angeschnitten.
+
+#### - [ ] T19c: Trennwände mit Wandmuster
+
+Gleiche Regeln je Trennwand-Abschnitt (zwischen Wand und Kreuzungen); Geflecht als gewebte Trennwand mit Staken an Anschlüssen und Kreuzungen.
 
 ### - [ ] T20: Raster-Editor
 

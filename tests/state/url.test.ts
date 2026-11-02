@@ -34,6 +34,12 @@ function randomParams(rnd: () => number): BasketParams {
     const parent = keys.length === 2 ? p[keys[0]!]! : (p as Record<string, unknown>);
     const key = keys[keys.length - 1]!;
     if (kind.type === 'bool') parent[key] = rnd() < 0.5;
+    else if (kind.type === 'list')
+      // a few divider positions somewhere across the basket (clamping sorts them out)
+      parent[key] = Array.from(
+        { length: Math.floor(rnd() * 4) },
+        () => Math.round(rnd() * 3000) / 10,
+      );
     else if (kind.type === 'enum')
       parent[key] = kind.values[Math.floor(rnd() * kind.values.length)];
     else {
@@ -78,6 +84,17 @@ describe('url', () => {
   it('only writes values that differ from the defaults', () => {
     const q = serialize({ ...DEFAULTS, width: 120, weave: { ...DEFAULTS.weave, rowGap: 4 } });
     expect(q).toBe('v=1&width=120&weave.rowGap=4');
+  });
+
+  it('writes divider positions as a comma list and reads them back', () => {
+    const q = serialize({ ...DEFAULTS, dividersX: [50, 100.5], dividersY: [40] });
+    expect(q).toBe('v=1&dividersX=50%2C100.5&dividersY=40');
+    const r = parse('?v=1&dividersX=50,100.5&dividersY=40');
+    expect(r.params.dividersX).toEqual([50, 100.5]);
+    expect(r.params.dividersY).toEqual([40]);
+    expect(parse('?v=1&dividersX=50,abc').notices).toContainEqual(
+      expect.objectContaining({ field: 'dividersX', kind: 'invalid' }),
+    );
   });
 
   it('round-trips 200 random valid configurations', () => {
