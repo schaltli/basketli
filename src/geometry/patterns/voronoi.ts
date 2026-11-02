@@ -5,7 +5,9 @@ import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { clipHoles } from '../handles';
-import { holesBottom } from '../stacking';
+import { effectiveDividerTop } from '../dividers';
+import { junctionArcs } from '../junctions';
+import { holesBottom, wallIntrusion } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Corner radius of the holes (organic look), scaled down for small cells. */
@@ -202,10 +204,34 @@ function dropCollinear(poly: Vec2[]): Vec2[] {
   return out;
 }
 
+/** True if every horizontal line crosses the polygon in at most one span. */
+function oneSpanPerRow(poly: Vec2[]): boolean {
+  const ys = poly.map((q) => q[1]);
+  const lo = Math.min(...ys);
+  const hi = Math.max(...ys);
+  for (let y = lo + 0.05; y < hi; y += 0.25) {
+    let crossings = 0;
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]!;
+      const b = poly[(i + 1) % poly.length]!;
+      if ((a[1] - y) * (b[1] - y) < 0) crossings++;
+    }
+    if (crossings > 2) return false;
+  }
+  return true;
+}
+
 /**
  * Voronoi holes in wall coordinates (x = arc length along the outer wall,
  * starting at the middle of the front, counter-clockwise; y = height).
  * The pattern is periodic in x, so it runs round the corners without a seam.
+ *
+ * With dividers the comb (each divider joint up to the divider top) is kept
+ * free first and the cells fill the rest: no sites inside or right next to
+ * the comb, so the cells beside a tooth are whole cells that end on its
+ * edge (sites above a tooth are mirrored into it, so cells end on its top).
+ * Cells then shrink by half a web like everywhere, leaving exactly one web
+ * to the divider face.
  */
 export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][] {
   const { CrossSection } = wasm;
@@ -213,29 +239,89 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
   const L = path.length;
   const y0 = holesBottom(p);
   const y1 = p.height - p.borderBand;
-  if (y1 - y0 < p.voronoi.cellSize / 2) return [];
+  const size = p.voronoi.cellSize;
+  if (y1 - y0 < size / 2) return [];
 
-  const sites = voronoiSites({ x0: 0, y0, x1: L, y1 }, p.voronoi.cellSize, p.voronoi.seed);
-  const ghosts = sites.flatMap(([x, y]): Vec2[] => [
+  let sites = voronoiSites({ x0: 0, y0, x1: L, y1 }, size, p.voronoi.seed);
+  const joints = junctionArcs(p, path);
+  // comb edges: divider face plus half a web (the cells add the other half)
+  const half = wallIntrusion(p) / 2 + p.webWidth / 2;
+  const top = effectiveDividerTop(p) + p.webWidth / 2;
+  const toJoint = (x: number) =>
+    joints
+      .map((s) => ((((x - s) % L) + 1.5 * L) % L) - L / 2)
+      .sort((a, b) => Math.abs(a) - Math.abs(b))[0]!;
+  const mirrors: Vec2[] = [];
+  if (joints.length > 0) {
+    const clear = size * 0.35;
+    sites = sites.filter(([x, y]) => !(y < top + clear && Math.abs(toJoint(x)) < half + clear));
+    // Mirror sites just above a comb tooth into it: the cells there end on
+    // the tooth's top edge. (Not across its sides – a tooth is thinner than
+    // a cell, so a mirror would land in the next compartment.)
+    const reach = 1.5 * size;
+    for (const [x, y] of sites) {
+      const d = toJoint(x);
+      if (y >= top && y < top + reach && Math.abs(d) < half) mirrors.push([x, 2 * top - y]);
+    }
+  }
+  const ghosts = [...sites, ...mirrors].flatMap(([x, y]): Vec2[] => [
     [x - L, y],
     [x + L, y],
   ]);
   const domain: Rect = { x0: -L, y0, x1: 2 * L, y1 };
-  const round = cornerRound(p.voronoi.cellSize);
+  const round = cornerRound(size);
+  const comb =
+    joints.length === 0
+      ? undefined
+      : scope.keep(
+          CrossSection.ofPolygons(
+            joints.flatMap((s) =>
+              [-L, 0, L].map((k): Vec2[] => [
+                [s + k - half, y0 - 1],
+                [s + k + half, y0 - 1],
+                [s + k + half, top],
+                [s + k - half, top],
+              ]),
+            ),
+          ),
+        );
   const shapes: Vec2[][] = [];
-  for (const cell of voronoiCells(domain, sites, p.voronoi.cellSize, ghosts)) {
+  for (const cell of voronoiCells(domain, sites, size, [...mirrors, ...ghosts])) {
+    let cs = scope.keep(CrossSection.ofPolygons([cell]));
+    if (comb) cs = scope.keep(cs.subtract(comb));
     // Shrink by half the web plus the corner radius, then grow back by the
     // radius: rounded corners, webs exactly webWidth wide (on the outside).
-    const cs = scope.keep(CrossSection.ofPolygons([cell]));
     const inset = scope.keep(cs.offset(-p.webWidth / 2 - round, 'Miter'));
     const shrunk = scope.keep(inset.offset(round, 'Round', 2, 16));
     for (const poly of shrunk.toPolygons()) {
       if (poly.length < 3) continue;
-      shapes.push(poly.map(([x, y]) => [x, y] as Vec2));
+      const shape = poly.map(([x, y]) => [x, y] as Vec2);
+      if (oneSpanPerRow(shape)) {
+        shapes.push(shape);
+        continue;
+      }
+      // rare: a cell wrapping round a comb tooth – split it at the joint
+      const s = shape[0]![0] - toJoint(shape[0]![0]);
+      const piece = scope.keep(CrossSection.ofPolygons([shape]));
+      const cut = (x0: number, x1: number) =>
+        scope.keep(
+          CrossSection.ofPolygons([
+            [
+              [x0, y0 - 2],
+              [x1, y0 - 2],
+              [x1, y1 + 2],
+              [x0, y1 + 2],
+            ],
+          ]),
+        );
+      for (const side of [cut(s - L, s), cut(s, s + L)])
+        for (const q of scope.keep(piece.intersect(side)).toPolygons())
+          if (q.length >= 3) shapes.push(q.map(([x, y]) => [x, y] as Vec2));
     }
   }
-  // A handle cut-out trims the cells it reaches; then every piece is made printable.
-  return clipHoles(wasm, scope, p, path, shapes, printableHole);
+  // A handle cut-out trims the cells it reaches (the comb is already free);
+  // then every piece is made printable.
+  return clipHoles(wasm, scope, p, path, shapes, printableHole, { joints: false });
 }
 
 /**

@@ -187,9 +187,10 @@ export function clipHoles(
   path: RoundedRectPath,
   holes: Vec2[][],
   finish: (hole: Vec2[]) => Vec2[],
+  { joints: withJoints = true }: { joints?: boolean } = {},
 ): Vec2[][] {
   const centers = handleArcCenters(p, path);
-  const joints = junctionArcs(p, path);
+  const joints = withJoints ? junctionArcs(p, path) : [];
   const done = (h: Vec2[]) => h.length >= 3;
   if (centers.length === 0 && joints.length === 0) return holes.map(finish).filter(done);
   const L = path.length;
