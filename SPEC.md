@@ -306,13 +306,14 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 4. **Drucker-Presets**: Soll das Bauvolumen (z. B. 256³ mm Bambu, 250×210 Prusa MK4) als Grenze/Warnung berücksichtigt werden?
 5. ~~Griffmulden: feste Maße?~~ Entschieden 2026-11-02, s. u.
 6. **Raster-Unterteilungen**: Nur durchgehende Trennwände (wie Bento-Grundraster), oder auch Zusammenführen einzelner Zellen?
-7. **Lizenz** des Projekts (z. B. MIT) und der erzeugten Modelle?
+7. **Lizenz**: Projekt MIT (entschieden 2026-11-02). Offen: Hinweis zu den erzeugten Modellen?
 
 ## Entschieden
 
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Veröffentlichung auf GitHub Pages aus einem öffentlichen Repository `basketli`, Lizenz MIT. Eigene Domain (z. B. `basketli.ch`) später möglich; die Seite nutzt relative Pfade.
 - 2026-11-02 · Griffe: geschlossene Griffmulden entfallen (flache Überhänge, für Regalkörbe unnötig). Stattdessen optional eine Griffaussparung von oben (keine / eine / beide Stirnseiten, Standard keine), Breite und Tiefe einstellbar. Gedacht für Körbe, die als Schublade ein Fach füllen.
 - 2026-11-02 · Vorerst kein CAD-Export (STEP). Falls später gewünscht: STEP aus Facetten mit zusammengefassten ebenen Flächen (ohne neue Abhängigkeit); echte CAD-Flächen (z. B. OpenCascade) stehen in keinem Verhältnis zum Aufwand. Für Fusion genügt bis dahin 3MF → „Netz konvertieren“.
 - 2026-11-02 · Keine Stapel-/Explosionsansicht (T17 entfällt). Stattdessen misst ein Test für jede Kombination aus unterem und oberem Wandstil (100×100×100 mm, Export-Qualität) nach: Auflage genau beim Stapelmaß (±0,05 mm) und Fuß ohne Klemmen (0,3 mm angehoben seitlich ±0,25 mm frei).
