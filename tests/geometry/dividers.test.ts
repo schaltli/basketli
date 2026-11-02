@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { buildTub } from '../../src/geometry/basket';
 import { buildManifold } from '../../src/geometry/build';
 import {
+  dividerSolids,
   dividerTop,
   effectiveDividerTop,
   jointWidth,
@@ -109,7 +110,8 @@ describe.each(styles)('%s with dividers', (_n, wallStyle, rowGap) => {
       const top = dividerTop(p);
       const x = -p.width / 2 + 60;
       const y = -p.depth / 2 + 45;
-      const z: [number, number] = [p.floor + 2, top - 1];
+      // the top band of a divider is solid in every style (the pattern sits below)
+      const z: [number, number] = [top - 2.7, top - 0.3];
       // x-divider: solid across its thickness, nothing just beside it
       const inside = inBox(m, [x - t / 2 + 0.02, 10, z[0]], [x + t / 2 - 0.02, 20, z[1]]);
       expect(inside / ((t - 0.04) * 10 * (z[1] - z[0]))).toBeGreaterThan(0.99);
@@ -143,6 +145,16 @@ describe('stacking with dividers', () => {
     }
   });
 });
+
+/** Unperforated reference body: wall plus plain dividers (lines may extend in their plane). */
+function envelopeOf(scope: Scope, p: BasketParams) {
+  if (p.wallStyle === 'weave') return undefined;
+  const wall =
+    p.wallStyle === 'expanded'
+      ? buildExpanded(wasm, scope, p, 'preview', true)
+      : buildTub(wasm, scope, p, 'preview');
+  return scope.keep(wasm.Manifold.union([wall, ...dividerSolids(wasm, scope, p, 'preview')]));
+}
 
 describe('wall pattern per compartment', () => {
   const base = (wallStyle: WallStyle, rowGap = 0) =>
@@ -284,12 +296,7 @@ describe('wall pattern per compartment', () => {
     const m = buildManifold(wasm, p, 'preview');
     const scope = new Scope();
     try {
-      const envelope =
-        wallStyle === 'expanded'
-          ? buildExpanded(wasm, scope, p, 'preview', true)
-          : wallStyle === 'weave'
-            ? undefined
-            : buildTub(wasm, scope, p, 'preview');
+      const envelope = envelopeOf(scope, p);
       expect(m.decompose().length).toBe(1);
       const r = overhangReport(m, envelope ? { envelope } : {});
       expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
@@ -307,12 +314,7 @@ describe('wall pattern per compartment', () => {
     const m = buildManifold(wasm, p, 'preview');
     const scope = new Scope();
     try {
-      const envelope =
-        wallStyle === 'expanded'
-          ? buildExpanded(wasm, scope, p, 'preview', true)
-          : wallStyle === 'weave'
-            ? undefined
-            : buildTub(wasm, scope, p, 'preview');
+      const envelope = envelopeOf(scope, p);
       const r = overhangReport(m, envelope ? { envelope } : {});
       expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
       expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
