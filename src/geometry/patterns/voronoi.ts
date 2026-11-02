@@ -4,6 +4,7 @@ import type { BasketParams } from '../params';
 import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
+import { handleKeepOut, holeBlocked } from '../handles';
 import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
@@ -221,6 +222,7 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
   ]);
   const domain: Rect = { x0: -L, y0, x1: 2 * L, y1 };
   const round = cornerRound(p.voronoi.cellSize);
+  const keepOut = handleKeepOut(p, path);
   const holes: Vec2[][] = [];
   for (const cell of voronoiCells(domain, sites, p.voronoi.cellSize, ghosts)) {
     // Shrink by half the web plus the corner radius, then grow back by the
@@ -231,7 +233,7 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
     for (const poly of shrunk.toPolygons()) {
       if (poly.length < 3) continue;
       const hole = printableHole(poly.map(([x, y]) => [x, y] as Vec2));
-      if (hole.length >= 3) holes.push(hole);
+      if (hole.length >= 3 && !holeBlocked(hole, keepOut)) holes.push(hole);
     }
   }
   return holes;

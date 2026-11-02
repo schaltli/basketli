@@ -1,4 +1,5 @@
 import type { Manifold } from 'manifold-3d';
+import { handleFrames, handleNotches, weaveHandleFrames } from './handles';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
@@ -27,8 +28,11 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
   const scope = new Scope();
   try {
     let body: Manifold;
+    let weave: ReturnType<typeof buildWeave>['layout'] | undefined;
     if (params.wallStyle === 'weave') {
-      body = buildWeave(wasm, scope, params, quality).body;
+      const built = buildWeave(wasm, scope, params, quality);
+      body = built.body;
+      weave = built.layout;
     } else if (params.wallStyle === 'expanded') {
       body = buildExpanded(wasm, scope, params, quality);
     } else {
@@ -41,6 +45,19 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
         if (holes.length > 0)
           body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
       }
+    }
+    if (params.handles !== 'none') {
+      // Open walls get a solid frame round the cut-out first; hole patterns
+      // already leave that zone solid (handleKeepOut).
+      const frames = weave
+        ? weaveHandleFrames(wasm, scope, params, weave, quality)
+        : params.wallStyle === 'expanded'
+          ? handleFrames(wasm, scope, params)
+          : [];
+      if (frames.length > 0) body = scope.keep(wasm.Manifold.union([body, ...frames]));
+      body = scope.keep(
+        body.subtract(scope.keep(wasm.Manifold.union(handleNotches(wasm, scope, params)))),
+      );
     }
     body = withStacking(wasm, scope, params, quality, body);
     // Woven export: drop vertices that move the surface by less than 0.02 mm

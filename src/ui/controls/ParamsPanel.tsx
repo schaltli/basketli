@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { LIMITS, setWeaveMaterial, type BasketParams } from '../../geometry/params';
+import { HANDLE_MODES, LIMITS, setWeaveMaterial, type BasketParams } from '../../geometry/params';
 import { useBasket } from '../../state/store';
 import { de } from '../i18n/de';
 import { noticeText } from './notices';
@@ -17,6 +17,8 @@ type NumericPath =
   | 'holeSize'
   | 'webWidth'
   | 'stackClearance'
+  | 'handleWidth'
+  | 'handleDepth'
   | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
   | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`;
@@ -52,7 +54,11 @@ const STEP: Partial<Record<NumericPath, number>> = {
   'expanded.diamondWidth': 0.5,
   'expanded.diamondHeight': 0.5,
   'voronoi.cellSize': 0.5,
+  handleWidth: 1,
+  handleDepth: 1,
 };
+
+const HANDLE_LABEL = { none: de.handlesNone, one: de.handlesOne, ends: de.handlesEnds } as const;
 
 const CHOICE_LABEL: Record<StyleChoice, string> = {
   expanded: de.wallStyleExpanded,
@@ -205,6 +211,29 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
           {de.fields.stackable}
         </label>
         {params.stackable && field('stackClearance')}
+      </fieldset>
+
+      <fieldset>
+        <legend>{de.groupHandles}</legend>
+        <div className="field">
+          <label htmlFor="handles">{de.fields.handles}</label>
+          <select
+            id="handles"
+            value={params.handles}
+            onChange={(e) => {
+              const next = HANDLE_MODES.find((m) => m === e.target.value) ?? 'none';
+              update((p) => ({ ...p, handles: next }));
+            }}
+          >
+            {HANDLE_MODES.map((m) => (
+              <option key={m} value={m}>
+                {HANDLE_LABEL[m]}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">{de.handlesHint}</p>
+        </div>
+        {params.handles !== 'none' && (['handleWidth', 'handleDepth'] as const).map(field)}
       </fieldset>
 
       {notices.length > 0 && (

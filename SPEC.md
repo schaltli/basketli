@@ -19,7 +19,7 @@ Maker:innen mit FDM-3D-Drucker (Bambu, Prusa, Creality …), die Körbe für Wer
 1. Als Nutzer:in gebe ich **Breite, Tiefe, Höhe** in mm ein (Klick auf Maß oder Slider) und sehe den Korb sofort in 3D.
 2. Ich wähle einen **Wandstil**: Streckmetall (Standard), Waben, Voronoi, Geflecht geschlossen oder Geflecht offen, und passe seine Parameter an.
    2a. Alternativ wähle ich ein **Flechtmuster**: Der Korb sieht aus wie echt geflochten – Flechtstränge laufen sichtbar abwechselnd über und unter den senkrechten Staken, mit echter 3D-Tiefe innen und außen.
-3. Ich aktiviere **Griffmulden** an den Stirnseiten (und optional an den Längsseiten).
+3. Bei Bedarf schneide ich eine **Griffaussparung** von oben in eine oder beide Stirnseiten (z. B. wenn der Korb als Schublade ein Fach ganz füllt).
 4. Ich **unterteile** den Korb über ein Raster mit „+“-Buttons am rechten und unteren Rand in Fächer; ich kann Trennwände verschieben (Maß eintippen) und wieder entfernen.
 5. Ich stelle ein, ob der Korb **stapelbar** ist. (Eine Stapel-/Explosionsvorschau entfällt, Entscheid 2026-11-02: das Stapeln wird stattdessen automatisch für alle Stil-Kombinationen nachgemessen.)
 6. Ich lade den Korb als **STL oder 3MF** herunter und kann ihn ohne Reparatur im Slicer drucken.
@@ -78,7 +78,7 @@ src/
     basket.ts      → Grundkörper: Wanne, Boden, Rand, Stapel-Absatz
     patterns/      → Wandstile mit Löchern (hex, voronoi, expanded) + gemeinsame Werkzeuge
     weave/         → Flechtmuster: Staken, Flechtstrang-Pfade, Rohr-Mesh-Erzeugung
-    handles.ts     → Griffmulden
+    handles.ts     → Griffaussparung (Ausschnitt von oben, Rahmen)
     dividers.ts    → Trennwände aus dem Raster
     build.ts       → Orchestrierung: params → Manifold-Mesh
   worker/          → Web Worker, ruft geometry/build auf, liefert Mesh-Buffer
@@ -104,22 +104,22 @@ Regel: `src/geometry` und `src/export` importieren **nie** aus `src/ui` oder Rea
 
 ### Parameter (Defaults / Grenzen)
 
-| Parameter           | Default      | Bereich                                                      | Hinweis                                     |
-| ------------------- | ------------ | ------------------------------------------------------------ | ------------------------------------------- |
-| Breite (X, außen)   | 150 mm       | 30–400                                                       |                                             |
-| Tiefe (Y, außen)    | 100 mm       | 30–400                                                       |                                             |
-| Höhe (Z, außen)     | 80 mm        | 20–300                                                       | = Stapelraster (s. u.)                      |
-| Wandstärke          | 1.6 mm       | 0.8–5                                                        | sinnvoll: Vielfache der Linienbreite        |
-| Bodenstärke         | 1.2 mm       | 0.6–5                                                        |                                             |
-| Eckenradius (außen) | 10 mm        | 0–30                                                         |                                             |
-| Stapelbar           | an           | an/aus                                                       |                                             |
-| Stapelspiel         | 0.3 mm       | 0.1–1.0                                                      | Toleranz zwischen Absatz und Rand           |
-| Wandstil            | Streckmetall | Streckmetall, Waben, Voronoi, Geflecht (geschlossen / offen) | Geflecht: eigene Parameter, s. u.           |
-| Lochgröße           | 10 mm        | 3–40                                                         |                                             |
-| Stegbreite          | 2.5 mm       | 1–10                                                         |                                             |
-| Randband oben/unten | 4 mm         | 3–30                                                         | massive Zone ohne Löcher                    |
-| Griffmulden         | Stirnseiten  | keine / Stirnseiten / alle Seiten                            | Breite 60 mm, Höhe 20 mm, Abstand oben 8 mm |
-| Unterteilungen      | keine        | Raster X×Y, je Trennwand Position in mm                      | Trennwandhöhe = Innenhöhe oder einstellbar  |
+| Parameter           | Default      | Bereich                                                      | Hinweis                                    |
+| ------------------- | ------------ | ------------------------------------------------------------ | ------------------------------------------ |
+| Breite (X, außen)   | 150 mm       | 30–400                                                       |                                            |
+| Tiefe (Y, außen)    | 100 mm       | 30–400                                                       |                                            |
+| Höhe (Z, außen)     | 80 mm        | 20–300                                                       | = Stapelraster (s. u.)                     |
+| Wandstärke          | 1.6 mm       | 0.8–5                                                        | sinnvoll: Vielfache der Linienbreite       |
+| Bodenstärke         | 1.2 mm       | 0.6–5                                                        |                                            |
+| Eckenradius (außen) | 10 mm        | 0–30                                                         |                                            |
+| Stapelbar           | an           | an/aus                                                       |                                            |
+| Stapelspiel         | 0.3 mm       | 0.1–1.0                                                      | Toleranz zwischen Absatz und Rand          |
+| Wandstil            | Streckmetall | Streckmetall, Waben, Voronoi, Geflecht (geschlossen / offen) | Geflecht: eigene Parameter, s. u.          |
+| Lochgröße           | 10 mm        | 3–40                                                         |                                            |
+| Stegbreite          | 2.5 mm       | 1–10                                                         |                                            |
+| Randband oben/unten | 4 mm         | 3–30                                                         | massive Zone ohne Löcher                   |
+| Griffaussparung     | keine        | keine / eine Stirnseite / beide Stirnseiten                  | Breite 60 mm (30–120), Tiefe 20 mm (10–40) |
+| Unterteilungen      | keine        | Raster X×Y, je Trennwand Position in mm                      | Trennwandhöhe = Innenhöhe oder einstellbar |
 
 Ungültige Kombinationen (z. B. Griffmulde breiter als die Wand, Lochgröße größer als die freie Wandfläche) werden **im UI abgefangen**: Wert wird begrenzt und ein Hinweis angezeigt – keine Abstürze, keine kaputten Meshes.
 
@@ -143,7 +143,7 @@ Angeboten werden: **Streckmetall** (Standard), **Waben**, **Voronoi**, **Geflech
 - **Waben** (Hex-Löcher): sechseckige Löcher **mit Spitze nach oben** (Oberkanten 30°: jede Druckbahn wird pro Schicht nur ~0,35 mm in Laufrichtung verlängert → keine Brücke), versetzte Reihen, **umlaufend ohne Naht** wie Voronoi (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Lochgröße = Schlüsselweite (Breite über die Flächen), Stege mindestens die Stegbreite. Mindest-Eckenradius 8 mm.
 - **Voronoi**: echte, unregelmäßige Voronoi-Zellen (Punkte auf einem zufällig verschobenen Raster, reproduzierbar per Startwert), umlaufend ohne Naht um den ganzen Korb (periodisch auf der abgewickelten Außenwand, Löcher folgen der Eckenrundung). Stege exakt so breit wie eingestellt, Lochecken gerundet (12 % der Zellgröße, max. 1,5 mm). Druckbar ohne Stützen: In der dünnen Wand laufen die Druckbahnen längs der Wand – schräge Lochoberkanten verlängern die Bahnen nur in Laufrichtung. Ein Scan von oben nach unten verkleinert jedes Loch nur dort, wo sich eine Seite pro 0,2-mm-Schicht um mehr als ~1,4 mm (flacher als 8°) schließen müsste; die letzte Öffnung oben schließt als Brücke (Lochbreite höchstens 13 mm). Löcher werden nur kleiner, nie größer. Mindest-Eckenradius 8 mm (Stege innen ≥ 80 %). Parameter: Zellgröße 6–12 mm (Default 12), Stegbreite, Startwert („neu würfeln“). (Entscheidung 2026-11-01: der frühere 45°-Flachschnitt machte alle Zellen oben flach – verworfen.)
 - **Streckmetall** (Prototyp 2026-11-01, überarbeitet nach Vergleich mit echtem Streckmetall): Die Wand besteht aus **zwei Scharen durchgehender Schrägstege** („/“ und „\“), die sich in Knoten kreuzen; dazwischen bleiben **stehende Rauten** (lange Diagonale senkrecht → oben spitz, keine Brücke). Teilung exakt so, dass parallele Rautenkanten genau eine Stegbreite auseinanderliegen; umlaufend ohne Naht (Stege winden sich schraubenförmig um den Korb, auch durch die Ecken) und enden in den Randbändern. **Jeder Steg ist einzeln um seine Achse verdreht**: obere Kante nach außen, untere nach innen; die Verdrehung wird so begrenzt, dass die Außenfläche nie flacher als 45° überhängt. Parameter: Rautenbreite 3–15 mm (5), Rautenhöhe 6–40 mm (12, mind. 1,5 × Breite), Stegbreite 1–4 mm (1,6), Verdrehung 0–2 mm (0,6). Mindest-Eckenradius 8 mm. (Verworfen: Linsen-Löcher und Sägezahn-Relief über ganze Reihen.)
-- Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und Griffmulden frei.
+- Muster werden je Wandfläche **zentriert** und halten Randbänder, Ecken (≥ Eckenradius + Steg) und die Griffaussparung samt Rahmen frei (Löcher, die den Bereich berühren, entfallen ganz).
 
 ### Flechtmuster (Wandstil „Geflecht“)
 
@@ -196,7 +196,7 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit dünnen Bändern
 
 **Zusammenspiel mit anderen Features**
 
-- **Griffmulden**: aus dem Geflecht ausgeschnitten, mit massivem, gerundetem Rahmen; Oberkante mit 45°-Spitze bzw. -Bogen.
+- **Griffaussparung**: U-förmiger Ausschnitt von oben (unten gerundet, oben kleine Verrundungen), ohne Überhang. Stirnseiten = die kürzeren Wände; „eine Stirnseite“ nimmt die bei +x (bzw. +y). Rahmen 3 mm: bei Waben/Voronoi bleibt die Wand dort massiv; bei Streckmetall und Geflecht ein massiver Rahmen über die ganze Wandstärke, dessen erste Schicht wie das Abschlussband eine Linie durch die Wandmitte ist (Brücke von Stake zu Stake bzw. Strebe zu Strebe); beim Geflecht reicht er bis in die nächste Stake, auch um die Ecke. Die Aussparung liegt im geraden Teil der Stirnwand (Rahmen + 5 mm Abstand zur Ecke) und über dem Sockel; sonst wird sie begrenzt oder abgeschaltet und gemeldet. Ein gestapelter Korb liegt an der Aussparung nicht auf, trägt aber über die übrige Kante unverändert.
 - **Unterteilungen**: Trennwände bleiben massiv (glatt), mit Staken/Bändern verbunden.
 
 **Umsetzung (technische Leitplanke)**
@@ -304,7 +304,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 2. **Sprache**: Nur Deutsch, oder Deutsch + Englisch von Anfang an?
 3. **Hosting**: Wo soll basketli laufen (GitHub Pages, Netlify, eigener Server/Domain)?
 4. **Drucker-Presets**: Soll das Bauvolumen (z. B. 256³ mm Bambu, 250×210 Prusa MK4) als Grenze/Warnung berücksichtigt werden?
-5. **Griffmulden**: Feste Maße wie oben ok, oder sollen Breite/Höhe einstellbar sein?
+5. ~~Griffmulden: feste Maße?~~ Entschieden 2026-11-02, s. u.
 6. **Raster-Unterteilungen**: Nur durchgehende Trennwände (wie Bento-Grundraster), oder auch Zusammenführen einzelner Zellen?
 7. **Lizenz** des Projekts (z. B. MIT) und der erzeugten Modelle?
 
@@ -313,6 +313,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Griffe: geschlossene Griffmulden entfallen (flache Überhänge, für Regalkörbe unnötig). Stattdessen optional eine Griffaussparung von oben (keine / eine / beide Stirnseiten, Standard keine), Breite und Tiefe einstellbar. Gedacht für Körbe, die als Schublade ein Fach füllen.
 - 2026-11-02 · Vorerst kein CAD-Export (STEP). Falls später gewünscht: STEP aus Facetten mit zusammengefassten ebenen Flächen (ohne neue Abhängigkeit); echte CAD-Flächen (z. B. OpenCascade) stehen in keinem Verhältnis zum Aufwand. Für Fusion genügt bis dahin 3MF → „Netz konvertieren“.
 - 2026-11-02 · Keine Stapel-/Explosionsansicht (T17 entfällt). Stattdessen misst ein Test für jede Kombination aus unterem und oberem Wandstil (100×100×100 mm, Export-Qualität) nach: Auflage genau beim Stapelmaß (±0,05 mm) und Fuß ohne Klemmen (0,3 mm angehoben seitlich ±0,25 mm frei).
 - 2026-11-02 · Geflecht bekommt ein glattes Abschlussband (Variante 1), neuer Parameter Abschlussband 5 mm (3–10).

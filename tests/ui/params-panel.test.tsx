@@ -31,6 +31,17 @@ describe('ParamsPanel', () => {
     expect(screen.queryByLabelText('Reihenabstand', { selector: 'input[type=text]' })).toBeNull();
   });
 
+  it('handle cut-out: off by default, width and depth appear when switched on', () => {
+    panel();
+    const select = screen.getByLabelText('Griffaussparung');
+    expect((select as HTMLSelectElement).value).toBe('none');
+    expect(screen.queryByLabelText('Tiefe', { selector: 'input[type=text]' })).toBeTruthy(); // basket depth
+    fireEvent.change(select, { target: { value: 'one' } });
+    expect(useBasket.getState().params.handles).toBe('one');
+    expect(screen.getAllByLabelText('Breite', { selector: 'input[type=text]' })).toHaveLength(2);
+    expect(screen.getAllByLabelText('Tiefe', { selector: 'input[type=text]' })).toHaveLength(2);
+  });
+
   it('applies a typed value on Enter', () => {
     panel();
     const width = screen.getByLabelText('Breite', { selector: 'input[type=text]' });

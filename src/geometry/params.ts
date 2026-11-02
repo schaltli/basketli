@@ -4,7 +4,8 @@ import { patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './sta
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
 export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave'] as const;
 export type WallStyle = (typeof WALL_STYLES)[number];
-export const HANDLE_MODES = ['none', 'ends', 'all'] as const;
+/** Cut-out from the top edge: none, on one end wall, or on both end walls. */
+export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
 export type HandleMode = (typeof HANDLE_MODES)[number];
 export const WEAVE_MATERIALS = ['cane', 'band'] as const;
 export type WeaveMaterial = (typeof WEAVE_MATERIALS)[number];
@@ -55,6 +56,9 @@ export interface BasketParams {
   webWidth: number;
   borderBand: number;
   handles: HandleMode;
+  /** Width and depth of the cut-out from the top edge (mm). */
+  handleWidth: number;
+  handleDepth: number;
   weave: WeaveParams;
   voronoi: VoronoiParams;
   expanded: ExpandedParams;
@@ -88,6 +92,8 @@ export const LIMITS = {
   diamondHeight: { min: 6, max: 40 },
   strand: { min: 1, max: 4 },
   twist: { min: 0, max: 2 },
+  handleWidth: { min: 30, max: 120 },
+  handleDepth: { min: 10, max: 40 },
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
@@ -97,14 +103,9 @@ export const MIN_VORONOI_CORNER_RADIUS = 8;
 /** Max. stake spacing of a weave (longest bridge, SPEC: Druckbarkeit). */
 export const MAX_OPEN_SPACING = 15;
 
-/** Fixed handle cut-out geometry (SPEC: Griffmulden). */
-export const HANDLE = {
-  width: 60,
-  height: 20,
-  topOffset: 8,
-  /** Minimum solid wall left and right of the handle. */
-  sideMargin: 5,
-} as const;
+/** Solid frame round a handle cut-out, and solid wall left before a corner (mm). */
+export const HANDLE_FRAME = 3;
+export const HANDLE_MARGIN = 5;
 
 export const MATERIAL_DEFAULTS: Record<
   WeaveMaterial,
@@ -127,7 +128,9 @@ export const DEFAULTS: BasketParams = {
   holeSize: 10,
   webWidth: 2.5,
   borderBand: 4,
-  handles: 'ends',
+  handles: 'none',
+  handleWidth: 60,
+  handleDepth: 20,
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
   weave: {
@@ -171,6 +174,8 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'holeSize',
   'webWidth',
   'borderBand',
+  'handleWidth',
+  'handleDepth',
 ];
 const WEAVE_NUMBERS: WeaveNumberKey[] = [
   'materialHeight',
@@ -335,14 +340,24 @@ export function clampParams(input: BasketParams): ClampResult {
     }
   }
 
-  // Handles: need height below the top rim and enough straight wall.
+  // Handle cut-outs: framed, inside the straight part of the end walls, and
+  // above the socket / bottom zone.
   if (p.handles !== 'none') {
-    const neededHeight = HANDLE.topOffset + HANDLE.height + p.borderBand + p.floor;
-    const neededLength = HANDLE.width + 2 * HANDLE.sideMargin;
-    const { ends } = straightWallLengths(p);
-    if (p.height < neededHeight || ends < neededLength) {
+    const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
+    const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
+    const maxDepth = round(p.height - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
+    if (maxWidth < LIMITS.handleWidth.min || maxDepth < LIMITS.handleDepth.min) {
       p.handles = 'none';
       rule('handles', 'none');
+    } else {
+      if (p.handleWidth > maxWidth) {
+        p.handleWidth = maxWidth;
+        rule('handleWidth', maxWidth);
+      }
+      if (p.handleDepth > maxDepth) {
+        p.handleDepth = maxDepth;
+        rule('handleDepth', maxDepth);
+      }
     }
   }
 

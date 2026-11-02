@@ -117,14 +117,18 @@ export function rimProfile(span: number, t: number, h: number): BandProfile {
   };
 }
 
-/** Flat closing band round the top edge: one closed ring over all stakes. */
+/**
+ * Flat closing band round the top edge: one closed ring over all stakes.
+ * With a lower `z0` the same ring reaches further down (handle frames).
+ */
 export function rimSolid(
   wasm: Wasm,
   p: BasketParams,
   layout: WeaveLayout,
   quality: Quality,
+  z0 = layout.rim.z0,
 ): Manifold {
-  const { z0, z1 } = layout.rim;
+  const { z1 } = layout.rim;
   const prof = rimProfile(layout.span, p.weave.materialThickness, z1 - z0);
   // The bottom reaches ROW_OVERLAP down to fuse with the row below.
   const z = Float64Array.from(prof.z, (dz, k) => (k === 0 ? z0 - ROW_OVERLAP : z0 + dz));

@@ -323,17 +323,16 @@
 
 ## Phase 5 – Ausstattung
 
-### - [ ] T18: Griffmulden
+### - [x] T18: Griffaussparung von oben (statt Griffmulden)
 
-**Beschreibung:** Griffmulden mit fester Größe (60 × 20 mm, 8 mm unter der Oberkante), wahlweise an keinen Seiten, an den Stirnseiten oder an allen Seiten. Bei massiver Wand bzw. Lochmuster werden sie ausgeschnitten, und `usableArea` hält den Bereich frei. Beim Geflecht wird die Öffnung aus Staken und Strängen geschnitten und mit einem massiven, gerundeten Rahmen eingefasst.
+**Entscheid 2026-11-02:** Geschlossene Griffmulden entfallen. Optional gibt es einen U-förmigen Ausschnitt von oben an einer oder beiden Stirnseiten (Standard: keine), Breite 60 mm (30–120) und Tiefe 20 mm (10–40) einstellbar. Vergleich der Varianten: Artefakt „basketli Griffmulden“.
 **Akzeptanz:**
 
-- [ ] Alle Wandstile × alle Griffoptionen ergeben manifold-Meshes; beim Geflecht bleibt es eine zusammenhängende Komponente.
-- [ ] Ist eine Wand zu schmal für die Mulde, wird die Option begrenzt und gemeldet (über `clampParams`).
+- [x] Alle Wandstile × eine/beide Stirnseiten: ein zusammenhängender, gültiger Körper; Aussparung offen; Rahmen massiv; stützfrei druckbar (Druckbarkeitsprüfung).
+- [x] Zu schmale oder zu niedrige Wand: Breite/Tiefe werden begrenzt bzw. die Aussparung abgeschaltet, mit Hinweis.
+- [x] Ein Korb mit Aussparungen trägt den nächsten beim selben Stapelmaß.
       **Prüfung:** `npx vitest run tests/geometry/handles.test.ts`
-      **Abhängig von:** T12, T8
-      **Dateien:** `src/geometry/handles.ts`, `src/geometry/patterns/wall-face.ts`, `src/geometry/weave/index.ts`, `tests/geometry/handles.test.ts`
-      **Umfang:** M
+      **Dateien:** `src/geometry/handles.ts`, `src/geometry/build.ts`, `src/geometry/patterns/{hex,voronoi}.ts`, `src/geometry/weave/bands.ts`, `src/ui/controls/ParamsPanel.tsx`, `tests/geometry/handles.test.ts`
 
 ### - [ ] T19: Trennwände (Geometrie)
 

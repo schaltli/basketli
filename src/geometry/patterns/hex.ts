@@ -4,6 +4,7 @@ import type { BasketParams } from '../params';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { printableHole } from './voronoi';
+import { handleKeepOut, holeBlocked } from '../handles';
 import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
@@ -50,10 +51,13 @@ export function hexLayout(p: BasketParams): HexLayout {
 /** All hexagon holes in wall coordinates (x = arc length on the outer wall). */
 export function hexHoles(p: BasketParams): Vec2[][] {
   const l = hexLayout(p);
+  const keepOut = handleKeepOut(p, l.path);
   const holes: Vec2[][] = [];
   l.rows.forEach((y, j) => {
-    for (let i = 0; i < l.count; i++)
-      holes.push(printableHole(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y)));
+    for (let i = 0; i < l.count; i++) {
+      const hole = printableHole(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
+      if (!holeBlocked(hole, keepOut)) holes.push(hole);
+    }
   });
   return holes;
 }
