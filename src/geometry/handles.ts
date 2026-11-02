@@ -1,17 +1,19 @@
-import type { Manifold, Mat4 } from 'manifold-3d';
+import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
+import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import { HANDLE_FRAME, type BasketParams } from './params';
-import type { Vec2 } from './shapes';
+import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
-import type { Quality } from './basket';
-import { rimSolid } from './weave/bands';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './weave/layout';
 import type { RoundedRectPath } from './weave/outline';
 
-/** Radius of the notch's bottom corners and of the fillets at the top edge (mm). */
+/** Radius of the cut-out's bottom corners and of its rounded top edges (mm). */
 const BOTTOM_RADIUS = 8;
-const TOP_FILLET = 2;
-const ARC_SEGMENTS = 12;
+const TOP_RADIUS = 4;
+const ARC_SEGMENTS = 16;
+/** The band's first line ends this far inside a stake. */
+const INTO_STAKE = 0.3;
+const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
 interface Site {
   /** Outward normal and counter-clockwise tangent of the end wall. */
@@ -45,29 +47,83 @@ export function handleArcCenters(p: BasketParams, path: RoundedRectPath): number
   return p.handles === 'none' ? [] : p.handles === 'one' ? centers.slice(0, 1) : centers;
 }
 
+const PI = Math.PI;
+const arc = (cx: number, cy: number, r: number, a0: number, a1: number): Vec2[] =>
+  Array.from({ length: ARC_SEGMENTS + 1 }, (_, i) => {
+    const a = a0 + ((a1 - a0) * i) / ARC_SEGMENTS;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as Vec2;
+  });
+
+const bottomRadius = (p: BasketParams) => Math.min(BOTTOM_RADIUS, p.handleWidth / 2, p.handleDepth);
+
 /**
- * Zones in wall coordinates (x = arc length on the outer wall, y = height)
- * that patterns must leave solid: the cut-out plus its frame.
+ * The punched-out cut-out seen from outside (u along the wall, z up), open
+ * at the top: round bottom corners, rounded top edges. It opens upwards, so
+ * it has no overhang.
  */
-export function handleKeepOut(p: BasketParams, path: RoundedRectPath) {
-  const half = p.handleWidth / 2 + HANDLE_FRAME;
-  const y0 = p.height - p.handleDepth - HANDLE_FRAME;
-  return handleArcCenters(p, path).map((s) => ({ s, half, y0, length: path.length }));
+export function notchOutline(p: BasketParams): Vec2[] {
+  const H = p.height;
+  const x0 = -p.handleWidth / 2;
+  const x1 = p.handleWidth / 2;
+  const zb = H - p.handleDepth;
+  const rb = bottomRadius(p);
+  const rt = TOP_RADIUS;
+  return [
+    [x0 - rt, H + 1],
+    ...arc(x0 - rt, H - rt, rt, PI / 2, 0),
+    ...arc(x0 + rb, zb + rb, rb, PI, (3 * PI) / 2),
+    ...arc(x1 - rb, zb + rb, rb, (3 * PI) / 2, 2 * PI),
+    ...arc(x1 + rt, H - rt, rt, PI, PI / 2),
+    [x1 + rt, H + 1],
+  ];
 }
 
-/** True if a hole (wall coordinates) touches one of the keep-out zones. */
-export function holeBlocked(hole: Vec2[], zones: ReturnType<typeof handleKeepOut>): boolean {
-  if (zones.length === 0) return false;
-  const xs = hole.map((q) => q[0]);
-  const top = Math.max(...hole.map((q) => q[1]));
-  const x0 = Math.min(...xs);
-  const x1 = Math.max(...xs);
-  return zones.some(({ s, half, y0, length }) => {
-    if (top <= y0) return false;
-    // the pattern is periodic round the outline: compare in the period nearest s
-    const k = Math.round(((x0 + x1) / 2 - s) / length);
-    return x1 - k * length > s - half && x0 - k * length < s + half;
-  });
+/** Where the level bottom of the default band outline ends (|u|). */
+function flatEnd(p: BasketParams): number {
+  const rb = bottomRadius(p);
+  const R = rb + HANDLE_FRAME;
+  return p.handleWidth / 2 - rb + R * Math.SQRT1_2 - R * (1 - Math.SQRT1_2);
+}
+
+/**
+ * Outer edge of the band that closes the cut edges (HANDLE_FRAME wide).
+ * It follows the cut-out round its bottom corners from the side down to 45°;
+ * below that it runs on at 45° to a level bottom, so the band's underside
+ * never overhangs flatter than 45° – the level bottom is a bridge.
+ * `ends` moves the level bottom's ends (weave: into the next stakes); from
+ * there the edge rises at 45° to the side.
+ */
+export function bandOutline(p: BasketParams, ends?: { left: number; right: number }): Vec2[] {
+  const H = p.height;
+  const F = HANDLE_FRAME;
+  const side = p.handleWidth / 2 + F;
+  const zf = H - p.handleDepth - F;
+  if (ends) {
+    const pts: Vec2[] = [
+      [-side, zf + Math.abs(ends.left - side)],
+      [-ends.left, zf],
+      [ends.right, zf],
+      [side, zf + Math.abs(ends.right - side)],
+      [side, H + 1],
+      [-side, H + 1],
+    ];
+    return pts.filter((q, i) => {
+      const prev = pts[(i + pts.length - 1) % pts.length]!;
+      return Math.hypot(q[0] - prev[0], q[1] - prev[1]) > 1e-9;
+    });
+  }
+  const R = bottomRadius(p) + F;
+  const cx = side - R;
+  const cz = zf + R;
+  const flat = flatEnd(p);
+  return [
+    [-side, H + 1],
+    ...arc(-cx, cz, R, PI, (5 * PI) / 4),
+    [-flat, zf],
+    [flat, zf],
+    ...arc(cx, cz, R, (7 * PI) / 4, 2 * PI),
+    [side, H + 1],
+  ];
 }
 
 /** Column-major matrix mapping local X, Y, Z axes to a, b, e, then moving by `to`. */
@@ -90,125 +146,113 @@ const frame = (a: number[], b: number[], e: number[], to: number[]): Mat4 => [
   1,
 ];
 
-const arc = (cx: number, cy: number, r: number, a0: number, a1: number): Vec2[] =>
-  Array.from({ length: ARC_SEGMENTS + 1 }, (_, i) => {
-    const a = a0 + ((a1 - a0) * i) / ARC_SEGMENTS;
-    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as Vec2;
-  });
-
-/**
- * U-shaped cut-out seen from outside (u along the wall, z up), open at the
- * top: round bottom corners, small fillets where it meets the top edge.
- * No overhang anywhere – the cut opens upwards.
- */
-function notchOutline(p: BasketParams): Vec2[] {
-  const H = p.height;
-  const x0 = -p.handleWidth / 2;
-  const x1 = p.handleWidth / 2;
-  const zb = H - p.handleDepth;
-  const rb = Math.min(BOTTOM_RADIUS, p.handleWidth / 2, p.handleDepth);
-  const rf = TOP_FILLET;
-  const pi = Math.PI;
-  return [
-    [x0 - rf, H + 1],
-    ...arc(x0 - rf, H - rf, rf, pi / 2, 0),
-    ...arc(x0 + rb, zb + rb, rb, pi, (3 * pi) / 2),
-    ...arc(x1 - rb, zb + rb, rb, (3 * pi) / 2, 2 * pi),
-    ...arc(x1 + rf, H - rf, rf, pi, pi / 2),
-    [x1 + rf, H + 1],
-  ];
-}
+/** Maps wall-plane coordinates (u, z, offset along the outward normal) onto an end wall. */
+const onWall = ({ n, t, c }: Site): Mat4 =>
+  frame([t[0], t[1], 0], [0, 0, 1], [n[0], n[1], 0], [c[0], c[1], 0]);
 
 /** Cutters for all cut-outs, reaching through the whole wall. */
 export function handleNotches(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
   const T = wallIntrusion(p);
   const shape = scope.keep(wasm.CrossSection.ofPolygons([notchOutline(p)]));
   const prism = scope.keep(scope.keep(shape.extrude(T + 2)).translate([0, 0, -(T + 1)]));
-  return sites(p).map(({ n, t, c }) =>
-    scope.keep(
-      prism.transform(frame([t[0], t[1], 0], [0, 0, 1], [n[0], n[1], 0], [c[0], c[1], 0])),
-    ),
-  );
+  return sites(p).map((site) => scope.keep(prism.transform(onWall(site))));
 }
 
 /**
- * Solid frame round each cut-out for expanded metal: full wall thickness,
- * HANDLE_FRAME wider and deeper than the cut-out. Like the top rim of the
- * weave, its first layer is one line in the middle of the wall (through the
- * strand crossings), bridging from support to support, and it grows 45° to
- * the full thickness above.
+ * Removes the band zone (and the cut-out) from wall-pattern holes given in
+ * wall coordinates (x = arc length on the outer wall, y = height). Holes
+ * that reach into it keep their outside part, and `finish` (the pattern's
+ * printability rule) reshapes every piece like any other hole.
  */
-export function handleFrames(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
-  const T = wallIntrusion(p);
-  const H = p.height;
-  const zf = H - p.handleDepth - HANDLE_FRAME;
-  const mid = -T / 2;
-  const h = Math.min(FIRST_LINE, T) / 2;
-  const grow = T / 2 - h;
-  // (offset along the outward normal, z); outer face at 0, inner at −T
-  const profile: Vec2[] = [
-    [mid - h, zf - 0.05],
-    [mid + h, zf - 0.05],
-    [mid + h, zf + LAYER],
-    [0, zf + LAYER + grow],
-    [0, H],
-    [-T, H],
-    [-T, zf + LAYER + grow],
-    [mid - h, zf + LAYER],
-  ];
-  const length = p.handleWidth + 2 * HANDLE_FRAME;
-  const shape = scope.keep(wasm.CrossSection.ofPolygons([profile]));
-  const bar = scope.keep(scope.keep(shape.extrude(length)).translate([0, 0, -length / 2]));
-  return sites(p).map(({ n, t, c }) =>
-    scope.keep(
-      bar.transform(frame([n[0], n[1], 0], [0, 0, 1], [-t[0], -t[1], 0], [c[0], c[1], 0])),
-    ),
-  );
-}
-
-/** Half-space beyond the plane through `at` with normal `dir` (vertical plane). */
-function halfSpace(wasm: Wasm, scope: Scope, at: Vec2, dir: Vec2): Manifold {
-  const big = 4000;
-  const cube = scope.keep(wasm.Manifold.cube([big, big, big]).translate([0, -big / 2, -big / 2]));
-  // local +x → dir, +y → ez × dir, +z → ez (right-handed)
-  return scope.keep(
-    cube.transform(frame([dir[0], dir[1], 0], [-dir[1], dir[0], 0], [0, 0, 1], [at[0], at[1], 0])),
-  );
-}
-
-/**
- * Weave version of the handle frame: the top rim ring, reaching down to the
- * frame bottom, cut to the arc range of the cut-out. Its ends sit inside the
- * next stake beyond the frame width, so the first line (through the stakes)
- * is a bridge from stake to stake – also where it runs round a corner.
- */
-export function weaveHandleFrames(
+export function clipHoles(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
-  layout: WeaveLayout,
+  path: RoundedRectPath,
+  holes: Vec2[][],
+  finish: (hole: Vec2[]) => Vec2[],
+): Vec2[][] {
+  const centers = handleArcCenters(p, path);
+  const done = (h: Vec2[]) => h.length >= 3;
+  if (centers.length === 0) return holes.map(finish).filter(done);
+  const L = path.length;
+  const band = bandOutline(p);
+  const zones: Vec2[][] = centers.flatMap((sc) =>
+    [-L, 0, L].map((k) => band.map(([u, z]) => [sc + k + u, z] as Vec2)),
+  );
+  const boxes = zones.map((zone) => {
+    const xs = zone.map((q) => q[0]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...zone.map((q) => q[1])) };
+  });
+  const cut = scope.keep(wasm.CrossSection.ofPolygons(zones));
+  const out: Vec2[][] = [];
+  for (const hole of holes) {
+    const xs = hole.map((q) => q[0]);
+    const top = Math.max(...hole.map((q) => q[1]));
+    const hit = boxes.some((b) => top > b.y0 && Math.max(...xs) > b.x0 && Math.min(...xs) < b.x1);
+    const pieces = hit
+      ? scope
+          .keep(scope.keep(wasm.CrossSection.ofPolygons([hole])).subtract(cut))
+          .toPolygons()
+          .map((poly) => poly.map(([x, y]) => [x, y] as Vec2))
+      : [hole];
+    for (const piece of pieces) {
+      const h = finish(piece);
+      if (done(h)) out.push(h);
+    }
+  }
+  return out;
+}
+
+/**
+ * Band closing the cut edges of open walls (expanded metal, weave), over the
+ * full wall thickness. Like the top rim of the weave its first layer is one
+ * line in the middle of the wall, bridging from support to support, and it
+ * grows 45° to the full thickness above (one step per print layer). In the
+ * weave its level bottom ends inside the next stakes.
+ */
+export function handleBands(
+  wasm: Wasm,
+  scope: Scope,
+  p: BasketParams,
   quality: Quality,
+  weave?: WeaveLayout,
 ): Manifold[] {
-  const centers = handleArcCenters(p, layout.path);
-  if (centers.length === 0) return [];
-  const zf = p.height - p.handleDepth - HANDLE_FRAME;
-  const ring = scope.keep(rimSolid(wasm, p, layout, quality, zf));
-  const L = layout.path.length;
-  const reach = p.handleWidth / 2 + HANDLE_FRAME;
-  const INTO_STAKE = 0.3;
-  return centers.map((sc, i) => {
-    const rel = layout.stakes.map((s) => ((((s - sc) % L) + 1.5 * L) % L) - L / 2);
-    const right = Math.min(...rel.filter((u) => u >= reach)) + INTO_STAKE;
-    const left = Math.min(...rel.filter((u) => u <= -reach).map((u) => -u)) + INTO_STAKE;
-    const a = layout.path.at(sc + right);
-    const b = layout.path.at(sc - left);
-    const tangent = (n: Vec2): Vec2 => [-n[1], n[0]];
-    const site = sites(p)[i]!;
-    const keep = [
-      halfSpace(wasm, scope, a.p, tangent(a.n).map((v) => -v) as Vec2),
-      halfSpace(wasm, scope, b.p, tangent(b.n)),
-      halfSpace(wasm, scope, [0, 0], site.n),
-    ];
-    return keep.reduce((m, h) => scope.keep(m.intersect(h)), ring);
+  const all = sites(p);
+  if (all.length === 0) return [];
+  const T = wallIntrusion(p);
+  const steps = Math.max(0, Math.ceil((T - FIRST_LINE) / (2 * LAYER)));
+  const centers = weave ? handleArcCenters(p, weave.path) : [];
+  // Clip to the outer outline (a weave band may reach a little past the
+  // straight wall to its anchor stake) and to the top edge.
+  const outline = scope.keep(
+    scope
+      .keep(
+        wasm.CrossSection.ofPolygons([
+          roundedRect(p.width, p.depth, p.cornerRadius, CORNER_SEGMENTS[quality]),
+        ]),
+      )
+      .extrude(p.height),
+  );
+  return all.map((site, i) => {
+    let ends: { left: number; right: number } | undefined;
+    if (weave) {
+      const L = weave.path.length;
+      const sc = centers[i]!;
+      const rel = weave.stakes.map((s) => ((((s - sc) % L) + 1.5 * L) % L) - L / 2);
+      const reach = flatEnd(p);
+      ends = {
+        right: Math.min(...rel.filter((u) => u >= reach)) + INTO_STAKE,
+        left: Math.min(...rel.filter((u) => u <= -reach).map((u) => -u)) + INTO_STAKE,
+      };
+    }
+    const shape: CrossSection = scope.keep(wasm.CrossSection.ofPolygons([bandOutline(p, ends)]));
+    const layers = Array.from({ length: steps + 1 }, (_, k) => {
+      const thick = Math.min(T, FIRST_LINE + 2 * k * LAYER);
+      const raised = k === 0 ? shape : scope.keep(shape.translate([0, k * LAYER]));
+      return scope.keep(scope.keep(raised.extrude(thick)).translate([0, 0, -T / 2 - thick / 2]));
+    });
+    const band = scope.keep(wasm.Manifold.union(layers));
+    return scope.keep(scope.keep(band.transform(onWall(site))).intersect(outline));
   });
 }

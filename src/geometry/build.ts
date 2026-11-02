@@ -1,5 +1,5 @@
 import type { Manifold } from 'manifold-3d';
-import { handleFrames, handleNotches, weaveHandleFrames } from './handles';
+import { handleBands, handleNotches } from './handles';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
@@ -47,12 +47,11 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       }
     }
     if (params.handles !== 'none') {
-      // Open walls get a solid frame round the cut-out first; hole patterns
-      // already leave that zone solid (handleKeepOut).
-      const frames = weave
-        ? weaveHandleFrames(wasm, scope, params, weave, quality)
-        : params.wallStyle === 'expanded'
-          ? handleFrames(wasm, scope, params)
+      // Open walls get a band closing the cut edges; hole patterns leave
+      // that band solid already (clipHoles).
+      const frames =
+        params.wallStyle === 'weave' || params.wallStyle === 'expanded'
+          ? handleBands(wasm, scope, params, quality, weave)
           : [];
       if (frames.length > 0) body = scope.keep(wasm.Manifold.union([body, ...frames]));
       body = scope.keep(

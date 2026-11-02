@@ -4,7 +4,7 @@ import type { BasketParams } from '../params';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { printableHole } from './voronoi';
-import { handleKeepOut, holeBlocked } from '../handles';
+import { clipHoles } from '../handles';
 import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
@@ -48,24 +48,27 @@ export function hexLayout(p: BasketParams): HexLayout {
   return { path, count, px, pz, rows };
 }
 
-/** All hexagon holes in wall coordinates (x = arc length on the outer wall). */
-export function hexHoles(p: BasketParams): Vec2[][] {
+/** Plain hexagons in wall coordinates (x = arc length on the outer wall). */
+function hexShapes(p: BasketParams): Vec2[][] {
   const l = hexLayout(p);
-  const keepOut = handleKeepOut(p, l.path);
-  const holes: Vec2[][] = [];
+  const shapes: Vec2[][] = [];
   l.rows.forEach((y, j) => {
-    for (let i = 0; i < l.count; i++) {
-      const hole = printableHole(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
-      if (!holeBlocked(hole, keepOut)) holes.push(hole);
-    }
+    for (let i = 0; i < l.count; i++)
+      shapes.push(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
   });
-  return holes;
+  return shapes;
+}
+
+/** All hexagon holes in wall coordinates, made printable (no handle cut-outs). */
+export function hexHoles(p: BasketParams): Vec2[][] {
+  return hexShapes(p).map(printableHole);
 }
 
 /** One cutter body for all hexagons, bent onto the wall along the outer outline. */
 export function hexCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
-  const holes = hexHoles(p);
-  if (holes.length === 0) return [];
   const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+  // A handle cut-out trims the hexagons it reaches; every piece is made printable.
+  const holes = clipHoles(wasm, scope, p, path, hexShapes(p), printableHole);
+  if (holes.length === 0) return [];
   return [scope.keep(bentCutter(wasm, holes, path, 1, -(p.wall + 1)))];
 }

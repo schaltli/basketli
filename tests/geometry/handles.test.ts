@@ -90,8 +90,8 @@ describe.each(styles)('%s with a cut-out from the top', (_name, style, gap) => {
         expect(inBox(m, [-X - 0.5, -3, H - 1.5], [-X + T, 3, H - 0.5])).toBeGreaterThan(1);
       // solid frame beside the notch: no holes, full wall thickness
       const side: [[number, number, number], [number, number, number]] = [
-        [X - T + 0.05, w / 2 + 0.5, H - d],
-        [X - 0.05, w / 2 + HANDLE_FRAME - 0.5, H - 2],
+        [X - T + 0.05, w / 2 + 0.5, H - d + 8], // above the round bottom corner
+        [X - 0.05, w / 2 + HANDLE_FRAME - 0.5, H - 5], // below the rounded top edge
       ];
       const sideVol =
         (side[1][0] - side[0][0]) * (side[1][1] - side[0][1]) * (side[1][2] - side[0][2]);
@@ -103,6 +103,19 @@ describe.each(styles)('%s with a cut-out from the top', (_name, style, gap) => {
       ];
       const underVol = (T - 0.1) * 10 * 0.9;
       expect(inBox(m, ...under) / underVol).toBeGreaterThan(0.97);
+
+      // cells next to the band are cut, not filled: open space right beside it
+      if (style === 'hex' || style === 'voronoi') {
+        const outside: [[number, number, number], [number, number, number]] = [
+          [X - T + 0.05, w / 2 + HANDLE_FRAME + 0.3, H - d - HANDLE_FRAME - 8],
+          [X - 0.05, w / 2 + HANDLE_FRAME + 5, H - p.borderBand - 0.5],
+        ];
+        const vol =
+          (outside[1][0] - outside[0][0]) *
+          (outside[1][1] - outside[0][1]) *
+          (outside[1][2] - outside[0][2]);
+        expect(inBox(m, ...outside) / vol).toBeLessThan(0.8);
+      }
 
       // printable without support
       const envelope =
