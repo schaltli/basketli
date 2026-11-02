@@ -194,13 +194,13 @@
 **Dateien:** `src/geometry/stacking.ts`, `src/geometry/build.ts`, `src/geometry/params.ts`, `tests/geometry/stacking.test.ts`
 **Umfang:** M
 
-### - [ ] T11: 3MF-Export und Download-Menü
+### - [x] T11: 3MF-Export und Download-Menü
 
 **Beschreibung:** Ein 3MF-Writer (Model-XML, Content-Types, Rels, als ZIP über fflate, Einheit mm). Der Download-Button wird zum Menü mit STL und 3MF.
 **Akzeptanz:**
 
-- [ ] Das ZIP enthält `[Content_Types].xml`, `_rels/.rels` und `3D/3dmodel.model`; Vertex- und Dreieckszahl stimmen.
-- [ ] Die Datei öffnet sich in PrusaSlicer und Bambu Studio in korrekter Größe.
+- [x] Das ZIP enthält `[Content_Types].xml`, `_rels/.rels` und `3D/3dmodel.model`; Vertex- und Dreieckszahl stimmen.
+- [ ] Die Datei öffnet sich in PrusaSlicer und Bambu Studio in korrekter Größe. (Testdatei: `testprints/basketli-geflecht-geschlossen_80x60x50.3mf`, Prüfung durch den Nutzer offen)
       **Prüfung:** `npx vitest run tests/export/threemf.test.ts`; manuell im Slicer
       **Abhängig von:** T9
       **Dateien:** `src/export/threemf.ts`, `src/ui/controls/DownloadButton.tsx`, `tests/export/threemf.test.ts`

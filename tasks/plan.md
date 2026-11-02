@@ -66,7 +66,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 ### Phase 3 – Korb-Kern
 
 - [x] T10: Stapel-Schnittstelle für alle Wandstile – Körbe gleicher Grundfläche stilübergreifend stapelbar
-- [ ] T11: 3MF-Export und Download-Menü
+- [x] T11: 3MF-Export und Download-Menü
 - [x] T12: Waben (Hex-Löcher) umlaufend
 - [x] ~~T13: Schlitz- und Rautenmuster~~ – entfällt (Entscheidung 2026-11-01)
 - [x] T13b: Voronoi-Muster (Prototyp, vorgezogen)

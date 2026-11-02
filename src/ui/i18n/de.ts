@@ -2,7 +2,9 @@ export const de = {
   appTitle: 'basketli',
   buildError: 'Der Korb konnte nicht berechnet werden. Bitte Parameter prüfen.',
   triangles: 'Dreiecke',
-  downloadStl: 'STL herunterladen',
+  download: 'Herunterladen',
+  downloadStlHint: 'für jeden Slicer',
+  download3mfHint: 'kompakter, mit Einheit mm',
   downloadBusy: 'Wird berechnet …',
   downloadFailed: 'Export fehlgeschlagen.',
 
