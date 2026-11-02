@@ -145,6 +145,56 @@ describe('socket surface', () => {
   });
 });
 
+/**
+ * Upward-facing flat area inside the basket between the floor and the top of
+ * the socket, further in than the wall reaches: the step from the socket
+ * ring to the thinner wall. It should be a 45° chamfer instead.
+ */
+function innerLedgeArea(m: Manifold, p: BasketParams): number {
+  const mesh = m.getMesh();
+  const v = mesh.vertProperties;
+  const n = mesh.numProp;
+  const t = mesh.triVerts;
+  const r = p.cornerRadius;
+  const inset = (x: number, y: number) => {
+    const ax = Math.abs(x);
+    const ay = Math.abs(y);
+    const cx = p.width / 2 - r;
+    const cy = p.depth / 2 - r;
+    if (ax > cx && ay > cy) return r - Math.hypot(ax - cx, ay - cy);
+    return Math.min(p.width / 2 - ax, p.depth / 2 - ay);
+  };
+  const reach = Math.max(wallIntrusion(p), 1.6) + 0.1;
+  let area = 0;
+  for (let i = 0; i < t.length; i += 3) {
+    const [a, b, c] = [t[i]! * n, t[i + 1]! * n, t[i + 2]! * n];
+    const z = (v[a + 2]! + v[b + 2]! + v[c + 2]!) / 3;
+    if (z < p.floor + 0.01 || z > socketTop(p) + 0.01) continue;
+    const u = [v[b]! - v[a]!, v[b + 1]! - v[a + 1]!, v[b + 2]! - v[a + 2]!];
+    const w = [v[c]! - v[a]!, v[c + 1]! - v[a + 1]!, v[c + 2]! - v[a + 2]!];
+    const cx = u[1]! * w[2]! - u[2]! * w[1]!;
+    const cy = u[2]! * w[0]! - u[0]! * w[2]!;
+    const cz = u[0]! * w[1]! - u[1]! * w[0]!;
+    const len = Math.hypot(cx, cy, cz);
+    if (len < 1e-12 || cz / len < 0.99) continue;
+    const x = (v[a]! + v[b]! + v[c]!) / 3;
+    const y = (v[a + 1]! + v[b + 1]! + v[c + 1]!) / 3;
+    if (inset(x, y) > reach) area += len / 2;
+  }
+  return area;
+}
+
+describe('socket inside', () => {
+  it.each(styles)('%s: no flat ledge between socket ring and wall', (_n, p) => {
+    const m = buildManifold(wasm, p, 'preview');
+    try {
+      expect(innerLedgeArea(m, p)).toBeLessThan(0.5);
+    } finally {
+      m.delete();
+    }
+  });
+});
+
 /** Largest overlap volume when `upper` is lifted by dz onto `lower`. */
 function overlap(lower: Manifold, upper: Manifold, dz: number): number {
   const lifted = upper.translate([0, 0, dz]);

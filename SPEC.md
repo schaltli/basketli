@@ -132,7 +132,7 @@ Angeboten werden: **Streckmetall** (Standard), **Waben**, **Voronoi**, **Geflech
 - **Anforderung (2026-11-01): Alle Körbe gleicher Grundfläche (Breite × Tiefe × Eckenradius) sind untereinander stapelbar – unabhängig vom Wandstil.**
 - **Gewählt: Fuß auf Wandkante.** Gemeinsame Schnittstelle aller Wandstile:
   - **Fuß:** die untersten 3 mm sind rundum um 4 mm + Stapelspiel (Default 0,3 mm) eingezogen.
-  - **Schulter:** darüber führt eine 45°-Fase zur vollen Außenkontur (stützfrei druckbar); der Bereich bis zum Fasenende ist ein massiver Sockel.
+  - **Schulter:** darüber führt eine 45°-Fase zur vollen Außenkontur (stützfrei druckbar); der Bereich bis zum Fasenende ist ein massiver Sockel. Innen läuft der Sockel parallel zur Außenfase mit 45° vom Boden zur Wand hinaus (kein waagrechter Absatz); oben ist er so breit, wie die Wand nach innen reicht, mindestens 1,6 mm.
   - **Oben kein zusätzlicher Rand.** Keine Wand reicht an der Oberkante mehr als 4 mm nach innen (Regel in `clampParams`, passt Verdrehung, Stakendurchmesser, Materialdicke bzw. Wandstärke an), daher passt jeder Fuß in jede Öffnung.
   - **Eckenradius** bei stapelbaren Körben mindestens 10 mm für alle Stile (gleiche Eingabe → gleiche Kontur, sonst klemmen die Ecken).
 - Der obere Korb liegt mit der Fase auf der **Innenkante** der Wand darunter und zentriert sich dabei selbst. Das Stapelmaß hängt deshalb von der Wanddicke des unteren Korbs ab: **Stapelmaß = H − 3 mm − (4,3 mm − Wanddicke oben)**. Bei H = 50 mm: Geflecht unten 46,25 mm, Streckmetall 45,5 mm, Waben/Voronoi 44,3 mm. (Korrektur 2026-11-01: „2·H“ bzw. „H − 3 mm“ sind ohne Überhang nicht erreichbar.)

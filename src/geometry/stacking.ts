@@ -91,23 +91,31 @@ export function stackEnvelope(
 
 /**
  * Solid socket ring around the floor plate, up to the end of the chamfer.
- * It is a plain prism: the envelope cuts foot and chamfer once, for the
- * whole basket, so no two booleans have to agree on the chamfer plane.
+ * Inside it widens at 45° towards the top, so it meets the wall without a
+ * flat ledge: at socketTop it is only as thick as the wall reaches in (at
+ * least SOCKET_WALL), so every wall still stands on solid ground. Inside and
+ * outside chamfer run parallel, keeping the ring at least SOCKET_WALL thick.
+ * The envelope cuts the outside once, for the whole basket, so no two
+ * booleans have to agree on the outer chamfer plane.
  */
 export function socketRing(wasm: Wasm, scope: Scope, p: BasketParams, quality: Quality): Manifold {
-  const { CrossSection } = wasm;
+  const { CrossSection, Manifold } = wasm;
   const top = socketTop(p);
   const slab = scope.keep(
     scope.keep(CrossSection.ofPolygons([contour(p, 0, quality)])).extrude(top),
   );
+  const bottom = footInset(p) + SOCKET_WALL;
+  const rim = Math.max(SOCKET_WALL, wallIntrusion(p));
+  const start = Math.max(p.floor, top - (bottom - rim));
+  const startInset = Math.min(bottom, rim + (top - start));
+  // Widening upwards keeps the cavity convex, so one hull describes it.
   const cavity = scope.keep(
-    scope
-      .keep(
-        scope
-          .keep(CrossSection.ofPolygons([contour(p, footInset(p) + SOCKET_WALL, quality)]))
-          .extrude(top + 1),
-      )
-      .translate(0, 0, p.floor),
+    Manifold.hull([
+      ...lift(contour(p, bottom, quality), p.floor),
+      ...lift(contour(p, startInset, quality), start),
+      ...lift(contour(p, rim, quality), top),
+      ...lift(contour(p, rim, quality), top + 1),
+    ]),
   );
   return scope.keep(slab.subtract(cavity));
 }
