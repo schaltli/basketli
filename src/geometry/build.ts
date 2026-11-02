@@ -10,6 +10,7 @@ import { hexCutters } from './patterns/hex';
 import { voronoiCutters } from './patterns/voronoi';
 import { withStacking } from './stacking';
 import { buildWeave } from './weave';
+import { wovenDividers } from './weave/divider';
 
 export type { Quality };
 
@@ -48,7 +49,10 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
           body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
       }
     }
-    const dividers = dividerSolids(wasm, scope, params, quality);
+    // weave baskets get woven dividers, every other style plain ones (patterned below)
+    const dividers = weave
+      ? wovenDividers(wasm, scope, params, weave, quality)
+      : dividerSolids(wasm, scope, params, quality);
     if (dividers.length > 0) {
       body = scope.keep(wasm.Manifold.union([body, ...dividers]));
       // dividers carry the wall pattern too

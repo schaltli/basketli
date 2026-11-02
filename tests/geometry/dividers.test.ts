@@ -111,7 +111,7 @@ describe.each(styles)('%s with dividers', (_n, wallStyle, rowGap) => {
       const x = -p.width / 2 + 60;
       const y = -p.depth / 2 + 45;
       // the top band of a divider is solid in every style (the pattern sits below)
-      const z: [number, number] = [top - 2.7, top - 0.3];
+      const z: [number, number] = [top - 2.7, top - 0.8]; // below the rim's chamfer
       // x-divider: solid across its thickness, nothing just beside it
       const inside = inBox(m, [x - t / 2 + 0.02, 10, z[0]], [x + t / 2 - 0.02, 20, z[1]]);
       expect(inside / ((t - 0.04) * 10 * (z[1] - z[0]))).toBeGreaterThan(0.99);

@@ -8,6 +8,7 @@ import { clampParams, DEFAULTS, type WallStyle } from '../../src/geometry/params
 import { buildExpanded } from '../../src/geometry/patterns/expanded';
 import { MAX_BRIDGE, overhangReport } from '../../src/geometry/printability';
 import { wallIntrusion } from '../../src/geometry/stacking';
+import { dividerStakes } from '../../src/geometry/weave/divider';
 
 let wasm: Wasm;
 beforeAll(async () => {
@@ -105,6 +106,47 @@ describe.each(['hex', 'voronoi', 'expanded'] as const)('%s basket with dividers'
     } finally {
       m.delete();
       scope.dispose();
+    }
+  });
+});
+
+describe('woven dividers', () => {
+  it('stakes at both ends and every crossing, evenly between, within the bridge limit', () => {
+    const stakes = dividerStakes([2, 40, 98], 12, 13.8);
+    expect(stakes[0]).toBe(2);
+    expect(stakes).toContain(40);
+    expect(stakes[stakes.length - 1]).toBe(98);
+    for (let i = 1; i < stakes.length; i++) {
+      expect(stakes[i]! - stakes[i - 1]!).toBeGreaterThan(0);
+      expect(stakes[i]! - stakes[i - 1]!).toBeLessThanOrEqual(13.8 + 1e-9);
+    }
+  });
+
+  it.each([0, 4])('row gap %d: one body, the divider is woven (open between bands)', (rowGap) => {
+    const p = clampParams({
+      ...DEFAULTS,
+      wallStyle: 'weave',
+      weave: { ...DEFAULTS.weave, rowGap },
+      dividersX: [55, 103],
+      dividersY: [40],
+    }).params;
+    const m = buildManifold(wasm, p, 'preview');
+    try {
+      expect(m.status()).toBe('NoError');
+      const parts = m.decompose();
+      expect(parts.length).toBe(1);
+      parts.forEach((x) => x.delete());
+      // across the x-divider at 55, mid-way between the front wall and the crossing:
+      // bands weave round stakes, so the full thickness is not solid all the way up
+      const t = wallIntrusion(p);
+      const X = -p.width / 2 + 55;
+      const box = wasm.Manifold.cube([t, 20, 40]).translate([X - t / 2, -p.depth / 2 + 10, 15]);
+      const cut = m.intersect(box);
+      expect(cut.volume() / box.volume()).toBeLessThan(0.9);
+      expect(cut.volume()).toBeGreaterThan(0.2 * box.volume());
+      [cut, box].forEach((x) => x.delete());
+    } finally {
+      m.delete();
     }
   });
 });

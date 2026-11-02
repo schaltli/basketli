@@ -347,9 +347,11 @@ Waben: ganze Waben je Wandabschnitt, zentriert, ≥ ein Steg Abstand zur Trennwa
 Nachtrag 2026-11-02 (Kamm): Anschluss-Stege nur bis zur Trennwand-Oberkante; darüber läuft das Muster über die Anschlüsse weiter. Dafür liegt das Raster selbst auf den Anschlüssen (Waben: eine Wabe mittig auf jedem Anschluss; Streckmetall: Knoten auf dem Anschluss, überall gleiche Reihenhöhe); Zellen unterhalb der Oberkante werden am Steg angeschnitten, Splitter < 20 % entfallen.
 **Prüfung:** `npx vitest run tests/geometry/dividers.test.ts` (inkl. Druckbarkeit aller Stile mit Trennwänden)
 
-#### - [ ] T19c: Trennwände mit Wandmuster
+#### - [x] T19c: Trennwände mit Wandmuster
 
 Gleiche Regeln je Trennwand-Abschnitt (zwischen Wand und Kreuzungen); Geflecht als gewebte Trennwand mit Staken an Anschlüssen und Kreuzungen.
+**Prüfung:** `npx vitest run tests/geometry/divider-patterns.test.ts tests/geometry/dividers.test.ts` (ein Körper, Muster offen, druckbar in allen Stilen).
+**Offen für T22:** Vorschau Geflecht 150×100×80 mit 3 Trennwänden 2,0 s (Ziel 1 s; ohne Trennwände 0,8 s).
 
 ### - [x] T20: Raster-Editor
 
