@@ -207,3 +207,50 @@ button {
   background: #fde8e4;
   color: #8a2a17;
 }
+
+/* Dimension labels on the model */
+.dim-label {
+  padding: 2px 8px;
+  border: 1px solid #cfc4b4;
+  border-radius: 999px;
+  background: rgb(251 249 246 / 92%);
+  color: #3d342a;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgb(61 52 42 / 15%);
+}
+
+.dim-label:hover,
+.dim-label:focus-visible {
+  border-color: #8b6d42;
+  outline: none;
+}
+
+.dim-unit {
+  color: #8a7f70;
+  font-size: 0.75rem;
+}
+
+.dim-editor {
+  width: 180px;
+  padding: 8px 10px;
+  border: 1px solid #b8ab98;
+  border-radius: 8px;
+  background: #fbf9f6;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 14px rgb(61 52 42 / 20%);
+}
+
+.dim-editor-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #6b6052;
+}
+
+.dim-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}

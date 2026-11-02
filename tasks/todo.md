@@ -290,13 +290,13 @@
       **Dateien:** `src/ui/controls/Toolbar.tsx`, `src/ui/controls/ParamsDialog.tsx`, `src/ui/controls/NumberField.tsx`, `src/ui/i18n/de.ts`, `tests/ui/params-dialog.test.tsx`
       **Umfang:** M
 
-### - [ ] T16: Maß-Labels am Modell
+### - [x] T16: Maß-Labels am Modell
 
 **Beschreibung:** Bemaßungen für B, T und H werden als HTML-Overlays an den Modellkanten angezeigt. Ein Klick öffnet ein Eingabefeld (Enter übernimmt, Esc bricht ab); daneben ein Slider zum Ziehen. Das entspricht dem Bento3D-Muster mit eigener Gestaltung.
 **Akzeptanz:**
 
-- [ ] Ein Klick auf ein Maß, dann Wert eingeben und Enter, ändert das Modell; die URL wird aktualisiert.
-- [ ] Die Labels folgen beim Drehen der Kamera und verdecken sich nicht gegenseitig.
+- [x] Ein Klick auf ein Maß, dann Wert eingeben und Enter, ändert das Modell; die URL wird aktualisiert.
+- [x] Die Labels folgen beim Drehen der Kamera und verdecken sich nicht gegenseitig. (Labels wandern auf die kameranahen Seiten; ein Label, dessen Kante in Blickrichtung zeigt oder das ein anderes verdecken würde, wird ausgeblendet.)
       **Prüfung:** `npm run dev`; ein E2E-Schritt in T21
       **Abhängig von:** T15
       **Dateien:** `src/ui/viewer/DimensionLabels.tsx`, `src/ui/viewer/Viewer.tsx`

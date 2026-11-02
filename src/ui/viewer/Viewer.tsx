@@ -5,6 +5,7 @@ import { BufferAttribute, BufferGeometry, PerspectiveCamera, Vector3 } from 'thr
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { MeshData } from '../../geometry/build';
 import type { BasketParams } from '../../geometry/params';
+import { DimensionLabels } from './DimensionLabels';
 import { materialFor } from './materials';
 
 /** Edges sharper than this stay hard; the woven relief is shaded smoothly. */
@@ -80,6 +81,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
             <meshStandardMaterial {...materialFor(params.wallStyle)} />
           </mesh>
         )}
+        <DimensionLabels params={params} />
       </group>
       <Grid
         args={[1000, 1000]}

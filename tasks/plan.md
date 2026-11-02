@@ -78,7 +78,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 
 - [x] T14: Store und URL-Serialisierung
 - [x] T15: Toolbar und Parameter-Dialog (inkl. Geflecht-Abschnitt, Hinweise beim Begrenzen)
-- [ ] T16: Maß-Labels am Modell (Klick, Eingabe, Slider)
+- [x] T16: Maß-Labels am Modell (Klick, Eingabe, Slider)
 - [ ] T17: Ansichten Einzeln / Stapel / Explosion
 
 **Checkpoint D:** Der komplette Ablauf vom Start bis zum Download geht nur mit der Maus. Ein geteilter Link stellt die Konfiguration 1:1 wieder her. Du prüfst die Bedienung.
