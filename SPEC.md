@@ -159,14 +159,14 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit dünnen Bändern
 **Aufbau**
 
 - **Grundplatte**: massiver Boden über die ganze Grundfläche (Bodenstärke).
-- **Staken**: senkrechte, runde Stäbe auf der Wandmitte, von der Grundplatte bis zur Oberkante.
+- **Staken**: senkrechte, runde Stäbe auf der Wandmitte, von der Grundplatte bis in das Abschlussband (sie enden unter dessen Fase).
 - **Bänder**: Jede Reihe ist ein geschlossenes Band, das sich abwechselnd vor und hinter den Staken entlangschlängelt (Leinwandbindung 1 über / 1 unter); Nachbarreihen um eine Stake versetzt. Die Mittellinie des Bandes läuft **durch** jede Stake (0,1 mm innerhalb ihrer Oberfläche), das Band selbst deckt die Stake auf der jeweiligen Seite ab.
 - **Bandquerschnitt** (senkrecht zum Band gemessen):
   - Schicht 1 (0,2 mm): **eine Linie, 0,45 mm breit** – die Brücke von Stake zu Stake.
   - darüber: wächst unter **45° nach innen und außen** bis zur vollen Banddicke (Schicht 2 hat damit zwei Linien).
   - oben: **Außenseite 45° angefast** (halbe Banddicke), Innenseite senkrecht.
-- Oberste Reihe = oberer Abschluss (kein Rand). Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
-- **Reihenaufteilung**: Die Reihen füllen die Wand von der Grundplatte bis zur Oberkante exakt; die Bandhöhe wird dafür leicht angepasst (ganze Zahl Reihen, möglichst nah an der eingestellten Materialhöhe).
+- **Abschlussband**: glatter, nicht gewellter Ring über die volle Wandstärke (außen bündig mit der Kontur, innen bündig mit den Staken), Höhe einstellbar. Erste Schicht: eine Linie auf der Wandmitte, also durch jede Stake, als Brücke von Stake zu Stake; darüber 45° auf volle Breite; oben außen 45° angefast wie die Bänder. Der obere Korb liegt beim Stapeln auf seiner ebenen Innenkante. Stakenzahl **gerade** (geschlossene Ringe ohne Naht).
+- **Reihenaufteilung**: Die Reihen füllen die Wand von der Grundplatte (bzw. dem Sockel) bis zum Abschlussband exakt, beim offenen Geflecht mit einem Reihenabstand auch unter dem Abschlussband; die Bandhöhe wird dafür leicht angepasst (ganze Zahl Reihen, möglichst nah an der eingestellten Materialhöhe).
 - **Flechtmaterial** Rohr / Band unterscheidet sich in Höhe und Dicke.
 - Bindung in v1 ausschließlich **Leinwandbindung**. Nur **rechteckige Körbe** mit Eckenradius.
 - **Stapeln** beim Geflecht: offen (der frühere Kordelrand als Stapelkante entfällt) – wird mit T10 neu geklärt.
@@ -186,6 +186,7 @@ Ziel: Der Korb soll **aussehen wie ein echter Flechtkorb**, mit dünnen Bändern
 | Stakenabstand (Ziel, gerade Anzahl; tatsächlich ≤ 15 mm − Materialdicke) | 12 mm                                          | 6–15       |
 | Stakendurchmesser                                                        | 3 mm                                           | 2–8        |
 | Reihenabstand (Spalt)                                                    | 0 mm (geschlossen)                             | 0–10       |
+| Abschlussband (Höhe; höchstens die halbe Flechtwand)                     | 5 mm                                           | 3–10       |
 | Auslenkung um die Staken                                                 | automatisch = Stakenradius − 0,225 mm − 0,1 mm | –          |
 
 **Druckbarkeit (verbindlich, automatisch geprüft)**
@@ -312,3 +313,4 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Geflecht bekommt ein glattes Abschlussband (Variante 1), neuer Parameter Abschlussband 5 mm (3–10).

@@ -17,7 +17,7 @@ type NumericPath =
   | 'holeSize'
   | 'webWidth'
   | 'stackClearance'
-  | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap'}`
+  | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
   | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`;
 
@@ -48,6 +48,7 @@ const STEP: Partial<Record<NumericPath, number>> = {
   holeSize: 0.5,
   'weave.materialHeight': 0.5,
   'weave.stakeSpacing': 0.5,
+  'weave.rim': 0.5,
   'expanded.diamondWidth': 0.5,
   'expanded.diamondHeight': 0.5,
   'voronoi.cellSize': 0.5,
@@ -78,6 +79,7 @@ const STYLE_FIELDS: Record<StyleChoice, NumericPath[]> = {
     'weave.materialThickness',
     'weave.stakeSpacing',
     'weave.stakeDiameter',
+    'weave.rim',
   ],
   'weave-open': [
     'weave.materialHeight',
@@ -85,6 +87,7 @@ const STYLE_FIELDS: Record<StyleChoice, NumericPath[]> = {
     'weave.stakeSpacing',
     'weave.stakeDiameter',
     'weave.rowGap',
+    'weave.rim',
   ],
 };
 

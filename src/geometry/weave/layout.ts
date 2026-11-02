@@ -28,6 +28,8 @@ export interface WeaveLayout {
   /** Arc positions of the stakes along `path`. */
   stakes: number[];
   rows: WeaveRow[];
+  /** Flat closing band round the top edge. */
+  rim: WeaveRow;
 }
 
 /**
@@ -69,17 +71,19 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const step = path.length / stakeCount;
   const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
 
-  // Rows fill the wall from the floor plate to the top. The band height is
+  // Rows fill the wall from the floor plate up to the top rim; every row
+  // (the last one too) is followed by one row gap. The band height is
   // adjusted slightly so a whole number of rows fits exactly.
   const base = patternBase(p);
-  const wall = p.height - base;
-  const n = Math.max(1, Math.round((wall + w.rowGap) / (w.materialHeight + w.rowGap)));
-  const h = (wall - (n - 1) * w.rowGap) / n;
+  const rim: WeaveRow = { z0: p.height - w.rim, z1: p.height };
+  const wall = rim.z0 - base;
+  const n = Math.max(1, Math.round(wall / (w.materialHeight + w.rowGap)));
+  const h = wall / n - w.rowGap;
   const rows: WeaveRow[] = [];
   for (let i = 0; i < n; i++) {
     const z0 = base + i * (h + w.rowGap);
     rows.push({ z0, z1: z0 + h });
   }
 
-  return { path, centerOffset, span, amplitude, stakeCount, stakes, rows };
+  return { path, centerOffset, span, amplitude, stakeCount, stakes, rows, rim };
 }

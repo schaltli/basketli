@@ -38,6 +38,7 @@ describe('DEFAULTS', () => {
       stakeSpacing: 12,
       stakeDiameter: 3,
       rowGap: 0,
+      rim: 5,
     });
   });
 
@@ -68,6 +69,19 @@ describe('clampParams – ranges', () => {
     expect(r.notices.map((n) => n.field)).toEqual(
       expect.arrayContaining(['weave.materialHeight', 'weave.rowGap']),
     );
+  });
+
+  it('clamps the weave top rim to 3–10 mm', () => {
+    expect(LIMITS.rim).toEqual({ min: 3, max: 10 });
+    const r = clampParams(withWeave({ rim: 20 }, { height: 120 }));
+    expect(r.params.weave.rim).toBe(10);
+    expect(r.notices).toContainEqual(expect.objectContaining({ field: 'weave.rim' }));
+  });
+
+  it('keeps the top rim to at most half the woven wall', () => {
+    const r = clampParams(withWeave({ rim: 10 }, { height: 20, stackable: false }));
+    expect(r.params.weave.rim).toBeLessThanOrEqual((20 - r.params.floor) / 2);
+    expect(r.notices).toContainEqual(expect.objectContaining({ field: 'weave.rim', kind: 'rule' }));
   });
 
   it('replaces non-finite numbers with the default', () => {

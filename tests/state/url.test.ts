@@ -17,6 +17,7 @@ const LIMIT_OF: Record<string, keyof typeof LIMITS> = {
   'weave.stakeSpacing': 'stakeSpacing',
   'weave.stakeDiameter': 'stakeDiameter',
   'weave.rowGap': 'rowGap',
+  'weave.rim': 'rim',
   'voronoi.cellSize': 'cellSize',
   'voronoi.seed': 'seed',
   'expanded.diamondWidth': 'diamondWidth',

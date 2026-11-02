@@ -47,6 +47,7 @@ export const de = {
     'weave.stakeSpacing': 'Stakenabstand',
     'weave.stakeDiameter': 'Stakendurchmesser',
     'weave.rowGap': 'Reihenabstand',
+    'weave.rim': 'Abschlussband',
     'voronoi.cellSize': 'Zellgröße',
     'voronoi.seed': 'Startwert',
     'expanded.diamondWidth': 'Rautenbreite',

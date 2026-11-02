@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { buildManifold } from '../../../src/geometry/build';
 import { loadManifold, type Wasm } from '../../../src/geometry/manifold';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
+import { roundedRectArea } from '../../../src/geometry/shapes';
+import { weaveLayout } from '../../../src/geometry/weave/layout';
 
 let wasm: Wasm;
 beforeAll(async () => {
@@ -44,6 +46,24 @@ describe('woven basket', () => {
       expect(box.max[1]).toBeCloseTo(p.depth / 2, 1);
       expect(Math.abs(box.min[2])).toBeLessThan(0.05);
       expect(Math.abs(box.max[2] - p.height)).toBeLessThan(0.05);
+    } finally {
+      m.delete();
+    }
+  });
+
+  it.each(cases)('%s: closed flat rim round the top, as wide as the wall', (_name, p) => {
+    const m = buildManifold(wasm, p, 'export');
+    try {
+      const { span } = weaveLayout(p);
+      const r = p.cornerRadius;
+      const ring =
+        roundedRectArea(p.width, p.depth, r) -
+        roundedRectArea(p.width - 2 * span, p.depth - 2 * span, r - span);
+      // below the chamfer, above the bottom taper
+      const cut = m.slice(p.height - p.weave.rim / 2);
+      expect(cut.numContour()).toBe(2);
+      expect(Math.abs(cut.area() - ring) / ring).toBeLessThan(0.02);
+      cut.delete();
     } finally {
       m.delete();
     }

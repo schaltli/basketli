@@ -97,3 +97,46 @@ export function bandSolids(
     scope.keep(reliefShell(wasm, bandField(p, layout, i, quality), layout.path)),
   );
 }
+
+/**
+ * Cross-section of the flat top rim (half-widths from the weave centerline):
+ * - first layer: one extrusion line on the centerline, i.e. through every
+ *   stake, bridging stake to stake like the bands
+ * - above: grows 45° to the full wall span
+ * - top: outer edge chamfered 45° like the bands
+ */
+export function rimProfile(span: number, t: number, h: number): BandProfile {
+  const half = span / 2;
+  const line = Math.min(FIRST_LINE, span);
+  const grow = half - line / 2;
+  const top = Math.min(CHAMFER_RATIO * t, Math.max(0, h - LAYER - grow));
+  return {
+    z: [0, LAYER, LAYER + grow, h - top, h],
+    inner: [line / 2, line / 2, half, half, half],
+    outer: [line / 2, line / 2, half, half, half - top],
+  };
+}
+
+/** Flat closing band round the top edge: one closed ring over all stakes. */
+export function rimSolid(
+  wasm: Wasm,
+  p: BasketParams,
+  layout: WeaveLayout,
+  quality: Quality,
+): Manifold {
+  const { z0, z1 } = layout.rim;
+  const prof = rimProfile(layout.span, p.weave.materialThickness, z1 - z0);
+  // The bottom reaches ROW_OVERLAP down to fuse with the row below.
+  const z = Float64Array.from(prof.z, (dz, k) => (k === 0 ? z0 - ROW_OVERLAP : z0 + dz));
+  const cols = layout.stakeCount * BAND_SAMPLES_PER_STAKE[quality];
+  const s = Float64Array.from({ length: cols }, (_, j) => (j / cols) * layout.path.length);
+  const K = z.length;
+  const inner = new Float64Array(cols * K);
+  const outer = new Float64Array(cols * K);
+  for (let j = 0; j < cols; j++)
+    for (let k = 0; k < K; k++) {
+      inner[j * K + k] = -prof.inner[k]!;
+      outer[j * K + k] = prof.outer[k]!;
+    }
+  return reliefShell(wasm, { s, z, inner, outer }, layout.path);
+}

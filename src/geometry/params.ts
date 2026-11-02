@@ -1,5 +1,5 @@
 /** All lengths in mm. */
-import { STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
+import { patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
 export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave'] as const;
@@ -19,6 +19,8 @@ export interface WeaveParams {
   stakeDiameter: number;
   /** Gap between rows; 0 = closed weave. */
   rowGap: number;
+  /** Height of the flat closing band round the top edge (mm). */
+  rim: number;
 }
 
 /** Expanded metal ("Streckmetall"): standing diamond holes, twisted strands. */
@@ -79,6 +81,7 @@ export const LIMITS = {
   stakeSpacing: { min: 6, max: 40 },
   stakeDiameter: { min: 2, max: 8 },
   rowGap: { min: 0, max: 10 },
+  rim: { min: 3, max: 10 },
   cellSize: { min: 6, max: 12 },
   seed: { min: 0, max: 9999 },
   diamondWidth: { min: 3, max: 15 },
@@ -133,6 +136,7 @@ export const DEFAULTS: BasketParams = {
     stakeSpacing: 12,
     stakeDiameter: 3,
     rowGap: 0,
+    rim: 5,
   },
 };
 
@@ -174,6 +178,7 @@ const WEAVE_NUMBERS: WeaveNumberKey[] = [
   'stakeSpacing',
   'stakeDiameter',
   'rowGap',
+  'rim',
 ];
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -287,6 +292,12 @@ export function clampParams(input: BasketParams): ClampResult {
     if (w.stakeSpacing > MAX_OPEN_SPACING) {
       w.stakeSpacing = MAX_OPEN_SPACING;
       rule('weave.stakeSpacing', MAX_OPEN_SPACING);
+    }
+    // The top rim leaves at least half the woven wall for the rows.
+    const maxRim = Math.max(LIMITS.rim.min, round((p.height - patternBase(p)) / 2));
+    if (w.rim > maxRim) {
+      w.rim = maxRim;
+      rule('weave.rim', maxRim);
     }
     const minSpacing = round(w.stakeDiameter + 2 * w.materialThickness);
     if (w.stakeSpacing < minSpacing) {

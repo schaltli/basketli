@@ -133,18 +133,22 @@ describe('weaveLayout', () => {
         rowCases.push([`${material} ${mh}mm gap ${gap}`, material, mh, gap]);
 
   it.each(rowCases)(
-    '%s: rows fill the wall (above floor or socket) to the top exactly',
+    '%s: rows fill the wall from the floor or socket up to the top rim',
     (_n, material, mh, gap) => {
       const p = weave({ height: 120 }, { material, materialHeight: mh, rowGap: gap });
       const l = weaveLayout(p);
       const n = l.rows.length;
+      const rim = p.weave.rim;
       expect(l.rows[0]!.z0).toBeCloseTo(patternBase(p), 9);
-      expect(l.rows[n - 1]!.z1).toBeCloseTo(120, 9);
+      // the last row keeps one row gap to the rim, like between the rows
+      expect(l.rows[n - 1]!.z1).toBeCloseTo(120 - rim - gap, 9);
+      expect(l.rim.z0).toBeCloseTo(120 - rim, 9);
+      expect(l.rim.z1).toBeCloseTo(120, 9);
       const h = l.rows[0]!.z1 - l.rows[0]!.z0;
       // n is the whole number closest to the target → band height close to the target
-      const wall = 120 - patternBase(p);
+      const wall = 120 - rim - patternBase(p);
       const target = p.weave.materialHeight;
-      expect(n).toBe(Math.max(1, Math.round((wall + gap) / (target + gap))));
+      expect(n).toBe(Math.max(1, Math.round(wall / (target + gap))));
       expect(Math.abs(h - target)).toBeLessThanOrEqual((target + gap) / 2);
       l.rows.forEach((r, i) => {
         expect(r.z1 - r.z0).toBeCloseTo(h, 9);
