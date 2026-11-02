@@ -22,7 +22,7 @@ export const STACK_INSET = 4;
  */
 export const STACK_MIN_RADIUS = 10;
 /** Solid wall of the socket next to the foot (mm). */
-const SOCKET_WALL = 1.6;
+export const SOCKET_WALL = 1.6;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
 export const footInset = (p: BasketParams) => STACK_INSET + p.stackClearance;

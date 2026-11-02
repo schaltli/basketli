@@ -2,6 +2,7 @@ import {
   clampParams,
   DEFAULTS,
   DIVIDER_STYLES,
+  FLOOR_PATTERNS,
   HANDLE_MODES,
   WALL_STYLES,
   WEAVE_MATERIALS,
@@ -23,6 +24,7 @@ const ENUMS: Record<string, readonly string[]> = {
   wallStyle: WALL_STYLES,
   handles: HANDLE_MODES,
   dividerStyle: DIVIDER_STYLES,
+  floorPattern: FLOOR_PATTERNS,
   'weave.material': WEAVE_MATERIALS,
 };
 

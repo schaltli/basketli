@@ -8,6 +8,9 @@ export type WallStyle = (typeof WALL_STYLES)[number];
 /** Cut-out from the top edge: none, on one end wall, or on both end walls. */
 export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
 export type HandleMode = (typeof HANDLE_MODES)[number];
+/** Floor: closed, or holes in one of these patterns. */
+export const FLOOR_PATTERNS = ['closed', 'hex', 'voronoi', 'diamond', 'slots'] as const;
+export type FloorPattern = (typeof FLOOR_PATTERNS)[number];
 /** Dividers carry the basket's pattern (weave: woven) or are plain. */
 export const DIVIDER_STYLES = ['plain', 'pattern'] as const;
 export type DividerStyle = (typeof DIVIDER_STYLES)[number];
@@ -72,6 +75,10 @@ export interface BasketParams {
   /** Divider top above the bottom (mm); 0 = as high as stacking allows. */
   dividerHeight: number;
   dividerStyle: DividerStyle;
+  /** Holes in the floor (e.g. for cool boxes) and their size / web. */
+  floorPattern: FloorPattern;
+  floorHoleSize: number;
+  floorWebWidth: number;
   weave: WeaveParams;
   voronoi: VoronoiParams;
   expanded: ExpandedParams;
@@ -108,6 +115,8 @@ export const LIMITS = {
   handleWidth: { min: 30, max: 120 },
   handleDepth: { min: 10, max: 40 },
   dividerHeight: { min: 0, max: 300 },
+  floorHoleSize: { min: 4, max: 30 },
+  floorWebWidth: { min: 1.5, max: 10 },
 } as const satisfies Record<string, Range>;
 
 export const MIN_WEAVE_CORNER_RADIUS = 10;
@@ -151,6 +160,9 @@ export const DEFAULTS: BasketParams = {
   dividersY: [],
   dividerHeight: 0,
   dividerStyle: 'plain',
+  floorPattern: 'closed',
+  floorHoleSize: 8,
+  floorWebWidth: 3,
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
   weave: {
@@ -197,6 +209,8 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'handleWidth',
   'handleDepth',
   'dividerHeight',
+  'floorHoleSize',
+  'floorWebWidth',
 ];
 const WEAVE_NUMBERS: WeaveNumberKey[] = [
   'materialHeight',

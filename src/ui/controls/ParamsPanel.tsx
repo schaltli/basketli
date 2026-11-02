@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { dividerTop } from '../../geometry/dividers';
 import {
+  FLOOR_PATTERNS,
   HANDLE_MODES,
   LIMITS,
   MIN_DIVIDER_HEIGHT,
@@ -26,6 +27,8 @@ type NumericPath =
   | 'webWidth'
   | 'stackClearance'
   | 'handleWidth'
+  | 'floorHoleSize'
+  | 'floorWebWidth'
   | 'handleDepth'
   | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
@@ -63,8 +66,18 @@ const STEP: Partial<Record<NumericPath, number>> = {
   'expanded.diamondHeight': 0.5,
   'voronoi.cellSize': 0.5,
   handleWidth: 1,
+  floorHoleSize: 0.5,
+  floorWebWidth: 0.5,
   handleDepth: 1,
 };
+
+const FLOOR_LABEL = {
+  closed: de.floorClosed,
+  hex: de.floorHex,
+  voronoi: de.floorVoronoi,
+  diamond: de.floorDiamond,
+  slots: de.floorSlots,
+} as const;
 
 const HANDLE_LABEL = { none: de.handlesNone, one: de.handlesOne, ends: de.handlesEnds } as const;
 
@@ -209,6 +222,32 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             {de.voronoiReroll}
           </button>
         )}
+      </fieldset>
+
+      <fieldset>
+        <legend>{de.groupFloor}</legend>
+        <div className="field">
+          <label htmlFor="floor-pattern">{de.floorPattern}</label>
+          <select
+            id="floor-pattern"
+            value={params.floorPattern}
+            onChange={(e) => {
+              const next = FLOOR_PATTERNS.find((f) => f === e.target.value) ?? 'closed';
+              update((p) => ({ ...p, floorPattern: next }));
+            }}
+          >
+            {FLOOR_PATTERNS.map((f) => (
+              <option key={f} value={f}>
+                {FLOOR_LABEL[f]}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">
+            {params.floorPattern === 'slots' ? de.floorSlotsHint : de.floorHint}
+          </p>
+        </div>
+        {params.floorPattern !== 'closed' &&
+          (['floorHoleSize', 'floorWebWidth'] as const).map(field)}
       </fieldset>
 
       <fieldset>

@@ -312,8 +312,9 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 ## Entschieden
 
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
-- 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
+- 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus). (Ergänzt 2026-11-02: optional durchbrochen, s. u.)
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Boden wahlweise durchbrochen (z. B. für Kühlboxen): geschlossen (Standard), Waben, Voronoi, Rauten, Langlöcher; frei wählbar unabhängig vom Wandstil, eigene Lochgröße (8 mm, 4–30) und Stegbreite (3 mm, 1,5–10). Muster pro Fach zentriert (Waben/Rauten/Langlöcher nur ganze Löcher, Langlöcher längs der längeren Fachseite, Voronoi füllt das Fach); unter Trennwänden und am Rand (innerhalb Wand bzw. Sockelring plus ein Steg) bleibt der Boden massiv. Kein geflochtener Boden (Schichtlinien).
 - 2026-11-02 · Glatte Außenwand als eigener Wandstil („Glatt“). Trennwände wahlweise mit Muster (Geflecht: geflochten) oder glatt; beim Einfügen der ersten Trennwand: geflochten bei Geflecht-Körben, sonst glatt (danach frei umstellbar).
 - 2026-11-02 · Trennwände: Muster pro Fach ausrichten, Trennwände mit Wandmuster, Höhe einstellbar (Standard so hoch wie möglich), nur durchgehende Trennwände; Anschluss-Steg 2 × Wandstärke, nur bis zur Trennwand-Oberkante.
 - 2026-11-02 · Veröffentlichung auf GitHub Pages aus einem öffentlichen Repository `basketli`, Lizenz MIT. Eigene Domain (z. B. `basketli.ch`) später möglich; die Seite nutzt relative Pfade.

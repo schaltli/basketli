@@ -1,6 +1,7 @@
 import type { Manifold } from 'manifold-3d';
 import { dividerHoleCutters, expandedDividerParts } from './dividerPatterns';
 import { dividerSolids } from './dividers';
+import { floorCutter } from './floor';
 import { handleBands, handleNotches } from './handles';
 import { buildTub, type Quality } from './basket';
 import { Scope, type Wasm } from './manifold';
@@ -82,6 +83,10 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       );
     }
     body = withStacking(wasm, scope, params, quality, body);
+    // after the socket, which brings a solid floor plate of its own
+    const floorHoles = floorCutter(wasm, scope, params, quality);
+    if (floorHoles.length > 0)
+      body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(floorHoles))));
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
