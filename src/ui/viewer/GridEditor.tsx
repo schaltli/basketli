@@ -5,7 +5,7 @@ import { Plane, Raycaster, Vector2, Vector3 } from 'three';
 import type { BasketParams } from '../../geometry/params';
 import { wallIntrusion } from '../../geometry/stacking';
 import { useBasket } from '../../state/store';
-import { addDivider, compartments, dragLimits } from '../controls/gridMath';
+import { compartments, dragLimits, insertDivider } from '../controls/gridMath';
 import { de } from '../i18n/de';
 import { useViewLock } from './viewLock';
 
@@ -177,11 +177,7 @@ export function GridEditor({ params }: { params: BasketParams }) {
   const lockRef = useRef(setEditing);
   useEffect(() => () => lockRef.current(false), []);
 
-  const add = (axis: Axis) =>
-    update((p) => {
-      const key = KEY[axis];
-      return { ...p, [key]: addDivider(p[key], axis === 'x' ? p.width : p.depth, t) };
-    });
+  const add = (axis: Axis) => update((p) => insertDivider(p, axis, t));
 
   return (
     <group>

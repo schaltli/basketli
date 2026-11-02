@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULTS } from '../../src/geometry/params';
 import {
   addDivider,
+  insertDivider,
   compartments,
   dragLimits,
   evenPositions,
@@ -44,5 +46,25 @@ describe('grid math', () => {
     expect(hi).toBeCloseTo(120 - T - MIN_COMPARTMENT, 9);
     const [first] = dragLimits([40], 0, SIZE, T);
     expect(first).toBeCloseTo(T + MIN_COMPARTMENT + T / 2, 9);
+  });
+});
+
+describe('insertDivider', () => {
+  it('the first divider is woven in a weave basket, plain otherwise', () => {
+    const weave = insertDivider({ ...DEFAULTS, wallStyle: 'weave' }, 'x', 3);
+    expect(weave.dividersX).toHaveLength(1);
+    expect(weave.dividerStyle).toBe('pattern');
+    const hex = insertDivider({ ...DEFAULTS, wallStyle: 'hex', dividerStyle: 'pattern' }, 'y', 2);
+    expect(hex.dividerStyle).toBe('plain');
+  });
+
+  it('later dividers keep the chosen style', () => {
+    const p = {
+      ...DEFAULTS,
+      wallStyle: 'hex' as const,
+      dividersX: [50],
+      dividerStyle: 'pattern' as const,
+    };
+    expect(insertDivider(p, 'x', 2).dividerStyle).toBe('pattern');
   });
 });

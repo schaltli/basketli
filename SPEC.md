@@ -314,6 +314,7 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Glatte Außenwand als eigener Wandstil („Glatt“). Trennwände wahlweise mit Muster (Geflecht: geflochten) oder glatt; beim Einfügen der ersten Trennwand: geflochten bei Geflecht-Körben, sonst glatt (danach frei umstellbar).
 - 2026-11-02 · Trennwände: Muster pro Fach ausrichten, Trennwände mit Wandmuster, Höhe einstellbar (Standard so hoch wie möglich), nur durchgehende Trennwände; Anschluss-Steg 2 × Wandstärke, nur bis zur Trennwand-Oberkante.
 - 2026-11-02 · Veröffentlichung auf GitHub Pages aus einem öffentlichen Repository `basketli`, Lizenz MIT. Eigene Domain (z. B. `basketli.ch`) später möglich; die Seite nutzt relative Pfade.
 - 2026-11-02 · Griffe: geschlossene Griffmulden entfallen (flache Überhänge, für Regalkörbe unnötig). Stattdessen optional eine Griffaussparung von oben (keine / eine / beide Stirnseiten, Standard keine), Breite und Tiefe einstellbar. Gedacht für Körbe, die als Schublade ein Fach füllen.

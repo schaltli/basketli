@@ -50,16 +50,20 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       }
     }
     // weave baskets get woven dividers, every other style plain ones (patterned below)
-    const dividers = weave
-      ? wovenDividers(wasm, scope, params, weave, quality)
-      : dividerSolids(wasm, scope, params, quality);
+    const patterned = params.dividerStyle === 'pattern';
+    const dividers =
+      weave && patterned
+        ? wovenDividers(wasm, scope, params, weave, quality)
+        : dividerSolids(wasm, scope, params, quality);
     if (dividers.length > 0) {
       body = scope.keep(wasm.Manifold.union([body, ...dividers]));
       // dividers carry the wall pattern too
-      const holes = dividerHoleCutters(wasm, scope, params);
+      const holes = patterned ? dividerHoleCutters(wasm, scope, params) : [];
       if (holes.length > 0)
         body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
-      const sheet = expandedDividerParts(wasm, scope, params, quality);
+      const sheet = patterned
+        ? expandedDividerParts(wasm, scope, params, quality)
+        : { windows: [], strands: [] };
       if (sheet.windows.length > 0) {
         body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(sheet.windows))));
         body = scope.keep(wasm.Manifold.union([body, ...sheet.strands]));

@@ -74,6 +74,7 @@ const CHOICE_LABEL: Record<StyleChoice, string> = {
   voronoi: de.wallStyleVoronoi,
   'weave-closed': de.wallStyleWeaveClosed,
   'weave-open': de.wallStyleWeaveOpen,
+  solid: de.wallStyleSolid,
 };
 
 /** Which parameters belong to which wall style. */
@@ -103,6 +104,7 @@ const STYLE_FIELDS: Record<StyleChoice, NumericPath[]> = {
     'weave.rowGap',
     'weave.rim',
   ],
+  solid: ['wall'],
 };
 
 interface ParamsPanelProps {
@@ -253,6 +255,26 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         <button type="button" className="secondary" onClick={() => setGridMode(true)}>
           {de.dividerEdit}
         </button>
+        {params.wallStyle !== 'solid' && (
+          <div className="field divider-style">
+            <label htmlFor="divider-style">{de.dividerStyle}</label>
+            <select
+              id="divider-style"
+              value={params.dividerStyle}
+              onChange={(e) =>
+                update((p) => ({
+                  ...p,
+                  dividerStyle: e.target.value === 'pattern' ? 'pattern' : 'plain',
+                }))
+              }
+            >
+              <option value="pattern">
+                {params.wallStyle === 'weave' ? de.dividerWoven : de.dividerPattern}
+              </option>
+              <option value="plain">{de.dividerPlain}</option>
+            </select>
+          </div>
+        )}
         <label className="check divider-max">
           <input
             type="checkbox"

@@ -1,6 +1,7 @@
 import {
   clampParams,
   DEFAULTS,
+  DIVIDER_STYLES,
   HANDLE_MODES,
   WALL_STYLES,
   WEAVE_MATERIALS,
@@ -21,6 +22,7 @@ type Kind =
 const ENUMS: Record<string, readonly string[]> = {
   wallStyle: WALL_STYLES,
   handles: HANDLE_MODES,
+  dividerStyle: DIVIDER_STYLES,
   'weave.material': WEAVE_MATERIALS,
 };
 

@@ -42,6 +42,27 @@ describe('ParamsPanel', () => {
     expect(screen.getAllByLabelText('Tiefe', { selector: 'input[type=text]' })).toHaveLength(2);
   });
 
+  it('offers plain walls; only the wall thickness stays as a wall setting', () => {
+    panel();
+    fireEvent.change(screen.getByLabelText('Wandstil'), { target: { value: 'solid' } });
+    expect(useBasket.getState().params.wallStyle).toBe('solid');
+    expect(screen.getByLabelText('Wandstärke', { selector: 'input[type=text]' })).toBeTruthy();
+    expect(screen.queryByLabelText('Rautenbreite', { selector: 'input[type=text]' })).toBeNull();
+    expect(screen.queryByLabelText('Ausführung')).toBeNull(); // plain walls: plain dividers
+  });
+
+  it('divider look: woven for a weave basket, "mit Muster" otherwise', () => {
+    panel();
+    const look = screen.getByLabelText('Ausführung') as HTMLSelectElement;
+    expect([...look.options].map((o) => o.text)).toEqual(['mit Muster', 'glatt']);
+    fireEvent.change(look, { target: { value: 'pattern' } });
+    expect(useBasket.getState().params.dividerStyle).toBe('pattern');
+    fireEvent.change(screen.getByLabelText('Wandstil'), { target: { value: 'weave-closed' } });
+    expect(
+      [...(screen.getByLabelText('Ausführung') as HTMLSelectElement).options].map((o) => o.text),
+    ).toEqual(['geflochten', 'glatt']);
+  });
+
   it('applies a typed value on Enter', () => {
     panel();
     const width = screen.getByLabelText('Breite', { selector: 'input[type=text]' });

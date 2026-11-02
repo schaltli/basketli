@@ -16,8 +16,14 @@ beforeAll(async () => {
 });
 
 const basket = (wallStyle: WallStyle, dividerHeight = 0) =>
-  clampParams({ ...DEFAULTS, wallStyle, dividersX: [55, 103], dividersY: [40], dividerHeight })
-    .params;
+  clampParams({
+    ...DEFAULTS,
+    wallStyle,
+    dividersX: [55, 103],
+    dividersY: [40],
+    dividerHeight,
+    dividerStyle: 'pattern',
+  }).params;
 
 describe('divider faces', () => {
   it('stretches run from wall to crossing to wall, keeping half a joint strip at each end', () => {
@@ -129,6 +135,7 @@ describe('woven dividers', () => {
       weave: { ...DEFAULTS.weave, rowGap },
       dividersX: [55, 103],
       dividersY: [40],
+      dividerStyle: 'pattern',
     }).params;
     const m = buildManifold(wasm, p, 'preview');
     try {
@@ -149,4 +156,30 @@ describe('woven dividers', () => {
       m.delete();
     }
   });
+});
+
+describe('plain dividers', () => {
+  it.each(['hex', 'voronoi', 'expanded', 'weave'] as const)(
+    '%s basket with plain dividers: the dividers are solid',
+    (wallStyle) => {
+      const p = clampParams({
+        ...DEFAULTS,
+        wallStyle,
+        dividersX: [55],
+        dividerStyle: 'plain',
+      }).params;
+      const m = buildManifold(wasm, p, 'preview');
+      try {
+        expect(m.decompose().length).toBe(1);
+        const t = wallIntrusion(p);
+        const X = -p.width / 2 + 55;
+        const box = wasm.Manifold.cube([t - 0.1, 30, 40]).translate([X - t / 2 + 0.05, -20, 15]);
+        const cut = m.intersect(box);
+        expect(cut.volume() / box.volume()).toBeGreaterThan(0.99);
+        [cut, box].forEach((x) => x.delete());
+      } finally {
+        m.delete();
+      }
+    },
+  );
 });

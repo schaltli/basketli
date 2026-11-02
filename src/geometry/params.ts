@@ -8,6 +8,9 @@ export type WallStyle = (typeof WALL_STYLES)[number];
 /** Cut-out from the top edge: none, on one end wall, or on both end walls. */
 export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
 export type HandleMode = (typeof HANDLE_MODES)[number];
+/** Dividers carry the basket's pattern (weave: woven) or are plain. */
+export const DIVIDER_STYLES = ['plain', 'pattern'] as const;
+export type DividerStyle = (typeof DIVIDER_STYLES)[number];
 export const WEAVE_MATERIALS = ['cane', 'band'] as const;
 export type WeaveMaterial = (typeof WEAVE_MATERIALS)[number];
 
@@ -68,6 +71,7 @@ export interface BasketParams {
   dividersY: number[];
   /** Divider top above the bottom (mm); 0 = as high as stacking allows. */
   dividerHeight: number;
+  dividerStyle: DividerStyle;
   weave: WeaveParams;
   voronoi: VoronoiParams;
   expanded: ExpandedParams;
@@ -146,6 +150,7 @@ export const DEFAULTS: BasketParams = {
   dividersX: [],
   dividersY: [],
   dividerHeight: 0,
+  dividerStyle: 'plain',
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
   weave: {
@@ -314,21 +319,11 @@ export function clampParams(input: BasketParams): ClampResult {
       w.materialHeight = maxMaterial;
       rule('weave.materialHeight', maxMaterial);
     }
-    // Bands bridge between stakes/crossings → spacing ≤ MAX_OPEN_SPACING.
-    if (w.stakeSpacing > MAX_OPEN_SPACING) {
-      w.stakeSpacing = MAX_OPEN_SPACING;
-      rule('weave.stakeSpacing', MAX_OPEN_SPACING);
-    }
     // The top rim leaves at least half the woven wall for the rows.
     const maxRim = Math.max(LIMITS.rim.min, round((p.height - patternBase(p)) / 2));
     if (w.rim > maxRim) {
       w.rim = maxRim;
       rule('weave.rim', maxRim);
-    }
-    const minSpacing = round(w.stakeDiameter + 2 * w.materialThickness);
-    if (w.stakeSpacing < minSpacing) {
-      w.stakeSpacing = Math.min(minSpacing, LIMITS.stakeSpacing.max);
-      rule('weave.stakeSpacing', w.stakeSpacing);
     }
   }
 
@@ -358,6 +353,23 @@ export function clampParams(input: BasketParams): ClampResult {
     if (p.wall > STACK_INSET) {
       p.wall = STACK_INSET;
       rule('wall', STACK_INSET);
+    }
+  }
+
+  // Weave stake spacing, after the stacking rules may have made stakes or
+  // bands thinner: at least room for a stake and two bands, at most the
+  // longest bridge (the bridge limit wins).
+  if (isWeave) {
+    const w = p.weave;
+    const minSpacing = round(w.stakeDiameter + 2 * w.materialThickness);
+    if (w.stakeSpacing < minSpacing) {
+      w.stakeSpacing = Math.min(minSpacing, LIMITS.stakeSpacing.max);
+      rule('weave.stakeSpacing', w.stakeSpacing);
+    }
+    // Bands bridge between stakes/crossings → spacing ≤ MAX_OPEN_SPACING.
+    if (w.stakeSpacing > MAX_OPEN_SPACING) {
+      w.stakeSpacing = MAX_OPEN_SPACING;
+      rule('weave.stakeSpacing', MAX_OPEN_SPACING);
     }
   }
 

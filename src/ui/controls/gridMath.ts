@@ -1,4 +1,5 @@
 import { MIN_COMPARTMENT } from '../../geometry/dividers';
+import type { BasketParams } from '../../geometry/params';
 
 /**
  * One side of the basket split by dividers. Positions are divider centers in
@@ -52,4 +53,21 @@ export function dragLimits(
   const hi =
     index < positions.length - 1 ? positions[index + 1]! - gap : size - t - MIN_COMPARTMENT - t / 2;
   return [lo, hi];
+}
+
+/**
+ * Adds a divider across the width ('x') or the depth ('y'). The first
+ * divider of a basket also sets how dividers look: woven in a weave
+ * basket, plain otherwise (changeable afterwards).
+ */
+export function insertDivider(p: BasketParams, axis: 'x' | 'y', t: number): BasketParams {
+  const key = axis === 'x' ? 'dividersX' : 'dividersY';
+  const next = addDivider(p[key], axis === 'x' ? p.width : p.depth, t);
+  if (next === p[key]) return p;
+  const first = p.dividersX.length + p.dividersY.length === 0;
+  return {
+    ...p,
+    [key]: next,
+    ...(first ? { dividerStyle: p.wallStyle === 'weave' ? 'pattern' : 'plain' } : {}),
+  };
 }
