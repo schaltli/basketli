@@ -313,5 +313,6 @@ Coverage-Ziel: **≥ 90 % für `src/geometry` und `src/export`**, UI nicht quant
 - 2026-11-01 · Bindung: nur Leinwandbindung (1/1); Höhe des Flechtmaterials einstellbar, Flechtmaterial Rohr **oder Band**.
 - 2026-11-01 · Boden bleibt massiv (auch im Geflecht-Modus).
 - 2026-11-01 · Nur rechteckige Körbe (mit Eckenradius), keine runden/ovalen.
+- 2026-11-02 · Vorerst kein CAD-Export (STEP). Falls später gewünscht: STEP aus Facetten mit zusammengefassten ebenen Flächen (ohne neue Abhängigkeit); echte CAD-Flächen (z. B. OpenCascade) stehen in keinem Verhältnis zum Aufwand. Für Fusion genügt bis dahin 3MF → „Netz konvertieren“.
 - 2026-11-02 · Keine Stapel-/Explosionsansicht (T17 entfällt). Stattdessen misst ein Test für jede Kombination aus unterem und oberem Wandstil (100×100×100 mm, Export-Qualität) nach: Auflage genau beim Stapelmaß (±0,05 mm) und Fuß ohne Klemmen (0,3 mm angehoben seitlich ±0,25 mm frei).
 - 2026-11-02 · Geflecht bekommt ein glattes Abschlussband (Variante 1), neuer Parameter Abschlussband 5 mm (3–10).
