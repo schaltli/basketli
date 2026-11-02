@@ -10,6 +10,8 @@ export const MIN_COMPARTMENT = 10;
 /** Gap between the divider tops and the foot of a basket stacked on top (mm). */
 const STACK_GAP = 0.5;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
+/** How far a weave divider reaches past the wall's center line into the stake (mm). */
+const WEAVE_REACH = 0.6;
 
 /**
  * Highest possible divider top: just below the foot of a basket of the same
@@ -50,8 +52,8 @@ export function fitDividers(
 
 /**
  * Straight, continuous dividers from wall to wall, as thick as the wall,
- * standing on the floor plate. They reach into the wall all the way to the
- * outer outline, so they join every wall style.
+ * standing on the floor plate. They reach into the wall to the outer
+ * outline (weave: to the stake at the joint), so they join every style.
  */
 export function dividerSolids(
   wasm: Wasm,
@@ -73,10 +75,16 @@ export function dividerSolids(
       Manifold.cube([W + 2, t, top]).translate([-W / 2 - 1, -D / 2 + y - t / 2, 0]),
     ),
   ].map((m) => scope.keep(m));
-  const outline = scope.keep(
-    scope
-      .keep(CrossSection.ofPolygons([roundedRect(W, D, p.cornerRadius, CORNER_SEGMENTS[quality])]))
-      .extrude(top),
+  // Into the wall up to the outline; in a weave into the stake that stands
+  // at every divider joint, a little past the wall's center line so the
+  // first line of the top rim (on that center line) rests on it fully.
+  const inset = p.wallStyle === 'weave' ? t / 2 - WEAVE_REACH : 0;
+  const contour = roundedRect(
+    W - 2 * inset,
+    D - 2 * inset,
+    Math.max(0, p.cornerRadius - inset),
+    CORNER_SEGMENTS[quality],
   );
+  const outline = scope.keep(scope.keep(CrossSection.ofPolygons([contour])).extrude(top));
   return [scope.keep(scope.keep(Manifold.union(walls)).intersect(outline))];
 }

@@ -1,4 +1,5 @@
 import { MAX_OPEN_SPACING, type BasketParams } from '../params';
+import { junctionArcs, wallSegments } from '../junctions';
 import { patternBase } from '../stacking';
 import { RoundedRectPath } from './outline';
 
@@ -46,6 +47,32 @@ export function evenStakeCount(length: number, targetSpacing: number): number {
 }
 
 /**
+ * With dividers: a stake at every divider joint and evenly spaced stakes in
+ * between (spacing as close to the target as possible, never above `max`).
+ * The total stays even, so every row still closes over/under round the
+ * basket. Sorted, in [0, L).
+ */
+export function jointStakes(joints: number[], L: number, target: number, max: number): number[] {
+  const segs = wallSegments(joints, L);
+  const counts = segs.map(({ a, b }) =>
+    Math.max(Math.ceil((b - a) / max - 1e-9), Math.max(1, Math.round((b - a) / target))),
+  );
+  if (counts.reduce((s, n) => s + n, 0) % 2 === 1) {
+    // one more stake where the spacing is widest
+    let k = 0;
+    segs.forEach(({ a, b }, i) => {
+      if ((b - a) / counts[i]! > (segs[k]!.b - segs[k]!.a) / counts[k]!) k = i;
+    });
+    counts[k] = counts[k]! + 1;
+  }
+  return segs
+    .flatMap(({ a, b }, i) =>
+      Array.from({ length: counts[i]! }, (_, j) => (a + ((b - a) * j) / counts[i]!) % L),
+    )
+    .sort((x, y) => x - y);
+}
+
+/**
  * Pure layout of a woven wall standing on the floor plate. `p` must be
  * clamped and use wallStyle 'weave'.
  */
@@ -69,7 +96,12 @@ export function weaveLayout(p: BasketParams): WeaveLayout {
   const maxStep = MAX_OPEN_SPACING - w.materialThickness;
   while (path.length / stakeCount > maxStep) stakeCount += 2;
   const step = path.length / stakeCount;
-  const stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
+  let stakes = Array.from({ length: stakeCount }, (_, i) => i * step);
+  const joints = junctionArcs(p, path);
+  if (joints.length > 0) {
+    stakes = jointStakes(joints, path.length, w.stakeSpacing, maxStep);
+    stakeCount = stakes.length;
+  }
 
   // Rows fill the wall from the floor plate up to the top rim; every row
   // (the last one too) is followed by one row gap. The band height is

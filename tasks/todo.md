@@ -341,9 +341,10 @@
 `dividersX`/`dividersY` (Mitte, mm vom linken/vorderen Außenrand), `dividerHeight` (0 = so hoch wie möglich: 0,5 mm unter dem Fuß eines aufgesetzten Korbs). Dicke = Wandstärke des Stils. Positionen werden sortiert, Fächer ≥ 10 mm, Unpassendes entfällt mit Hinweis. Link-Format: `dividersX=50,100.5`.
 **Prüfung:** `npx vitest run tests/geometry/dividers.test.ts` (alle Stile: ein Körper, Lage, Höhe, Stapeln)
 
-#### - [ ] T19b: Wandmuster pro Fach ausrichten
+#### - [x] T19b: Wandmuster pro Fach ausrichten
 
-Waben/Streckmetall: ganze Zellen je Fach, zentriert, massiver Anschluss-Steg; Geflecht: Stake an jedem Anschluss (gerade Gesamtzahl); Voronoi: Zellen am Steg angeschnitten.
+Waben: ganze Waben je Wandabschnitt, zentriert, ≥ ein Steg Abstand zur Trennwand. Streckmetall: ganze Zahl Rauten je Abschnitt (Teilung leicht gestreckt), Knoten an den Trennwandflächen, Streben enden in massiven Anschluss-Stegen. Geflecht: Stake an jedem Anschluss, dazwischen gleichmäßig, Gesamtzahl gerade, Abstand ≤ Brückengrenze; Trennwand ragt in die Stake. Voronoi: Zellen am Anschluss (Trennwand + ein Steg) angeschnitten.
+**Prüfung:** `npx vitest run tests/geometry/dividers.test.ts` (inkl. Druckbarkeit aller Stile mit Trennwänden)
 
 #### - [ ] T19c: Trennwände mit Wandmuster
 

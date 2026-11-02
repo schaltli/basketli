@@ -5,7 +5,7 @@ import type { BasketParams } from '../params';
 import type { Vec2 } from '../shapes';
 import type { Field } from './field';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './layout';
-import { displacement } from './path';
+import { displacement, stakePhase } from './path';
 import { reliefShell } from './shell';
 
 export const BAND_SAMPLES_PER_STAKE = { preview: 16, export: 32 } as const;
@@ -68,15 +68,14 @@ export function bandField(
   const K = z.length;
   const inner = new Float64Array(cols * K);
   const outer = new Float64Array(cols * K);
-  const step = layout.path.length / layout.stakeCount;
   const half = layout.span / 2;
 
   for (let j = 0; j < cols; j++) {
     const mid = displacement(layout, row, s[j]!);
     // Offsets run along the wall normal; on the slopes of the wave the band
     // is thinner perpendicular to itself, so widen by sqrt(1 + slope²).
-    const slope =
-      ((layout.amplitude * Math.PI) / step) * Math.sin((Math.PI * s[j]!) / step + Math.PI * row);
+    const { phase, step } = stakePhase(layout, s[j]!);
+    const slope = ((layout.amplitude * Math.PI) / step) * Math.sin(Math.PI * phase + Math.PI * row);
     const stretch = Math.sqrt(1 + slope * slope);
     for (let k = 0; k < K; k++) {
       inner[j * K + k] = Math.max(-half, mid - stretch * prof.inner[k]!);

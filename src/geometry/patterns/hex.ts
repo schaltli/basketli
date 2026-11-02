@@ -5,7 +5,8 @@ import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { printableHole } from './voronoi';
 import { clipHoles } from '../handles';
-import { holesBottom } from '../stacking';
+import { junctionArcs, wallSegments } from '../junctions';
+import { holesBottom, wallIntrusion } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Pointy-top regular hexagon, `width` across the flats, centered at (cx, cy). */
@@ -48,14 +49,36 @@ export function hexLayout(p: BasketParams): HexLayout {
   return { path, count, px, pz, rows };
 }
 
-/** Plain hexagons in wall coordinates (x = arc length on the outer wall). */
+/**
+ * Plain hexagons in wall coordinates (x = arc length on the outer wall).
+ * Without dividers the honeycomb runs round the basket. With dividers each
+ * wall stretch between two divider joints gets whole hexagons, centred:
+ * n per row and n − 1 in the shifted rows, at least one web away from the
+ * divider faces.
+ */
 function hexShapes(p: BasketParams): Vec2[][] {
   const l = hexLayout(p);
   const shapes: Vec2[][] = [];
-  l.rows.forEach((y, j) => {
-    for (let i = 0; i < l.count; i++)
-      shapes.push(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
-  });
+  const arcs = junctionArcs(p, l.path);
+  if (arcs.length === 0) {
+    l.rows.forEach((y, j) => {
+      for (let i = 0; i < l.count; i++)
+        shapes.push(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
+    });
+    return shapes;
+  }
+  const t = wallIntrusion(p);
+  for (const seg of wallSegments(arcs, l.path.length)) {
+    const a = seg.a + t / 2;
+    const b = seg.b - t / 2;
+    const n = Math.floor((b - a - p.webWidth) / l.px);
+    const mid = (a + b) / 2;
+    l.rows.forEach((y, j) => {
+      const m = j % 2 === 0 ? n : n - 1;
+      for (let i = 0; i < m; i++)
+        shapes.push(hexagon(p.holeSize, mid + (i - (m - 1) / 2) * l.px, y));
+    });
+  }
   return shapes;
 }
 

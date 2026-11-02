@@ -3,7 +3,8 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect, type Vec2 } from '../shapes';
-import { holesBottom } from '../stacking';
+import { junctionArcs, wallSegments } from '../junctions';
+import { holesBottom, wallIntrusion } from '../stacking';
 import { RoundedRectPath } from '../weave/outline';
 
 /** Longest step along the wall between two strand cross-sections (mm). */
@@ -78,6 +79,7 @@ export function expandedLayout(p: BasketParams): ExpandedLayout {
 function strandMesh(
   p: BasketParams,
   layout: ExpandedLayout,
+  lattice: Lattice,
   dir: 1 | -1,
   c: number,
   quality: Quality,
@@ -85,10 +87,21 @@ function strandMesh(
   tri: number[],
 ) {
   const half = p.wall / 2;
-  const slope = layout.ps / layout.pz; // ds per dz along a strand
+  const slope = lattice.ps / lattice.pz; // ds per dz along a strand
   const dx = (p.expanded.strand / 2) * Math.hypot(slope, 1); // horizontal half-width
-  const z0 = layout.y0 - ANCHOR;
-  const z1 = layout.y1 + ANCHOR;
+  let z0 = layout.y0 - ANCHOR;
+  let z1 = layout.y1 + ANCHOR;
+  if (lattice.range) {
+    // between divider joints: only where the strand's center line is inside
+    // the stretch (plus `pad` into the joint, which is solid)
+    const [lo, hi] = lattice.range;
+    const at = (s: number) => lattice.knot0 + (dir * (s - c)) / slope;
+    const za = at(lo - lattice.pad);
+    const zb = at(hi + lattice.pad);
+    z0 = Math.max(z0, Math.min(za, zb));
+    z1 = Math.min(z1, Math.max(za, zb));
+    if (z1 - z0 < 0.5) return;
+  }
   const steps = Math.max(2, Math.ceil(((z1 - z0) * slope) / STRAND_STEP[quality]));
   const tw = p.expanded.twist;
   const upperSide = -dir; // "/" strands: upper edge at smaller s; "\": at larger s
@@ -96,7 +109,7 @@ function strandMesh(
   const base = vert.length / 3;
   for (let i = 0; i <= steps; i++) {
     const z = z0 + ((z1 - z0) * i) / steps;
-    const sc = c + dir * slope * (z - layout.knot0);
+    const sc = c + dir * slope * (z - lattice.knot0);
     for (const side of [-1, 1] as const) {
       const shift = side === upperSide ? tw : -tw;
       const { p: at, n } = layout.path.at(sc + side * dx);
@@ -117,6 +130,50 @@ function strandMesh(
   quad(v(steps, 1), v(steps, 3), v(steps, 2), v(steps, 0)); // top cap
 }
 
+/** Diamond lattice of one wall stretch (or of the whole ring). */
+interface Lattice {
+  ps: number;
+  pz: number;
+  knot0: number;
+  /** Strand centers at the first knot row. */
+  centers: number[];
+  /** Arc range of the stretch between two divider joints (none: whole ring). */
+  range?: [number, number];
+  pad: number;
+}
+
+/**
+ * Without dividers one lattice runs round the basket. With dividers every
+ * wall stretch between two divider joints gets a whole number of diamonds:
+ * the pitch is stretched slightly (aspect kept) so knots sit on both
+ * divider faces, and the strands end inside the solid joints.
+ */
+function lattices(p: BasketParams, layout: ExpandedLayout): Lattice[] {
+  const arcs = junctionArcs(p, layout.path);
+  if (arcs.length === 0) {
+    const centers = Array.from({ length: layout.count }, (_, k) => (k + 0.5) * layout.ps);
+    return [{ ps: layout.ps, pz: layout.pz, knot0: layout.knot0, centers, pad: 0 }];
+  }
+  const t = wallIntrusion(p);
+  return wallSegments(arcs, layout.path.length).map(({ a: ja, b: jb }) => {
+    const a = ja + t / 2;
+    const b = jb - t / 2;
+    const n = Math.max(1, Math.round((b - a) / layout.ps));
+    const ps = (b - a) / n;
+    const pz = (layout.pz * ps) / layout.ps;
+    const rows = Math.max(1, Math.floor((layout.y1 - layout.y0) / (pz / 2)));
+    const knot0 = layout.y0 + (layout.y1 - layout.y0 - (rows - 1) * (pz / 2)) / 2;
+    // strands cross the first knot row at the faces and every pitch between;
+    // strands entering from the sides start further out
+    const reach = Math.ceil(((layout.y1 - layout.y0) * (ps / pz)) / ps) + 1;
+    const centers: number[] = [];
+    for (let k = -reach; k <= n + reach; k++) centers.push(a + k * ps);
+    const slope = ps / pz;
+    const dx = (p.expanded.strand / 2) * Math.hypot(slope, 1);
+    return { ps, pz, knot0, centers, range: [a, b], pad: Math.max(0, Math.min(dx, t / 2 - dx)) };
+  });
+}
+
 /** Both strand families, one manifold each (strands of a family never touch). */
 export function strandSolids(
   wasm: Wasm,
@@ -124,11 +181,12 @@ export function strandSolids(
   layout: ExpandedLayout,
   quality: Quality,
 ): Manifold[] {
+  const all = lattices(p, layout);
   return ([1, -1] as const).map((dir) => {
     const vert: number[] = [];
     const tri: number[] = [];
-    for (let k = 0; k < layout.count; k++)
-      strandMesh(p, layout, dir, (k + 0.5) * layout.ps, quality, vert, tri);
+    for (const lattice of all)
+      for (const c of lattice.centers) strandMesh(p, layout, lattice, dir, c, quality, vert, tri);
     const mesh = new wasm.Mesh({
       numProp: 3,
       vertProperties: Float32Array.from(vert),
@@ -187,8 +245,40 @@ export function buildExpanded(
   parts.push(band(wasm, scope, p, layout, quality, 0, layout.y0));
   parts.push(band(wasm, scope, p, layout, quality, layout.y1, p.height));
   if (envelope) parts.push(band(wasm, scope, p, layout, quality, layout.y0, layout.y1));
-  else for (const s of strandSolids(wasm, p, layout, quality)) parts.push(scope.keep(s));
+  else {
+    for (const s of strandSolids(wasm, p, layout, quality)) parts.push(scope.keep(s));
+    parts.push(...jointStrips(wasm, scope, p, layout, quality));
+  }
   return scope.keep(Manifold.union(parts));
+}
+
+/**
+ * Solid vertical strips where dividers meet the wall, as wide as a divider
+ * and through the whole strand zone: the strands of the neighbouring
+ * stretches end in them.
+ */
+function jointStrips(
+  wasm: Wasm,
+  scope: Scope,
+  p: BasketParams,
+  layout: ExpandedLayout,
+  quality: Quality,
+): Manifold[] {
+  if (p.dividersX.length === 0 && p.dividersY.length === 0) return [];
+  const { Manifold } = wasm;
+  const t = wallIntrusion(p);
+  const W = p.width;
+  const D = p.depth;
+  const slabs = [
+    ...p.dividersX.map((x) =>
+      Manifold.cube([t, D + 2, p.height]).translate([-W / 2 + x - t / 2, -D / 2 - 1, 0]),
+    ),
+    ...p.dividersY.map((y) =>
+      Manifold.cube([W + 2, t, p.height]).translate([-W / 2 - 1, -D / 2 + y - t / 2, 0]),
+    ),
+  ].map((m) => scope.keep(m));
+  const ring = band(wasm, scope, p, layout, quality, 0, p.height);
+  return [scope.keep(scope.keep(Manifold.union(slabs)).intersect(ring))];
 }
 
 /** Standing diamond centered at 0 (counter-clockwise), for tests and docs. */

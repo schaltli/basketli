@@ -2,6 +2,7 @@ import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import { HANDLE_FRAME, type BasketParams } from './params';
+import { junctionArcs } from './junctions';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './weave/layout';
@@ -159,7 +160,8 @@ export function handleNotches(wasm: Wasm, scope: Scope, p: BasketParams): Manifo
 }
 
 /**
- * Removes the band zone (and the cut-out) from wall-pattern holes given in
+ * Removes the band zones of handle cut-outs and the divider joints from
+ * wall-pattern holes given in
  * wall coordinates (x = arc length on the outer wall, y = height). Holes
  * that reach into it keep their outside part, and `finish` (the pattern's
  * printability rule) reshapes every piece like any other hole.
@@ -173,13 +175,23 @@ export function clipHoles(
   finish: (hole: Vec2[]) => Vec2[],
 ): Vec2[][] {
   const centers = handleArcCenters(p, path);
+  const joints = junctionArcs(p, path);
   const done = (h: Vec2[]) => h.length >= 3;
-  if (centers.length === 0) return holes.map(finish).filter(done);
+  if (centers.length === 0 && joints.length === 0) return holes.map(finish).filter(done);
   const L = path.length;
   const band = bandOutline(p);
-  const zones: Vec2[][] = centers.flatMap((sc) =>
-    [-L, 0, L].map((k) => band.map(([u, z]) => [sc + k + u, z] as Vec2)),
-  );
+  // divider joints: the divider face plus one web stays solid on each side
+  const half = wallIntrusion(p) / 2 + p.webWidth;
+  const strip = (s: number): Vec2[] => [
+    [s - half, -1],
+    [s + half, -1],
+    [s + half, p.height + 1],
+    [s - half, p.height + 1],
+  ];
+  const zones: Vec2[][] = [
+    ...centers.map((sc) => band.map(([u, z]) => [sc + u, z] as Vec2)),
+    ...joints.map(strip),
+  ].flatMap((zone) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2)));
   const boxes = zones.map((zone) => {
     const xs = zone.map((q) => q[0]);
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...zone.map((q) => q[1])) };
