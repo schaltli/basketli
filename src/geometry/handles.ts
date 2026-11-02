@@ -2,7 +2,7 @@ import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import { HANDLE_FRAME, type BasketParams } from './params';
-import { effectiveDividerTop } from './dividers';
+import { effectiveDividerTop, jointWidth } from './dividers';
 import { junctionArcs } from './junctions';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
@@ -175,7 +175,7 @@ const polyArea = (h: Vec2[]) =>
  * Trims wall-pattern holes (wall coordinates: x = arc length on the outer
  * wall, y = height) where they meet a handle band or a divider joint, then
  * `finish` (the pattern's printability rule) reshapes every piece like any
- * other hole. A divider joint keeps the divider face plus one web solid,
+ * other hole. A divider joint keeps a strip jointWidth wide solid,
  * but only up to the divider top (plus a web): above it the pattern runs on
  * across the joint. A hole reaching below that top is cut over its whole
  * height, so every piece stays one span per row. Slivers are dropped.
@@ -195,7 +195,7 @@ export function clipHoles(
   if (centers.length === 0 && joints.length === 0) return holes.map(finish).filter(done);
   const L = path.length;
   const band = bandOutline(p);
-  const half = wallIntrusion(p) / 2 + p.webWidth;
+  const half = jointWidth(p) / 2;
   const jointTop = effectiveDividerTop(p) + p.webWidth;
   const copies = (zone: Vec2[]) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2));
   const bands = centers.flatMap((sc) => copies(band.map(([u, z]) => [sc + u, z] as Vec2)));

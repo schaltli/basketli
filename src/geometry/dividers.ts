@@ -21,6 +21,12 @@ export function dividerTop(p: BasketParams): number {
   return p.stackable ? stackPitch(p, p) - STACK_GAP : p.height;
 }
 
+/**
+ * Width of the solid strip in a patterned wall where a divider meets it:
+ * twice the wall thickness, at least the divider itself.
+ */
+export const jointWidth = (p: BasketParams) => Math.max(wallIntrusion(p), 2 * p.wall);
+
 /** The divider top actually used (dividerHeight 0 = as high as possible). */
 export const effectiveDividerTop = (p: BasketParams) =>
   p.dividerHeight > 0 ? Math.min(p.dividerHeight, dividerTop(p)) : dividerTop(p);

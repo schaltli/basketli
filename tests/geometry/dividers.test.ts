@@ -2,7 +2,12 @@ import type { Manifold } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildTub } from '../../src/geometry/basket';
 import { buildManifold } from '../../src/geometry/build';
-import { dividerTop, effectiveDividerTop, MIN_COMPARTMENT } from '../../src/geometry/dividers';
+import {
+  dividerTop,
+  effectiveDividerTop,
+  jointWidth,
+  MIN_COMPARTMENT,
+} from '../../src/geometry/dividers';
 import { clipHoles } from '../../src/geometry/handles';
 import { junctionArcs } from '../../src/geometry/junctions';
 import { loadManifold, Scope, type Wasm } from '../../src/geometry/manifold';
@@ -175,7 +180,6 @@ describe('wall pattern per compartment', () => {
       const p = clampParams({ ...base('hex'), dividerHeight }).params;
       const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
       const arcs = junctionArcs(p, path);
-      const t = wallIntrusion(p);
       const top = effectiveDividerTop(p) + p.webWidth;
       const scope = new Scope();
       try {
@@ -183,7 +187,7 @@ describe('wall pattern per compartment', () => {
         for (const h of holes) {
           if (Math.min(...h.map((q) => q[1])) >= top) continue;
           for (const [x] of h)
-            expect(toJoint(x, arcs, path.length)).toBeGreaterThanOrEqual(t / 2 + p.webWidth - 1e-3);
+            expect(toJoint(x, arcs, path.length)).toBeGreaterThanOrEqual(jointWidth(p) / 2 - 1e-3);
         }
         const above = holes.filter((h) => Math.min(...h.map((q) => q[1])) >= top);
         if (dividerHeight > 0) {
@@ -207,18 +211,30 @@ describe('wall pattern per compartment', () => {
     const p = clampParams({ ...base('voronoi'), dividerHeight: 40 }).params;
     const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
     const arcs = junctionArcs(p, path);
-    const t = wallIntrusion(p);
     const top = effectiveDividerTop(p) + p.webWidth;
     const scope = new Scope();
     try {
       const holes = voronoiHoles(wasm, scope, p);
       let crossing = 0;
       for (const h of holes) {
-        const near = h.some(([x]) => toJoint(x, arcs, path.length) < t / 2 + p.webWidth - 1e-3);
-        if (Math.min(...h.map((q) => q[1])) < top) expect(near).toBe(false);
-        else if (near) crossing++;
+        const inStrip = ([x]: [number, number]) =>
+          toJoint(x, arcs, path.length) < jointWidth(p) / 2 - 1e-3;
+        // no hole in the solid strip up to the tooth's top (the rounded web
+        // may curve round the tooth's corner just above it)
+        expect(h.some((q) => q[1] < effectiveDividerTop(p) + p.webWidth / 2 && inStrip(q))).toBe(
+          false,
+        );
+        if (Math.min(...h.map((q) => q[1])) >= top && h.some(inStrip)) crossing++;
       }
       expect(crossing).toBeGreaterThan(0); // above the dividers cells run across the joints
+      // and the joint strip is no wider than needed: cells come right up to it
+      const closest = Math.min(
+        ...holes
+          .filter((h) => Math.min(...h.map((q) => q[1])) < top)
+          .flatMap((h) => h.map(([x]) => toJoint(x, arcs, path.length))),
+      );
+      expect(closest).toBeLessThan(jointWidth(p) / 2 + 0.5);
+      expect(jointWidth(p)).toBeCloseTo(2 * p.wall, 9);
     } finally {
       scope.dispose();
     }

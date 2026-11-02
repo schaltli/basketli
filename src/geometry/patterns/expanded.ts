@@ -3,9 +3,9 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect, type Vec2 } from '../shapes';
-import { effectiveDividerTop } from '../dividers';
+import { effectiveDividerTop, jointWidth } from '../dividers';
 import { junctionArcs, wallSegments } from '../junctions';
-import { holesBottom, wallIntrusion } from '../stacking';
+import { holesBottom } from '../stacking';
 import { RoundedRectPath } from '../weave/outline';
 
 /** Longest step along the wall between two strand cross-sections (mm). */
@@ -256,7 +256,7 @@ export function buildExpanded(
 }
 
 /**
- * Solid vertical strips where dividers meet the wall, as wide as a divider
+ * Solid vertical strips where dividers meet the wall, jointWidth wide
  * and as high as the dividers: below the divider top the strands of the
  * neighbouring stretches end in them.
  */
@@ -269,16 +269,16 @@ function jointStrips(
 ): Manifold[] {
   if (p.dividersX.length === 0 && p.dividersY.length === 0) return [];
   const { Manifold } = wasm;
-  const t = wallIntrusion(p);
   const top = effectiveDividerTop(p);
+  const j = jointWidth(p);
   const W = p.width;
   const D = p.depth;
   const slabs = [
     ...p.dividersX.map((x) =>
-      Manifold.cube([t, D + 2, top]).translate([-W / 2 + x - t / 2, -D / 2 - 1, 0]),
+      Manifold.cube([j, D + 2, top]).translate([-W / 2 + x - j / 2, -D / 2 - 1, 0]),
     ),
     ...p.dividersY.map((y) =>
-      Manifold.cube([W + 2, t, top]).translate([-W / 2 - 1, -D / 2 + y - t / 2, 0]),
+      Manifold.cube([W + 2, j, top]).translate([-W / 2 - 1, -D / 2 + y - j / 2, 0]),
     ),
   ].map((m) => scope.keep(m));
   const ring = band(wasm, scope, p, layout, quality, 0, p.height);

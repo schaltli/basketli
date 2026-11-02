@@ -5,9 +5,9 @@ import { seededRandom } from '../random';
 import type { Vec2 } from '../shapes';
 import { RoundedRectPath } from '../weave/outline';
 import { clipHoles } from '../handles';
-import { effectiveDividerTop } from '../dividers';
+import { effectiveDividerTop, jointWidth } from '../dividers';
 import { junctionArcs } from '../junctions';
-import { holesBottom, wallIntrusion } from '../stacking';
+import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Corner radius of the holes (organic look), scaled down for small cells. */
@@ -230,8 +230,8 @@ function oneSpanPerRow(poly: Vec2[]): boolean {
  * free first and the cells fill the rest: no sites inside or right next to
  * the comb, so the cells beside a tooth are whole cells that end on its
  * edge (sites above a tooth are mirrored into it, so cells end on its top).
- * Cells then shrink by half a web like everywhere, leaving exactly one web
- * to the divider face.
+ * Cells then shrink by half a web like everywhere, leaving a solid strip
+ * jointWidth wide at every joint.
  */
 export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][] {
   const { CrossSection } = wasm;
@@ -244,8 +244,9 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
 
   let sites = voronoiSites({ x0: 0, y0, x1: L, y1 }, size, p.voronoi.seed);
   const joints = junctionArcs(p, path);
-  // comb edges: divider face plus half a web (the cells add the other half)
-  const half = wallIntrusion(p) / 2 + p.webWidth / 2;
+  // comb edges: the cells shrink by half a web, so the comb is that much
+  // narrower than the solid joint strip (jointWidth) it leaves
+  const half = Math.max(0.01, jointWidth(p) / 2 - p.webWidth / 2);
   const top = effectiveDividerTop(p) + p.webWidth / 2;
   const toJoint = (x: number) =>
     joints
