@@ -74,7 +74,7 @@ describe('floor pattern', () => {
   });
 
   it.each(['hex', 'diamond', 'slots'] as const)(
-    '%s: whole holes, centred in each compartment',
+    '%s: centred in each compartment and filling it (hex, diamond cut at the edge)',
     (pattern) => {
       const p = basket(pattern);
       const scope = new Scope();
@@ -106,6 +106,18 @@ describe('floor pattern', () => {
           const mx = mid.flatMap((h) => h.map((q) => q[0]));
           if (mid.length > 0) expect(Math.min(...mx) - x0).toBeCloseTo(x1 - Math.max(...mx), 1);
           expect(hx.length).toBeGreaterThan(0);
+          // the pattern fills the compartment: one web to the wall, no leftover margin
+          expect(Math.min(...hx) - x0).toBeLessThan(0.3);
+          expect(x1 - Math.max(...hx)).toBeLessThan(0.3);
+          const hy = mine.flatMap((h) => h.map((q) => q[1]));
+          // vertically too – unless only one row fits
+          const rows = new Set(
+            mine.map((h) => Math.round(h.reduce((a, q) => a + q[1], 0) / h.length)),
+          );
+          if (rows.size > 1) {
+            expect(Math.min(...hy) - y0).toBeLessThan(0.3);
+            expect(y1 - Math.max(...hy)).toBeLessThan(0.3);
+          }
         }
       } finally {
         scope.dispose();

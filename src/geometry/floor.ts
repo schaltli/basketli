@@ -100,21 +100,24 @@ const boundsOf = (poly: Vec2[]): Box => {
 };
 
 /**
- * Centred staggered grid over a box: rows `pz` apart, `ps` apart in a row,
- * every other row shifted by ps / 2. A center point is always a node, so
- * the kept holes sit symmetric in the compartment.
+ * Centred staggered grid covering a box (and a pitch beyond): rows `pz`
+ * apart, `ps` apart in a row, every other row shifted by ps / 2. The box
+ * centre is a node, so the pattern sits symmetric in the compartment.
  */
 function staggered(b: Box, ps: number, pz: number): Vec2[] {
   const cx = (b.x0 + b.x1) / 2;
   const cy = (b.y0 + b.y1) / 2;
-  const nx = Math.ceil((b.x1 - b.x0) / ps) + 1;
-  const ny = Math.ceil((b.y1 - b.y0) / pz) + 1;
+  const nx = Math.ceil((b.x1 - b.x0) / 2 / ps) + 1;
+  const ny = Math.ceil((b.y1 - b.y0) / 2 / pz) + 1;
   const out: Vec2[] = [];
   for (let j = -ny; j <= ny; j++)
     for (let i = -nx; i <= nx; i++)
       out.push([cx + (i + (Math.abs(j) % 2) * 0.5) * ps, cy + j * pz]);
   return out;
 }
+
+/** Pieces of a cut hole thinner than this (mm) are left solid. */
+const MIN_PIECE = 1.2;
 
 /** A slot (rounded both ends) centred at (x, y), along x or along y. */
 function slot(x: number, y: number, length: number, width: number, alongX: boolean): Vec2[] {
@@ -134,8 +137,8 @@ function slot(x: number, y: number, length: number, width: number, alongX: boole
 
 /**
  * Hole outlines in the floor (model x/y). Every compartment gets its own
- * centred pattern of whole holes (honeycomb, diamonds, slots) or its own
- * Voronoi field; holes keep one floor web to the wall, to the divider
+ * centred pattern: honeycomb and diamonds run on to its edge and are cut
+ * there, slots are whole and stretched to fill it, Voronoi fills it; holes keep one floor web to the wall, to the divider
  * strips and to each other.
  */
 export function floorHoles(wasm: Wasm, scope: Scope, p: BasketParams, quality: Quality): Vec2[][] {
@@ -145,46 +148,64 @@ export function floorHoles(wasm: Wasm, scope: Scope, p: BasketParams, quality: Q
   const holes: Vec2[][] = [];
   floorCompartments(wasm, scope, p, quality).forEach((comp, k) => {
     const b = boundsOf(comp);
-    const keep = (h: Vec2[]) => {
-      if (insideConvex(h, comp)) holes.push(h);
+    const region = scope.keep(wasm.CrossSection.ofPolygons([comp]));
+    // Holes run on to the compartment edge and are cut there (one web to the
+    // wall, like on the walls); pieces too thin to print stay solid.
+    const cut = (h: Vec2[]) => {
+      if (insideConvex(h, comp)) {
+        holes.push(h);
+        return;
+      }
+      const piece = scope.keep(scope.keep(wasm.CrossSection.ofPolygons([h])).intersect(region));
+      if (piece.isEmpty() || scope.keep(piece.offset(-MIN_PIECE / 2, 'Miter')).isEmpty()) return;
+      for (const poly of piece.toPolygons())
+        if (poly.length >= 3) holes.push(poly.map(([x, y]) => [x, y] as Vec2));
     };
     if (p.floorPattern === 'hex') {
       const ps = size + web;
-      for (const [x, y] of staggered(b, ps, (ps * Math.sqrt(3)) / 2)) keep(hexagon(size, x, y));
+      for (const [x, y] of staggered(b, ps, (ps * Math.sqrt(3)) / 2)) cut(hexagon(size, x, y));
     } else if (p.floorPattern === 'diamond') {
       const h = size * DIAMOND_ASPECT;
       const { ps, pz } = diamondPitch(size, h, web);
       for (const [x, y] of staggered(b, ps, pz / 2))
-        keep([
+        cut([
           [x, y - h / 2],
           [x + size / 2, y],
           [x, y + h / 2],
           [x - size / 2, y],
         ]);
     } else if (p.floorPattern === 'slots') {
-      // slots run along the compartment's longer side, a centred grid of them
+      // slots run along the compartment's longer side and fill it: their
+      // length stretches to fit, across they spread to the edges
       const alongX = b.x1 - b.x0 >= b.y1 - b.y0;
       const long = Math.max(b.x1 - b.x0, b.y1 - b.y0);
       const short = Math.min(b.x1 - b.x0, b.y1 - b.y0);
-      const len = Math.min(SLOT_LENGTH * size, long);
+      const fitA = Math.max(1, Math.round((long + web) / (SLOT_LENGTH * size + web)));
+      const len = Math.max(size, (long + web) / fitA - web);
       const pA = len + web;
-      const pC = size + web;
-      const fitA = Math.max(1, Math.floor((long + web) / pA));
-      const fitC = Math.max(1, Math.floor((short + web) / pC));
+      const fitC = Math.max(1, Math.floor((short + web) / (size + web)));
+      const pC = fitC > 1 ? (short - size) / (fitC - 1) : 0;
       const cx = (b.x0 + b.x1) / 2;
       const cy = (b.y0 + b.y1) / 2;
       for (let i = 0; i < fitA; i++)
         for (let j = 0; j < fitC; j++) {
           const a = (i - (fitA - 1) / 2) * pA;
           const c = (j - (fitC - 1) / 2) * pC;
-          keep(
-            alongX ? slot(cx + a, cy + c, len, size, true) : slot(cx + c, cy + a, len, size, false),
-          );
+          // a slot cut by a rounded corner gets shorter from its outer end
+          for (let l = len; l >= 2 * size; l -= size / 2) {
+            const shift = ((a === 0 ? 0 : Math.sign(a)) * -(len - l)) / 2;
+            const h = alongX
+              ? slot(cx + a + shift, cy + c, l, size, true)
+              : slot(cx + c, cy + a + shift, l, size, false);
+            if (insideConvex(h, comp)) {
+              holes.push(h);
+              break;
+            }
+          }
         }
     } else if (p.floorPattern === 'voronoi') {
       const cell = Math.max(6, size + web);
       const round = Math.min(1.5, 0.12 * cell);
-      const region = scope.keep(wasm.CrossSection.ofPolygons([comp]));
       const sites = voronoiSites(b, cell, p.voronoi.seed + 211 + k);
       for (const c of voronoiCells(b, sites, cell)) {
         const cs = scope.keep(scope.keep(wasm.CrossSection.ofPolygons([c])).intersect(region));
