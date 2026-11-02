@@ -35,3 +35,29 @@ test('editing a dimension on the model changes the basket and the link', async (
 
   expect(errors).toEqual([]);
 });
+
+test('dragging the slider in a label editor keeps the view still', async ({ page }) => {
+  await page.goto('/');
+  const stage = page.getByTestId('stage');
+  await expect(stage).toHaveAttribute('data-status', 'ready', { timeout: 15000 });
+
+  await stage.getByRole('button', { name: 'Höhe 80 mm' }).click();
+  const editor = stage.locator('.dim-editor');
+  const slider = stage.getByRole('slider', { name: 'Höhe' });
+  const before = (await editor.boundingBox())!;
+  const track = (await slider.boundingBox())!;
+  const y = track.y + track.height / 2;
+  await page.mouse.move(track.x + track.width * 0.25, y);
+  await page.mouse.down();
+  const positions: number[] = [];
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(track.x + track.width * (0.25 + i * 0.03), y);
+    await page.waitForTimeout(80);
+    const box = (await editor.boundingBox())!;
+    positions.push(Math.hypot(box.x - before.x, box.y - before.y));
+  }
+  await page.mouse.up();
+  await expect(page).toHaveURL(/height=/);
+  // the editor (and with it the slider under the mouse) does not move
+  expect(Math.max(...positions)).toBeLessThan(1);
+});

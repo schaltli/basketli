@@ -7,6 +7,7 @@ import { useBasket } from '../../state/store';
 import { de } from '../i18n/de';
 import { DimensionLabel } from './DimensionLabel';
 import { visibleLabels } from './labelLayout';
+import { useViewLock } from './viewLock';
 
 type Dim = 'width' | 'depth' | 'height';
 type Vec3 = [number, number, number];
@@ -56,6 +57,10 @@ function Dimension({ edge, visible }: { edge: Edge; visible: boolean }) {
   const { dim, from, to, tick } = edge;
   const value = useBasket((s) => s.params[dim]);
   const update = useBasket((s) => s.update);
+  const setEditing = useViewLock((s) => s.setEditing);
+  // While editing, the label stays where it was opened (the slider must not
+  // run away from the mouse); the line follows the new size.
+  const [pinned, setPinned] = useState<Vec3 | null>(null);
   const end = (p: Vec3): [Vec3, Vec3] => [
     [p[0] - tick[0], p[1] - tick[1], p[2] - tick[2]],
     [p[0] + tick[0], p[1] + tick[1], p[2] + tick[2]],
@@ -66,7 +71,7 @@ function Dimension({ edge, visible }: { edge: Edge; visible: boolean }) {
       <Line points={end(from)} color={LINE_COLOR} lineWidth={1} />
       <Line points={end(to)} color={LINE_COLOR} lineWidth={1} />
       <Html
-        position={mid(edge)}
+        position={pinned ?? mid(edge)}
         center
         zIndexRange={[20, 10]}
         style={{ display: visible ? '' : 'none' }}
@@ -78,6 +83,10 @@ function Dimension({ edge, visible }: { edge: Edge; visible: boolean }) {
           max={LIMITS[dim].max}
           step={1}
           onChange={(v) => update((p) => ({ ...p, [dim]: v }))}
+          onOpenChange={(open) => {
+            setPinned(open ? mid(edge) : null);
+            setEditing(open);
+          }}
         />
       </Html>
     </group>
@@ -94,9 +103,12 @@ export function DimensionLabels({ params }: { params: BasketParams }) {
   const [view, setView] = useState({ sx: 1, sy: -1, show: [true, true, true] });
   const list = edges(params, view.sx, view.sy);
 
+  const editing = useViewLock((s) => s.editing);
+
   useFrame(({ camera, size }) => {
     const g = ref.current;
-    if (!g) return;
+    // Sides and visibility hold still while a label is being edited.
+    if (!g || editing) return;
     // Camera position in model coordinates picks the facing sides.
     const cam = g.worldToLocal(camera.position.clone());
     const sx = cam.x >= 0 ? 1 : -1;
