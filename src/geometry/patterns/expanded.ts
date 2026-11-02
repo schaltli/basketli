@@ -3,6 +3,7 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect, type Vec2 } from '../shapes';
+import { effectiveDividerTop } from '../dividers';
 import { junctionArcs, wallSegments } from '../junctions';
 import { holesBottom, wallIntrusion } from '../stacking';
 import { RoundedRectPath } from '../weave/outline';
@@ -130,6 +131,9 @@ function strandMesh(
   quad(v(steps, 1), v(steps, 3), v(steps, 2), v(steps, 0)); // top cap
 }
 
+/** Strand pieces of neighbouring stretches overlap this much at a joint (mm). */
+const JOINT_OVERLAP = 0.3;
+
 /** Diamond lattice of one wall stretch (or of the whole ring). */
 interface Lattice {
   ps: number;
@@ -145,8 +149,9 @@ interface Lattice {
 /**
  * Without dividers one lattice runs round the basket. With dividers every
  * wall stretch between two divider joints gets a whole number of diamonds:
- * the pitch is stretched slightly (aspect kept) so knots sit on both
- * divider faces, and the strands end inside the solid joints.
+ * the pitch is stretched slightly so knots sit on the joints. Below the
+ * divider top the strands end in the solid joint strips; above it they run
+ * on into the next stretch.
  */
 function lattices(p: BasketParams, layout: ExpandedLayout): Lattice[] {
   const arcs = junctionArcs(p, layout.path);
@@ -154,23 +159,18 @@ function lattices(p: BasketParams, layout: ExpandedLayout): Lattice[] {
     const centers = Array.from({ length: layout.count }, (_, k) => (k + 0.5) * layout.ps);
     return [{ ps: layout.ps, pz: layout.pz, knot0: layout.knot0, centers, pad: 0 }];
   }
-  const t = wallIntrusion(p);
-  return wallSegments(arcs, layout.path.length).map(({ a: ja, b: jb }) => {
-    const a = ja + t / 2;
-    const b = jb - t / 2;
+  return wallSegments(arcs, layout.path.length).map(({ a, b }) => {
     const n = Math.max(1, Math.round((b - a) / layout.ps));
     const ps = (b - a) / n;
-    const pz = (layout.pz * ps) / layout.ps;
-    const rows = Math.max(1, Math.floor((layout.y1 - layout.y0) / (pz / 2)));
-    const knot0 = layout.y0 + (layout.y1 - layout.y0 - (rows - 1) * (pz / 2)) / 2;
-    // strands cross the first knot row at the faces and every pitch between;
+    // Same rows everywhere, so the lattice runs on across the joints above
+    // low dividers (the strands only kink a little where the pitch changes).
+    const { pz, knot0 } = layout;
+    // strands cross the first knot row on the joints and every pitch between;
     // strands entering from the sides start further out
-    const reach = Math.ceil(((layout.y1 - layout.y0) * (ps / pz)) / ps) + 1;
+    const reach = Math.ceil((layout.y1 - layout.y0) / pz) + 1;
     const centers: number[] = [];
     for (let k = -reach; k <= n + reach; k++) centers.push(a + k * ps);
-    const slope = ps / pz;
-    const dx = (p.expanded.strand / 2) * Math.hypot(slope, 1);
-    return { ps, pz, knot0, centers, range: [a, b], pad: Math.max(0, Math.min(dx, t / 2 - dx)) };
+    return { ps, pz, knot0, centers, range: [a, b], pad: JOINT_OVERLAP };
   });
 }
 
@@ -181,19 +181,22 @@ export function strandSolids(
   layout: ExpandedLayout,
   quality: Quality,
 ): Manifold[] {
-  const all = lattices(p, layout);
-  return ([1, -1] as const).map((dir) => {
-    const vert: number[] = [];
-    const tri: number[] = [];
-    for (const lattice of all)
+  // One mesh per family and stretch: strands of a family never touch inside
+  // a stretch, but pieces of neighbouring stretches overlap at the joints
+  // (the caller unions everything).
+  return lattices(p, layout).flatMap((lattice) =>
+    ([1, -1] as const).map((dir) => {
+      const vert: number[] = [];
+      const tri: number[] = [];
       for (const c of lattice.centers) strandMesh(p, layout, lattice, dir, c, quality, vert, tri);
-    const mesh = new wasm.Mesh({
-      numProp: 3,
-      vertProperties: Float32Array.from(vert),
-      triVerts: Uint32Array.from(tri),
-    });
-    return new wasm.Manifold(mesh);
-  });
+      const mesh = new wasm.Mesh({
+        numProp: 3,
+        vertProperties: Float32Array.from(vert),
+        triVerts: Uint32Array.from(tri),
+      });
+      return new wasm.Manifold(mesh);
+    }),
+  );
 }
 
 /** Ring band over the full radial span of the strands, from z0 to z1. */
@@ -254,8 +257,8 @@ export function buildExpanded(
 
 /**
  * Solid vertical strips where dividers meet the wall, as wide as a divider
- * and through the whole strand zone: the strands of the neighbouring
- * stretches end in them.
+ * and as high as the dividers: below the divider top the strands of the
+ * neighbouring stretches end in them.
  */
 function jointStrips(
   wasm: Wasm,
@@ -267,14 +270,15 @@ function jointStrips(
   if (p.dividersX.length === 0 && p.dividersY.length === 0) return [];
   const { Manifold } = wasm;
   const t = wallIntrusion(p);
+  const top = effectiveDividerTop(p);
   const W = p.width;
   const D = p.depth;
   const slabs = [
     ...p.dividersX.map((x) =>
-      Manifold.cube([t, D + 2, p.height]).translate([-W / 2 + x - t / 2, -D / 2 - 1, 0]),
+      Manifold.cube([t, D + 2, top]).translate([-W / 2 + x - t / 2, -D / 2 - 1, 0]),
     ),
     ...p.dividersY.map((y) =>
-      Manifold.cube([W + 2, t, p.height]).translate([-W / 2 - 1, -D / 2 + y - t / 2, 0]),
+      Manifold.cube([W + 2, t, top]).translate([-W / 2 - 1, -D / 2 + y - t / 2, 0]),
     ),
   ].map((m) => scope.keep(m));
   const ring = band(wasm, scope, p, layout, quality, 0, p.height);

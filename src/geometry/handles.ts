@@ -2,6 +2,7 @@ import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import { HANDLE_FRAME, type BasketParams } from './params';
+import { effectiveDividerTop } from './dividers';
 import { junctionArcs } from './junctions';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
@@ -159,12 +160,25 @@ export function handleNotches(wasm: Wasm, scope: Scope, p: BasketParams): Manifo
   return sites(p).map((site) => scope.keep(prism.transform(onWall(site))));
 }
 
+/** Pieces of a cut hole smaller than this share of the hole are dropped (no slivers). */
+const MIN_PIECE_SHARE = 0.2;
+
+const polyArea = (h: Vec2[]) =>
+  Math.abs(
+    h.reduce((s, q, i) => {
+      const r = h[(i + 1) % h.length]!;
+      return s + q[0] * r[1] - r[0] * q[1];
+    }, 0),
+  ) / 2;
+
 /**
- * Removes the band zones of handle cut-outs and the divider joints from
- * wall-pattern holes given in
- * wall coordinates (x = arc length on the outer wall, y = height). Holes
- * that reach into it keep their outside part, and `finish` (the pattern's
- * printability rule) reshapes every piece like any other hole.
+ * Trims wall-pattern holes (wall coordinates: x = arc length on the outer
+ * wall, y = height) where they meet a handle band or a divider joint, then
+ * `finish` (the pattern's printability rule) reshapes every piece like any
+ * other hole. A divider joint keeps the divider face plus one web solid,
+ * but only up to the divider top (plus a web): above it the pattern runs on
+ * across the joint. A hole reaching below that top is cut over its whole
+ * height, so every piece stays one span per row. Slivers are dropped.
  */
 export function clipHoles(
   wasm: Wasm,
@@ -180,35 +194,51 @@ export function clipHoles(
   if (centers.length === 0 && joints.length === 0) return holes.map(finish).filter(done);
   const L = path.length;
   const band = bandOutline(p);
-  // divider joints: the divider face plus one web stays solid on each side
   const half = wallIntrusion(p) / 2 + p.webWidth;
-  const strip = (s: number): Vec2[] => [
-    [s - half, -1],
-    [s + half, -1],
-    [s + half, p.height + 1],
-    [s - half, p.height + 1],
-  ];
-  const zones: Vec2[][] = [
-    ...centers.map((sc) => band.map(([u, z]) => [sc + u, z] as Vec2)),
-    ...joints.map(strip),
-  ].flatMap((zone) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2)));
-  const boxes = zones.map((zone) => {
+  const jointTop = effectiveDividerTop(p) + p.webWidth;
+  const copies = (zone: Vec2[]) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2));
+  const bands = centers.flatMap((sc) => copies(band.map(([u, z]) => [sc + u, z] as Vec2)));
+  const strips = joints.flatMap((s) =>
+    copies([
+      [s - half, -1],
+      [s + half, -1],
+      [s + half, p.height + 1],
+      [s - half, p.height + 1],
+    ]),
+  );
+  const box = (zone: Vec2[]) => {
     const xs = zone.map((q) => q[0]);
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...zone.map((q) => q[1])) };
-  });
-  const cut = scope.keep(wasm.CrossSection.ofPolygons(zones));
+  };
+  const bandBoxes = bands.map(box);
+  const stripBoxes = strips.map(box);
   const out: Vec2[][] = [];
   for (const hole of holes) {
     const xs = hole.map((q) => q[0]);
-    const top = Math.max(...hole.map((q) => q[1]));
-    const hit = boxes.some((b) => top > b.y0 && Math.max(...xs) > b.x0 && Math.min(...xs) < b.x1);
-    const pieces = hit
-      ? scope
-          .keep(scope.keep(wasm.CrossSection.ofPolygons([hole])).subtract(cut))
-          .toPolygons()
-          .map((poly) => poly.map(([x, y]) => [x, y] as Vec2))
-      : [hole];
+    const ys = hole.map((q) => q[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const overlaps = (b: { x0: number; x1: number; y0: number }) =>
+      y1 > b.y0 && x1 > b.x0 && x0 < b.x1;
+    const cutters = [
+      ...bands.filter((_, i) => overlaps(bandBoxes[i]!)),
+      ...(y0 < jointTop ? strips.filter((_, i) => overlaps(stripBoxes[i]!)) : []),
+    ];
+    if (cutters.length === 0) {
+      const h = finish(hole);
+      if (done(h)) out.push(h);
+      continue;
+    }
+    const whole = polyArea(hole);
+    const pieces = scope
+      .keep(
+        scope
+          .keep(wasm.CrossSection.ofPolygons([hole]))
+          .subtract(scope.keep(wasm.CrossSection.ofPolygons(cutters))),
+      )
+      .toPolygons()
+      .map((poly) => poly.map(([x, y]) => [x, y] as Vec2));
     for (const piece of pieces) {
+      if (polyArea(piece) < MIN_PIECE_SHARE * whole) continue;
       const h = finish(piece);
       if (done(h)) out.push(h);
     }

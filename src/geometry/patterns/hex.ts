@@ -6,7 +6,7 @@ import { RoundedRectPath } from '../weave/outline';
 import { printableHole } from './voronoi';
 import { clipHoles } from '../handles';
 import { junctionArcs, wallSegments } from '../junctions';
-import { holesBottom, wallIntrusion } from '../stacking';
+import { holesBottom } from '../stacking';
 import { bentCutter } from './wallcut';
 
 /** Pointy-top regular hexagon, `width` across the flats, centered at (cx, cy). */
@@ -51,34 +51,27 @@ export function hexLayout(p: BasketParams): HexLayout {
 
 /**
  * Plain hexagons in wall coordinates (x = arc length on the outer wall).
- * Without dividers the honeycomb runs round the basket. With dividers each
- * wall stretch between two divider joints gets whole hexagons, centred:
- * n per row and n − 1 in the shifted rows, at least one web away from the
- * divider faces.
+ * The honeycomb runs round the basket. With dividers its pitch is stretched
+ * slightly per wall stretch so that a hexagon sits centred on every divider
+ * joint: the stretches are symmetric, and above low dividers the honeycomb
+ * runs on across the joints (rows stay at the same height everywhere).
+ * clipHoles then trims the cells at the joints below the divider top.
  */
 function hexShapes(p: BasketParams): Vec2[][] {
   const l = hexLayout(p);
   const shapes: Vec2[][] = [];
   const arcs = junctionArcs(p, l.path);
-  if (arcs.length === 0) {
+  const stretches =
+    arcs.length === 0
+      ? [{ a: 0, n: l.count, px: l.px }]
+      : wallSegments(arcs, l.path.length).map(({ a, b }) => {
+          const n = Math.max(1, Math.floor((b - a) / l.px)); // never closer than the plain pitch
+          return { a, n, px: (b - a) / n };
+        });
+  for (const { a, n, px } of stretches)
     l.rows.forEach((y, j) => {
-      for (let i = 0; i < l.count; i++)
-        shapes.push(hexagon(p.holeSize, (i + (j % 2) * 0.5) * l.px, y));
+      for (let i = 0; i < n; i++) shapes.push(hexagon(p.holeSize, a + (i + (j % 2) * 0.5) * px, y));
     });
-    return shapes;
-  }
-  const t = wallIntrusion(p);
-  for (const seg of wallSegments(arcs, l.path.length)) {
-    const a = seg.a + t / 2;
-    const b = seg.b - t / 2;
-    const n = Math.floor((b - a - p.webWidth) / l.px);
-    const mid = (a + b) / 2;
-    l.rows.forEach((y, j) => {
-      const m = j % 2 === 0 ? n : n - 1;
-      for (let i = 0; i < m; i++)
-        shapes.push(hexagon(p.holeSize, mid + (i - (m - 1) / 2) * l.px, y));
-    });
-  }
   return shapes;
 }
 

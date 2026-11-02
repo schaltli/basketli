@@ -344,6 +344,7 @@
 #### - [x] T19b: Wandmuster pro Fach ausrichten
 
 Waben: ganze Waben je Wandabschnitt, zentriert, ≥ ein Steg Abstand zur Trennwand. Streckmetall: ganze Zahl Rauten je Abschnitt (Teilung leicht gestreckt), Knoten an den Trennwandflächen, Streben enden in massiven Anschluss-Stegen. Geflecht: Stake an jedem Anschluss, dazwischen gleichmäßig, Gesamtzahl gerade, Abstand ≤ Brückengrenze; Trennwand ragt in die Stake. Voronoi: Zellen am Anschluss (Trennwand + ein Steg) angeschnitten.
+Nachtrag 2026-11-02 (Kamm): Anschluss-Stege nur bis zur Trennwand-Oberkante; darüber läuft das Muster über die Anschlüsse weiter. Dafür liegt das Raster selbst auf den Anschlüssen (Waben: eine Wabe mittig auf jedem Anschluss; Streckmetall: Knoten auf dem Anschluss, überall gleiche Reihenhöhe); Zellen unterhalb der Oberkante werden am Steg angeschnitten, Splitter < 20 % entfallen.
 **Prüfung:** `npx vitest run tests/geometry/dividers.test.ts` (inkl. Druckbarkeit aller Stile mit Trennwänden)
 
 #### - [ ] T19c: Trennwände mit Wandmuster

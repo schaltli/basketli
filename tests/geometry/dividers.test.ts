@@ -2,8 +2,9 @@ import type { Manifold } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildTub } from '../../src/geometry/basket';
 import { buildManifold } from '../../src/geometry/build';
-import { dividerTop, MIN_COMPARTMENT } from '../../src/geometry/dividers';
-import { junctionArcs, wallSegments } from '../../src/geometry/junctions';
+import { dividerTop, effectiveDividerTop, MIN_COMPARTMENT } from '../../src/geometry/dividers';
+import { clipHoles } from '../../src/geometry/handles';
+import { junctionArcs } from '../../src/geometry/junctions';
 import { loadManifold, Scope, type Wasm } from '../../src/geometry/manifold';
 import {
   clampParams,
@@ -161,48 +162,63 @@ describe('wall pattern per compartment', () => {
     expect(pts.filter((q) => Math.abs(q[1] - Y) < 1e-6)).toHaveLength(2);
   });
 
-  it('honeycomb: whole hexagons per stretch, centred, a web away from the dividers', () => {
-    const p = base('hex');
-    const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
-    const arcs = junctionArcs(p, path);
-    const t = wallIntrusion(p);
-    const holes = hexHoles(p);
-    const rowY = Math.min(...holes.map((h) => Math.min(...h.map((q) => q[1]))));
-    for (const { a, b } of wallSegments(arcs, path.length)) {
-      const lo = a + t / 2;
-      const hi = b - t / 2;
-      const inside = holes.filter((h) => {
-        const c = h.reduce((s, q) => s + q[0], 0) / h.length;
-        return c > lo && c < hi;
-      });
-      for (const h of inside)
-        for (const [x] of h) {
-          expect(x - lo).toBeGreaterThanOrEqual(p.webWidth - 1e-6);
-          expect(hi - x).toBeGreaterThanOrEqual(p.webWidth - 1e-6);
-        }
-      // bottom row: the same gap to both dividers
-      const row = inside.filter((h) => Math.abs(Math.min(...h.map((q) => q[1])) - rowY) < 1e-6);
-      if (row.length === 0) continue;
-      const xs = row.flatMap((h) => h.map((q) => q[0]));
-      expect(Math.min(...xs) - lo).toBeCloseTo(hi - Math.max(...xs), 6);
-    }
-  });
+  /** Smallest distance (along the wall) from x to any joint, in a periodic wall. */
+  const toJoint = (x: number, arcs: number[], L: number) =>
+    Math.min(...arcs.map((s) => Math.abs(((((x - s) % L) + 1.5 * L) % L) - L / 2)));
 
-  it('Voronoi: cells keep a web away from every divider', () => {
-    const p = base('voronoi');
+  it.each([
+    ['full-height', 0],
+    ['low', 40],
+  ] as const)(
+    'honeycomb, %s dividers: cells kept clear of the joints below the divider top, a cell on every joint above',
+    (_n, dividerHeight) => {
+      const p = clampParams({ ...base('hex'), dividerHeight }).params;
+      const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+      const arcs = junctionArcs(p, path);
+      const t = wallIntrusion(p);
+      const top = effectiveDividerTop(p) + p.webWidth;
+      const scope = new Scope();
+      try {
+        const holes = clipHoles(wasm, scope, p, path, hexHoles(p), (h) => h);
+        for (const h of holes) {
+          if (Math.min(...h.map((q) => q[1])) >= top) continue;
+          for (const [x] of h)
+            expect(toJoint(x, arcs, path.length)).toBeGreaterThanOrEqual(t / 2 + p.webWidth - 1e-3);
+        }
+        const above = holes.filter((h) => Math.min(...h.map((q) => q[1])) >= top);
+        if (dividerHeight > 0) {
+          expect(above.length).toBeGreaterThan(0);
+          // the honeycomb runs on across every joint: a cell centred on it
+          for (const s of arcs) {
+            const centred = above.filter((h) => {
+              const c = h.reduce((acc, q) => acc + q[0], 0) / h.length;
+              return toJoint(c, [s], path.length) < 1e-6;
+            });
+            expect(centred.length).toBeGreaterThan(0);
+          }
+        }
+      } finally {
+        scope.dispose();
+      }
+    },
+  );
+
+  it('Voronoi: cells keep a web away from every divider below its top', () => {
+    const p = clampParams({ ...base('voronoi'), dividerHeight: 40 }).params;
     const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
     const arcs = junctionArcs(p, path);
     const t = wallIntrusion(p);
+    const top = effectiveDividerTop(p) + p.webWidth;
     const scope = new Scope();
     try {
       const holes = voronoiHoles(wasm, scope, p);
-      const L = path.length;
-      for (const h of holes)
-        for (const [x] of h)
-          for (const s of arcs) {
-            const d = Math.abs(((((x - s) % L) + 1.5 * L) % L) - L / 2);
-            expect(d).toBeGreaterThanOrEqual(t / 2 + p.webWidth - 1e-3);
-          }
+      let crossing = 0;
+      for (const h of holes) {
+        const near = h.some(([x]) => toJoint(x, arcs, path.length) < t / 2 + p.webWidth - 1e-3);
+        if (Math.min(...h.map((q) => q[1])) < top) expect(near).toBe(false);
+        else if (near) crossing++;
+      }
+      expect(crossing).toBeGreaterThan(0); // above the dividers cells run across the joints
     } finally {
       scope.dispose();
     }
@@ -224,20 +240,49 @@ describe('wall pattern per compartment', () => {
     }
   });
 
-  it('expanded metal: a solid strip where a divider meets the wall', () => {
-    const p = base('expanded');
+  it('expanded metal: a solid strip up to the divider top, strands run on above', () => {
+    const p = clampParams({ ...base('expanded'), dividerHeight: 40 }).params;
     const m = buildManifold(wasm, p, 'preview');
     try {
       const t = wallIntrusion(p);
+      const top = effectiveDividerTop(p);
       const X = -p.width / 2 + p.dividersX[0]!;
-      const box: [[number, number, number], [number, number, number]] = [
-        [X - t / 2 + 0.05, -p.depth / 2 + 0.05, 15],
-        [X + t / 2 - 0.05, -p.depth / 2 + t - 0.05, p.height - 10],
+      const box = (
+        z0: number,
+        z1: number,
+      ): [[number, number, number], [number, number, number]] => [
+        [X - t / 2 + 0.05, -p.depth / 2 + 0.05, z0],
+        [X + t / 2 - 0.05, -p.depth / 2 + t - 0.05, z1],
       ];
-      const vol = (t - 0.1) * (t - 0.1) * (p.height - 25);
-      expect(inBox(m, ...box) / vol).toBeGreaterThan(0.97);
+      const vol = (z0: number, z1: number) => (t - 0.1) * (t - 0.1) * (z1 - z0);
+      expect(inBox(m, ...box(15, top - 1)) / vol(15, top - 1)).toBeGreaterThan(0.97);
+      const z1 = p.height - p.borderBand - 1;
+      expect(inBox(m, ...box(top + 2, z1)) / vol(top + 2, z1)).toBeLessThan(0.8);
     } finally {
       m.delete();
+    }
+  });
+
+  it.each(styles)('%s with low dividers: printable without support', (_n, wallStyle, rowGap) => {
+    const p = clampParams({ ...base(wallStyle, rowGap), dividerHeight: 40 }).params;
+    const m = buildManifold(wasm, p, 'preview');
+    const scope = new Scope();
+    try {
+      const envelope =
+        wallStyle === 'expanded'
+          ? buildExpanded(wasm, scope, p, 'preview', true)
+          : wallStyle === 'weave'
+            ? undefined
+            : buildTub(wasm, scope, p, 'preview');
+      expect(m.decompose().length).toBe(1);
+      const r = overhangReport(m, envelope ? { envelope } : {});
+      expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
+      expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
+        MAX_BRIDGE,
+      );
+    } finally {
+      m.delete();
+      scope.dispose();
     }
   });
 
