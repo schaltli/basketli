@@ -15,6 +15,11 @@ import {
 } from '../../../src/geometry/patterns/voronoi';
 import { MAX_BRIDGE, overhangReport } from '../../../src/geometry/printability';
 import type { Vec2 } from '../../../src/geometry/shapes';
+import { effectiveDividerTop, jointWidth } from '../../../src/geometry/dividers';
+import { junctionArcs } from '../../../src/geometry/junctions';
+import { RoundedRectPath } from '../../../src/geometry/weave/outline';
+import { parse } from '../../../src/state/url';
+import { holesBottom } from '../../../src/geometry/stacking';
 import { polygonArea } from './util';
 
 let wasm: Wasm;
@@ -114,7 +119,7 @@ describe('printableHole', () => {
     expect(widthAt(hole, 3)![1]).toBeCloseTo(widthAt(cell, 3)![1], 1);
   });
 
-  it('never leaves a hole wider than MAX_HOLE_TOP', () => {
+  it('bridges at most MAX_HOLE_TOP at the top, keeps the full width lower down', () => {
     const wide: Vec2[] = [
       [-12, 0],
       [12, 0],
@@ -122,8 +127,12 @@ describe('printableHole', () => {
       [-12, 8],
     ];
     const hole = printableHole(wide);
-    const xs = hole.map((q) => q[0]);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(MAX_HOLE_TOP + 1e-9);
+    const ys = hole.map((q) => q[1]);
+    const yTop = Math.max(...ys);
+    const topXs = hole.filter((q) => q[1] > yTop - 1e-9).map((q) => q[0]);
+    expect(Math.max(...topXs) - Math.min(...topXs)).toBeLessThanOrEqual(MAX_HOLE_TOP + 1e-9);
+    const bottomXs = hole.filter((q) => q[1] < Math.min(...ys) + 1e-9).map((q) => q[0]);
+    expect(Math.max(...bottomXs) - Math.min(...bottomXs)).toBeCloseTo(24, 6);
   });
 });
 
@@ -232,6 +241,71 @@ describe('voronoi basket', () => {
     } finally {
       m.delete();
       tub.delete();
+    }
+  });
+});
+
+describe('voronoi beside divider joints', () => {
+  it('a hole over a joint lies wholly above the divider top (no nose reaching over it)', () => {
+    // the configuration the glitch was found in
+    const p = parse(
+      'v=1&height=100&wall=2.4&wallStyle=voronoi&handles=ends&handleType=slot&slotWidth=64&slotHeight=22&dividersX=75&dividersY=50&dividerHeight=63&dividerStyle=pattern',
+    ).params;
+    const scope = new Scope();
+    try {
+      const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+      const L = path.length;
+      const joints = junctionArcs(p, path);
+      const half = jointWidth(p) / 2 - p.webWidth / 2;
+      const top = effectiveDividerTop(p) + p.webWidth / 2;
+      const toJoint = (x: number) =>
+        Math.min(...joints.map((s) => Math.abs(((((x - s) % L) + 1.5 * L) % L) - L / 2)));
+      let over = 0;
+      for (const hole of voronoiHoles(wasm, scope, p)) {
+        if (!hole.some(([x]) => toJoint(x) < half)) continue;
+        over++;
+        expect(Math.min(...hole.map((q) => q[1]))).toBeGreaterThanOrEqual(top - 1e-6);
+      }
+      expect(over).toBeGreaterThan(0); // the pattern does run on above the joints
+    } finally {
+      scope.dispose();
+    }
+  });
+
+  it('cells beside a joint reach the solid strip (no leftover solid wall)', () => {
+    const p = parse(
+      'v=1&height=100&wall=2.4&wallStyle=voronoi&handles=ends&handleType=slot&slotWidth=64&slotHeight=22&dividersX=75&dividersY=50&dividerHeight=63&dividerStyle=pattern',
+    ).params;
+    const scope = new Scope();
+    try {
+      const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
+      const L = path.length;
+      const holes = voronoiHoles(wasm, scope, p);
+      const inHole = (x: number, y: number) =>
+        holes.some((h) => {
+          let inside = false;
+          for (let i = 0, j = h.length - 1; i < h.length; j = i++) {
+            const a = h[i]!;
+            const b = h[j]!;
+            if (a[1] > y !== b[1] > y && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0])
+              inside = !inside;
+          }
+          return inside;
+        });
+      const y0 = holesBottom(p) + p.webWidth;
+      const y1 = effectiveDividerTop(p) - p.webWidth;
+      // just outside the strip, along each joint below the divider top
+      for (const s of junctionArcs(p, path).filter((s) => s < L - 1e-6)) {
+        for (const side of [-1, 1]) {
+          const x = (s + side * (jointWidth(p) / 2 + 0.4) + L) % L;
+          let open = 0;
+          let n = 0;
+          for (let y = y0; y < y1; y += 0.25, n++) if (inHole(x, y)) open++;
+          expect(open / n, `joint ${s.toFixed(1)} side ${side}`).toBeGreaterThan(0.6);
+        }
+      }
+    } finally {
+      scope.dispose();
     }
   });
 });

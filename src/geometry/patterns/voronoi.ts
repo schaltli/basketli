@@ -1,4 +1,4 @@
-import type { Manifold } from 'manifold-3d';
+import type { CrossSection, Manifold } from 'manifold-3d';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { seededRandom } from '../random';
@@ -108,24 +108,6 @@ const LAYER = 0.2;
 /** Height step of the scan (mm). */
 const SCAN = 0.1;
 
-/** Keeps the part of `poly` where nx·x + ny·y ≤ c. */
-function clipLine(poly: Vec2[], nx: number, ny: number, c: number): Vec2[] {
-  const out: Vec2[] = [];
-  const f = (q: Vec2) => nx * q[0] + ny * q[1] - c;
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i]!;
-    const b = poly[(i + 1) % poly.length]!;
-    const fa = f(a);
-    const fb = f(b);
-    if (fa <= 0) out.push(a);
-    if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) {
-      const t = fa / (fa - fb);
-      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
-    }
-  }
-  return out;
-}
-
 /** [left, right] where the horizontal line at height y crosses a convex polygon. */
 function span(poly: Vec2[], y: number): [number, number] | undefined {
   let lo = Infinity;
@@ -147,17 +129,12 @@ function span(poly: Vec2[], y: number): [number, number] | undefined {
  * in by at most LAYER / tan(MIN_TOP_DEG) per layer (lines get extended
  * lengthwise), and the last opening at the very top is closed by one bridge.
  * A top-down scan enforces this by making the hole smaller where needed –
- * flat shoulders, rounded corners and flat tops alike. Holes wider than
- * MAX_HOLE_TOP are first trimmed to vertical sides.
+ * flat shoulders, rounded corners and flat tops alike. Only the topmost row
+ * is bridged, so only it is limited to MAX_HOLE_TOP; below it the hole widens
+ * at the shoulder limit back to its full width.
  */
 export function printableHole(hole: Vec2[]): Vec2[] {
-  let poly = hole;
-  const xs = poly.map((q) => q[0]);
-  if (Math.max(...xs) - Math.min(...xs) > MAX_HOLE_TOP) {
-    const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
-    poly = clipLine(poly, 1, 0, mid + MAX_HOLE_TOP / 2);
-    poly = clipLine(poly, -1, 0, -(mid - MAX_HOLE_TOP / 2));
-  }
+  const poly = hole;
   const ys = poly.map((q) => q[1]);
   const y0 = Math.min(...ys);
   const y1 = Math.max(...ys);
@@ -176,6 +153,11 @@ export function printableHole(hole: Vec2[]): Vec2[] {
       // Below a row the hole may only be wider by `step` per side.
       l = Math.max(l, above.l - step);
       r = Math.min(r, above.r + step);
+    } else if (r - l > MAX_HOLE_TOP) {
+      // The topmost row is bridged: at most MAX_HOLE_TOP, centred.
+      const mid = (l + r) / 2;
+      l = mid - MAX_HOLE_TOP / 2;
+      r = mid + MAX_HOLE_TOP / 2;
     }
     if (r - l < 1e-6) continue;
     rows.push({ y, l, r });
@@ -202,6 +184,23 @@ function dropCollinear(poly: Vec2[]): Vec2[] {
     if (Math.abs(cross) > 1e-4) out.push(b);
   }
   return out;
+}
+
+/** True if point q lies inside the cross-section. */
+function contains(cs: CrossSection, q: Vec2): boolean {
+  let inside = false;
+  for (const poly of cs.toPolygons()) {
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i]!;
+      const b = poly[j]!;
+      if (
+        a[1] > q[1] !== b[1] > q[1] &&
+        q[0] < ((b[0] - a[0]) * (q[1] - a[1])) / (b[1] - a[1]) + a[0]
+      )
+        inside = !inside;
+    }
+  }
+  return inside;
 }
 
 /** True if every horizontal line crosses the polygon in at most one span. */
@@ -271,25 +270,71 @@ export function voronoiHoles(wasm: Wasm, scope: Scope, p: BasketParams): Vec2[][
   ]);
   const domain: Rect = { x0: -L, y0, x1: 2 * L, y1 };
   const round = cornerRound(size);
-  const comb =
-    joints.length === 0
-      ? undefined
-      : scope.keep(
-          CrossSection.ofPolygons(
-            joints.flatMap((s) =>
-              [-L, 0, L].map((k): Vec2[] => [
-                [s + k - half, y0 - 1],
-                [s + k + half, y0 - 1],
-                [s + k + half, top],
-                [s + k - half, top],
-              ]),
-            ),
-          ),
-        );
+  // Teeth up to the divider top; for cells beside a tooth (site not above
+  // it, cell reaching below its top) the tooth reaches all the way up, so such a cell keeps
+  // a straight edge along the strip instead of reaching over the tooth's
+  // top in a thin nose with a sharp inner corner.
+  const teeth = (upTo: number) =>
+    scope.keep(
+      CrossSection.ofPolygons(
+        joints.flatMap((s) =>
+          [-L, 0, L].map((k): Vec2[] => [
+            [s + k - half, y0 - 1],
+            [s + k + half, y0 - 1],
+            [s + k + half, upTo],
+            [s + k - half, upTo],
+          ]),
+        ),
+      ),
+    );
+  const comb = joints.length === 0 ? undefined : teeth(top);
+  const tallComb = joints.length === 0 ? undefined : teeth(y1 + 1);
   const shapes: Vec2[][] = [];
-  for (const cell of voronoiCells(domain, sites, size, [...mirrors, ...ghosts])) {
-    let cs = scope.keep(CrossSection.ofPolygons([cell]));
-    if (comb) cs = scope.keep(cs.subtract(comb));
+  const cells = voronoiCells(domain, sites, size, [...mirrors, ...ghosts]);
+  // Cutting out the comb can leave a piece of a cell on the far side of a
+  // tooth (its site is on the other side). Alone it would shrink to nothing
+  // and leave solid wall; it goes to the cell it borders on its own side.
+  const mains: CrossSection[] = [];
+  const orphans: CrossSection[] = [];
+  for (const [i, cell] of cells.entries()) {
+    const cs = scope.keep(CrossSection.ofPolygons([cell]));
+    const site = sites[i]!;
+    const beside = Math.abs(toJoint(site[0])) >= half && Math.min(...cell.map((q) => q[1])) < top;
+    if (!comb) {
+      mains.push(cs);
+      continue;
+    }
+    const parts = scope.keep(cs.subtract(beside ? tallComb! : comb)).decompose();
+    parts.forEach((part) => scope.keep(part));
+    const own = parts.findIndex((part) => contains(part, site));
+    parts.forEach((part, k) => (k === own ? mains.push(part) : orphans.push(part)));
+  }
+  for (const orphan of orphans) {
+    const grown = scope.keep(orphan.offset(0.01, 'Miter'));
+    let best = -1;
+    let bestArea = 1e-6;
+    let bestShift = 0;
+    for (const shift of [0, -L, L]) {
+      const probe = shift === 0 ? grown : scope.keep(grown.translate([shift, 0]));
+      const b = probe.bounds();
+      mains.forEach((m, k) => {
+        const mb = m.bounds();
+        if (
+          mb.min[0] > b.max[0] ||
+          mb.max[0] < b.min[0] ||
+          mb.min[1] > b.max[1] ||
+          mb.max[1] < b.min[1]
+        )
+          return;
+        const area = scope.keep(probe.intersect(m)).area();
+        if (area > bestArea) [best, bestArea, bestShift] = [k, area, shift];
+      });
+    }
+    if (best < 0) continue;
+    const piece = bestShift === 0 ? grown : scope.keep(grown.translate([bestShift, 0]));
+    mains[best] = scope.keep(mains[best]!.add(piece).subtract(comb!));
+  }
+  for (const cs of mains) {
     // Shrink by half the web plus the corner radius, then grow back by the
     // radius: rounded corners, webs exactly webWidth wide (on the outside).
     const inset = scope.keep(cs.offset(-p.webWidth / 2 - round, 'Miter'));
