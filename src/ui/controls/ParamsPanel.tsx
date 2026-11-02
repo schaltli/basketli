@@ -170,7 +170,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
 
       <fieldset>
         <legend>{de.groupSize}</legend>
-        {(['width', 'depth', 'height', 'cornerRadius', 'floor'] as const).map(field)}
+        {(['width', 'depth', 'height', 'cornerRadius'] as const).map(field)}
       </fieldset>
 
       <fieldset>
@@ -222,10 +222,30 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             {de.voronoiReroll}
           </button>
         )}
+        <div className="field">
+          <label htmlFor="handles">{de.fields.handles}</label>
+          <select
+            id="handles"
+            value={params.handles}
+            onChange={(e) => {
+              const next = HANDLE_MODES.find((m) => m === e.target.value) ?? 'none';
+              update((p) => ({ ...p, handles: next }));
+            }}
+          >
+            {HANDLE_MODES.map((m) => (
+              <option key={m} value={m}>
+                {HANDLE_LABEL[m]}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">{de.handlesHint}</p>
+        </div>
+        {params.handles !== 'none' && (['handleWidth', 'handleDepth'] as const).map(field)}
       </fieldset>
 
       <fieldset>
         <legend>{de.groupFloor}</legend>
+        {field('floor')}
         <div className="field">
           <label htmlFor="floor-pattern">{de.floorPattern}</label>
           <select
@@ -248,42 +268,6 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         </div>
         {params.floorPattern !== 'closed' &&
           (['floorHoleSize', 'floorWebWidth'] as const).map(field)}
-      </fieldset>
-
-      <fieldset>
-        <legend>{de.groupStacking}</legend>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={params.stackable}
-            onChange={(e) => update((p) => ({ ...p, stackable: e.target.checked }))}
-          />
-          {de.fields.stackable}
-        </label>
-        {params.stackable && field('stackClearance')}
-      </fieldset>
-
-      <fieldset>
-        <legend>{de.groupHandles}</legend>
-        <div className="field">
-          <label htmlFor="handles">{de.fields.handles}</label>
-          <select
-            id="handles"
-            value={params.handles}
-            onChange={(e) => {
-              const next = HANDLE_MODES.find((m) => m === e.target.value) ?? 'none';
-              update((p) => ({ ...p, handles: next }));
-            }}
-          >
-            {HANDLE_MODES.map((m) => (
-              <option key={m} value={m}>
-                {HANDLE_LABEL[m]}
-              </option>
-            ))}
-          </select>
-          <p className="field-hint">{de.handlesHint}</p>
-        </div>
-        {params.handles !== 'none' && (['handleWidth', 'handleDepth'] as const).map(field)}
       </fieldset>
 
       <fieldset>
@@ -337,6 +321,19 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             onChange={(v) => update((p) => ({ ...p, dividerHeight: v }))}
           />
         )}
+      </fieldset>
+
+      <fieldset>
+        <legend>{de.groupStacking}</legend>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={params.stackable}
+            onChange={(e) => update((p) => ({ ...p, stackable: e.target.checked }))}
+          />
+          {de.fields.stackable}
+        </label>
+        {params.stackable && field('stackClearance')}
       </fieldset>
 
       {notices.length > 0 && (

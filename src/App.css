@@ -120,7 +120,8 @@ button {
 }
 
 .field-number {
-  width: 80px;
+  width: 64px;
+  flex-shrink: 0;
   padding: 3px 6px;
   border: 1px solid #cfc4b4;
   border-radius: 4px;
@@ -141,6 +142,17 @@ button {
 .field-range {
   width: 100%;
   accent-color: #8b6d42;
+}
+
+/* in the panel the slider sits right of the number and its unit */
+.field-row .field-range {
+  flex: 1;
+  min-width: 0;
+  margin-left: 4px;
+}
+
+.field-unit {
+  flex-shrink: 0;
 }
 
 .check {

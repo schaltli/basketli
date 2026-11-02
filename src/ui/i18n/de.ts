@@ -12,10 +12,9 @@ export const de = {
   paramsTitle: 'Parameter',
   close: 'Schließen',
 
-  groupSize: 'Maße',
-  groupWall: 'Wand',
+  groupSize: 'Abmessungen (außen)',
+  groupWall: 'Außenwand',
   groupStacking: 'Stapeln',
-  groupHandles: 'Griffaussparung',
   handlesNone: 'keine',
   handlesOne: 'eine Stirnseite',
   handlesEnds: 'beide Stirnseiten',

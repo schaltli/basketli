@@ -11,7 +11,7 @@ interface NumberFieldProps {
 }
 
 /**
- * Number input plus slider. The slider applies immediately; the text field
+ * Number input with its slider beside it. The slider applies immediately; the text field
  * applies on Enter or when it loses focus (Esc restores the current value).
  * While nobody is typing, the field simply shows the current value.
  */
@@ -56,17 +56,17 @@ export function NumberField({
           }}
         />
         <span className="field-unit">{unit}</span>
+        <input
+          className="field-range"
+          type="range"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
       </div>
-      <input
-        className="field-range"
-        type="range"
-        aria-label={label}
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
     </div>
   );
 }
