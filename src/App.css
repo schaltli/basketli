@@ -298,3 +298,82 @@ button {
   gap: 6px;
   margin-bottom: 4px;
 }
+
+/* Grid mode */
+.grid-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.grid-toolbar > * {
+  pointer-events: auto;
+}
+
+.grid-hint {
+  margin: 0 8px 0 0;
+  color: #6b6052;
+  font-size: 0.85rem;
+}
+
+.grid-handle {
+  min-width: 44px;
+  padding: 3px 9px;
+  border: 1px solid #8b6d42;
+  border-radius: 999px;
+  background: #8b6d42;
+  color: #fff;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  touch-action: none;
+}
+
+.grid-handle-x {
+  cursor: ew-resize;
+}
+
+.grid-handle-y {
+  cursor: ns-resize;
+}
+
+.grid-handle:focus-visible,
+.grid-add:focus-visible {
+  outline: 2px solid #3d342a;
+  outline-offset: 2px;
+}
+
+.grid-add {
+  padding: 4px 10px;
+  border: 1px dashed #8b6d42;
+  border-radius: 6px;
+  background: rgb(251 249 246 / 92%);
+  color: #6b4e24;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.grid-cell {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgb(251 249 246 / 85%);
+  color: #3d342a;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.grid-remove {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.divider-max {
+  margin-top: 10px;
+}

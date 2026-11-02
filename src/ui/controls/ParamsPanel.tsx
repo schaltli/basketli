@@ -1,5 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { HANDLE_MODES, LIMITS, setWeaveMaterial, type BasketParams } from '../../geometry/params';
+import { dividerTop } from '../../geometry/dividers';
+import {
+  HANDLE_MODES,
+  LIMITS,
+  MIN_DIVIDER_HEIGHT,
+  setWeaveMaterial,
+  type BasketParams,
+} from '../../geometry/params';
+import { useUi } from '../uiState';
 import { useBasket } from '../../state/store';
 import { de } from '../i18n/de';
 import { noticeText } from './notices';
@@ -106,6 +114,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
   const params = useBasket((s) => s.params);
   const notices = useBasket((s) => s.notices);
   const update = useBasket((s) => s.update);
+  const setGridMode = useUi((s) => s.setGridMode);
   const panel = useRef<HTMLElement>(null);
   const choice = choiceOf(params);
 
@@ -234,6 +243,39 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
           <p className="field-hint">{de.handlesHint}</p>
         </div>
         {params.handles !== 'none' && (['handleWidth', 'handleDepth'] as const).map(field)}
+      </fieldset>
+
+      <fieldset>
+        <legend>{de.groupDividers}</legend>
+        <p className="field-hint">
+          {de.dividerCount(params.dividersX.length, params.dividersY.length)}
+        </p>
+        <button type="button" className="secondary" onClick={() => setGridMode(true)}>
+          {de.dividerEdit}
+        </button>
+        <label className="check divider-max">
+          <input
+            type="checkbox"
+            checked={params.dividerHeight === 0}
+            onChange={(e) =>
+              update((p) => ({
+                ...p,
+                dividerHeight: e.target.checked ? 0 : Math.round(dividerTop(p) * 10) / 10,
+              }))
+            }
+          />
+          {de.dividerMaxHeight}
+        </label>
+        {params.dividerHeight > 0 && (
+          <NumberField
+            label={de.fields.dividerHeight ?? 'Höhe'}
+            value={params.dividerHeight}
+            min={params.floor + MIN_DIVIDER_HEIGHT}
+            max={Math.round(dividerTop(params) * 10) / 10}
+            step={1}
+            onChange={(v) => update((p) => ({ ...p, dividerHeight: v }))}
+          />
+        )}
       </fieldset>
 
       {notices.length > 0 && (

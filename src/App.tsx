@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useBasket } from './state/store';
 import { ParamsPanel } from './ui/controls/ParamsPanel';
+import { GridToolbar } from './ui/controls/GridToolbar';
 import { Toolbar } from './ui/controls/Toolbar';
+import { useUi } from './ui/uiState';
 import { de } from './ui/i18n/de';
 import { useBasketMesh } from './ui/viewer/useBasketMesh';
 import { Viewer } from './ui/viewer/Viewer';
@@ -11,6 +13,7 @@ export function App() {
   const params = useBasket((s) => s.params);
   const state = useBasketMesh(params);
   const [paramsOpen, setParamsOpen] = useState(true);
+  const gridMode = useUi((s) => s.gridMode);
 
   return (
     <div className="app">
@@ -23,6 +26,7 @@ export function App() {
           data-triangles={state.mesh ? state.mesh.indices.length / 3 : 0}
         >
           <Viewer mesh={state.mesh} params={params} />
+          {gridMode && <GridToolbar />}
           {state.status === 'ready' && (
             <p className="app-stats">
               {Math.round(state.ms)} ms · {(state.mesh.indices.length / 3).toLocaleString('de-CH')}{' '}

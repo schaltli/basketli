@@ -5,7 +5,9 @@ import { BufferAttribute, BufferGeometry, PerspectiveCamera, Vector3 } from 'thr
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { MeshData } from '../../geometry/build';
 import type { BasketParams } from '../../geometry/params';
+import { useUi } from '../uiState';
 import { DimensionLabels } from './DimensionLabels';
+import { GridEditor } from './GridEditor';
 import { materialFor } from './materials';
 import { useViewLock } from './viewLock';
 
@@ -75,12 +77,61 @@ function CameraFit({ width, depth, height }: { width: number; depth: number; hei
   return null;
 }
 
+/**
+ * Grid mode looks straight down on the basket (front at the bottom of the
+ * screen) and keeps the view from turning; leaving it restores the previous
+ * viewing direction.
+ */
+function GridCamera({
+  on,
+  width,
+  depth,
+  height,
+}: {
+  on: boolean;
+  width: number;
+  depth: number;
+  height: number;
+}) {
+  const get = useThree((s) => s.get);
+  const saved = useRef<Vector3 | null>(null);
+  // Only switching the mode moves the camera; size changes are CameraFit's job.
+  const size = useRef({ width, depth, height });
+  useEffect(() => {
+    size.current = { width, depth, height };
+  }, [width, depth, height]);
+  useEffect(() => {
+    const { width, depth, height } = size.current;
+    const { camera, controls } = get();
+    const orbit = controls as { target?: Vector3; update?: () => void } | null;
+    const target = orbit?.target ?? new Vector3(0, height / 2, 0);
+    const current = camera.position.clone().sub(target).normalize();
+    let dir: Vector3;
+    if (on) {
+      saved.current = current;
+      // straight down; the tiny tilt fixes which way is up on screen
+      dir = new Vector3(0, 1, 0.002).normalize();
+    } else if (saved.current) {
+      dir = saved.current;
+      saved.current = null;
+    } else return;
+    const fov = camera instanceof PerspectiveCamera ? camera.fov : 40;
+    const radius = Math.hypot(width, depth, height) / 2;
+    const distance = (radius / Math.sin(((fov / 2) * Math.PI) / 180)) * (on ? 1.3 : 1.1);
+    camera.position.copy(target.clone().add(dir.multiplyScalar(distance)));
+    camera.updateProjectionMatrix();
+    orbit?.update?.();
+  }, [on, get]);
+  return null;
+}
+
 /** 3D scene. Geometry uses Z-up (mm); the group rotates it into three.js Y-up. */
 export function Viewer({ mesh, params }: ViewerProps) {
   const geometry = useGeometry(
     mesh,
     params.wallStyle === 'weave' ? CREASE_ANGLE.smooth : CREASE_ANGLE.hard,
   );
+  const gridMode = useUi((s) => s.gridMode);
   const size = Math.max(params.width, params.depth, params.height);
   const dist = size * 1.8;
   // Only the start value: afterwards CameraFit moves the target, so a size
@@ -102,7 +153,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
             <meshStandardMaterial {...materialFor(params.wallStyle)} />
           </mesh>
         )}
-        <DimensionLabels params={params} />
+        {gridMode ? <GridEditor params={params} /> : <DimensionLabels params={params} />}
       </group>
       <Grid
         args={[1000, 1000]}
@@ -113,7 +164,8 @@ export function Viewer({ mesh, params }: ViewerProps) {
         fadeDistance={size * 6}
         position={[0, -0.01, 0]}
       />
-      <OrbitControls makeDefault target={initialTarget} />
+      <OrbitControls makeDefault target={initialTarget} enableRotate={!gridMode} />
+      <GridCamera on={gridMode} width={params.width} depth={params.depth} height={params.height} />
       <CameraFit width={params.width} depth={params.depth} height={params.height} />
     </Canvas>
   );

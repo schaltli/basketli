@@ -87,7 +87,7 @@ alles ─ T21 E2E ─ T22 Performance/Snapshots/Coverage ─ T23 Release-Check
 
 - [x] T18: Griffaussparung von oben (statt Griffmulden, Entscheid 2026-11-02)
 - [ ] T19: Trennwände (Geometrie)
-- [ ] T20: Raster-Editor (Draufsicht, „+“, verschieben, löschen)
+- [x] T20: Raster-Editor (Draufsicht, „+“, verschieben, löschen)
 
 **Checkpoint E:** Alle Funktionen aus dem Spec (v1) sind vorhanden; alle Kombinationen ergeben manifold-Meshes.
 

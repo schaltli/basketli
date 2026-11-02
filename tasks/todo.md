@@ -349,13 +349,13 @@ Waben/Streckmetall: ganze Zellen je Fach, zentriert, massiver Anschluss-Steg; Ge
 
 Gleiche Regeln je Trennwand-Abschnitt (zwischen Wand und Kreuzungen); Geflecht als gewebte Trennwand mit Staken an Anschlüssen und Kreuzungen.
 
-### - [ ] T20: Raster-Editor
+### - [x] T20: Raster-Editor
 
 **Beschreibung:** Der Raster-Modus schaltet die Kamera in die Draufsicht. Am rechten und am unteren Rand stehen „+“-Buttons, die eine Trennwand einfügen (mittig im größten Fach). Ein Klick auf eine Trennwand zeigt ein Positionsmaß zum Eintippen und eine Schaltfläche zum Löschen.
 **Akzeptanz:**
 
-- [ ] Hinzufügen, Verschieben und Löschen funktionieren, und die Vorschau aktualisiert sich.
-- [ ] Die Fachmaße werden in der Draufsicht angezeigt.
+- [x] Hinzufügen, Verschieben und Löschen funktionieren, und die Vorschau aktualisiert sich. (Raster-Modus in der Werkzeugleiste: Draufsicht, Griffe neben dem Korb zum Ziehen/Anklicken, „+“ am Ende jeder Griffreihe, „Gleichmäßig verteilen“, „Alle entfernen“; Höhe im Seitenpanel)
+- [x] Die Fachmaße werden in der Draufsicht angezeigt.
       **Prüfung:** `npm run dev`; ein E2E-Schritt in T21
       **Abhängig von:** T19, T15
       **Dateien:** `src/ui/controls/GridEditor.tsx`, `src/ui/viewer/Viewer.tsx`, `src/ui/i18n/de.ts`
