@@ -5,6 +5,7 @@ import { dividerFaces, dividerHoles } from '../../src/geometry/dividerPatterns';
 import { dividerSolids, effectiveDividerTop, jointWidth } from '../../src/geometry/dividers';
 import { loadManifold, Scope, type Wasm } from '../../src/geometry/manifold';
 import { clampParams, DEFAULTS, type WallStyle } from '../../src/geometry/params';
+import { buildExpanded } from '../../src/geometry/patterns/expanded';
 import { MAX_BRIDGE, overhangReport } from '../../src/geometry/printability';
 import { wallIntrusion } from '../../src/geometry/stacking';
 
@@ -60,7 +61,9 @@ describe.each(['hex', 'voronoi'] as const)('%s dividers', (style) => {
       scope.dispose();
     }
   });
+});
 
+describe.each(['hex', 'voronoi', 'expanded'] as const)('%s basket with dividers', (style) => {
   it.each([
     ['full-height', 0],
     ['low', 40],
@@ -87,11 +90,12 @@ describe.each(['hex', 'voronoi'] as const)('%s dividers', (style) => {
       expect(cut.volume() / box.volume()).toBeLessThan(0.85);
       [cut, box].forEach((x) => x.delete());
       // printable: walls and dividers may extend lines in their own plane
+      const wall =
+        style === 'expanded'
+          ? buildExpanded(wasm, scope, p, 'preview', true)
+          : buildTub(wasm, scope, p, 'preview');
       const envelope = scope.keep(
-        wasm.Manifold.union([
-          buildTub(wasm, scope, p, 'preview'),
-          ...dividerSolids(wasm, scope, p, 'preview'),
-        ]),
+        wasm.Manifold.union([wall, ...dividerSolids(wasm, scope, p, 'preview')]),
       );
       const r = overhangReport(m, { envelope });
       expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);

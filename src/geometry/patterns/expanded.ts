@@ -34,6 +34,18 @@ export function maxTwist(width: number, height: number, strand: number): number 
   return (strand * Math.hypot(width, height)) / (2 * width);
 }
 
+/** A sheet's center line: the ring round the basket, or a straight divider. */
+export interface SheetPath {
+  at(s: number): { p: Vec2; n: Vec2 };
+}
+
+/** What a strand needs of its sheet: center line and strand zone. */
+interface StrandSheet {
+  path: SheetPath;
+  y0: number;
+  y1: number;
+}
+
 export interface ExpandedLayout {
   /** Centerline of the sheet. */
   path: RoundedRectPath;
@@ -79,7 +91,7 @@ export function expandedLayout(p: BasketParams): ExpandedLayout {
  */
 function strandMesh(
   p: BasketParams,
-  layout: ExpandedLayout,
+  layout: StrandSheet,
   lattice: Lattice,
   dir: 1 | -1,
   c: number,
@@ -293,4 +305,59 @@ export function diamondPolygon(width: number, height: number): Vec2[] {
     [0, height / 2],
     [-width / 2, 0],
   ];
+}
+
+/**
+ * Strands of a flat expanded-metal sheet (a divider), in local coordinates:
+ * x along the sheet, y across it (the sheet's center plane at y = 0), z up.
+ * Every stretch [a, b] gets a whole number of diamonds (pitch stretched
+ * slightly, aspect kept) with knots on both ends; the strands reach `pad`
+ * into the solid frame round the stretch and ANCHOR into the bands.
+ */
+export function sheetStrands(
+  wasm: Wasm,
+  p: BasketParams,
+  stretches: [number, number][],
+  z0: number,
+  z1: number,
+  frameHalf: number,
+  quality: Quality,
+): Manifold[] {
+  const e = p.expanded;
+  const pitch = diamondPitch(e.diamondWidth, e.diamondHeight, e.strand);
+  // like the ring (counter-clockwise, normal to the right), so meshes face outwards
+  const straight: SheetPath = { at: (s) => ({ p: [s, 0], n: [0, -1] }) };
+  return stretches.flatMap(([a, b]) => {
+    const n = Math.max(1, Math.round((b - a) / pitch.ps));
+    const ps = (b - a) / n;
+    const pz = (pitch.pz * ps) / pitch.ps;
+    const rows = Math.floor((z1 - z0) / (pz / 2));
+    if (rows < 1) return [];
+    const knot0 = z0 + (z1 - z0 - (rows - 1) * (pz / 2)) / 2;
+    const layout: StrandSheet = { path: straight, y0: z0, y1: z1 };
+    const reach = Math.ceil((z1 - z0) / pz) + 1;
+    const centers: number[] = [];
+    for (let k = -reach; k <= n + reach; k++) centers.push(a + k * ps);
+    const dx = (e.strand / 2) * Math.hypot(ps / pz, 1);
+    const lattice: Lattice = {
+      ps,
+      pz,
+      knot0,
+      centers,
+      range: [a, b],
+      pad: Math.max(0, Math.min(dx, frameHalf - dx)),
+    };
+    return ([1, -1] as const).map((dir) => {
+      const vert: number[] = [];
+      const tri: number[] = [];
+      for (const c of centers) strandMesh(p, layout, lattice, dir, c, quality, vert, tri);
+      return new wasm.Manifold(
+        new wasm.Mesh({
+          numProp: 3,
+          vertProperties: Float32Array.from(vert),
+          triVerts: Uint32Array.from(tri),
+        }),
+      );
+    });
+  });
 }

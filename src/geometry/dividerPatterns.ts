@@ -1,8 +1,10 @@
 import type { Manifold, Mat4 } from 'manifold-3d';
 import { effectiveDividerTop, jointWidth } from './dividers';
+import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import type { BasketParams } from './params';
 import { hexagon } from './patterns/hex';
+import { sheetStrands } from './patterns/expanded';
 import { printableHole, voronoiCells, voronoiSites } from './patterns/voronoi';
 import type { Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
@@ -23,6 +25,9 @@ export interface DividerFace {
   z1: number;
   /** Local (u, z, across) → world. */
   frame: Mat4;
+  /** Direction of u and the face's start on the outer edge (world). */
+  along: [number, number, number];
+  origin: [number, number, number];
 }
 
 /** Distance from the outer edge to the inner wall face at `x` mm along a side `size` long. */
@@ -85,6 +90,8 @@ export function dividerFaces(p: BasketParams): DividerFace[] {
       z1,
       // u along +y from the front edge, normal +x
       frame: frame([0, 1, 0], [0, 0, 1], [1, 0, 0], [-W / 2 + x, -D / 2, 0]),
+      along: [0, 1, 0],
+      origin: [-W / 2 + x, -D / 2, 0],
     });
   for (const y of p.dividersY)
     faces.push({
@@ -95,6 +102,8 @@ export function dividerFaces(p: BasketParams): DividerFace[] {
       z1,
       // u along +x from the left edge, normal −y (keeps the frame right-handed)
       frame: frame([1, 0, 0], [0, 0, 1], [0, -1, 0], [-W / 2, -D / 2 + y, 0]),
+      along: [1, 0, 0],
+      origin: [-W / 2, -D / 2 + y, 0],
     });
   return faces;
 }
@@ -175,4 +184,39 @@ export function dividerHoleCutters(wasm: Wasm, scope: Scope, p: BasketParams): M
     const prism = scope.keep(scope.keep(shape.extrude(t + 2)).translate([0, 0, -(t / 2 + 1)]));
     return [scope.keep(prism.transform(face.frame))];
   });
+}
+
+/**
+ * Expanded-metal dividers: a window per stretch is cut out of the plain
+ * divider (leaving the frame: bands at bottom and top, strips at the ends
+ * and crossings) and filled with a flat expanded-metal sheet.
+ */
+export function expandedDividerParts(
+  wasm: Wasm,
+  scope: Scope,
+  p: BasketParams,
+  quality: Quality,
+): { windows: Manifold[]; strands: Manifold[] } {
+  const windows: Manifold[] = [];
+  const strands: Manifold[] = [];
+  if (p.wallStyle !== 'expanded') return { windows, strands };
+  const t = wallIntrusion(p);
+  const half = jointWidth(p) / 2;
+  for (const face of dividerFaces(p)) {
+    if (face.z1 - face.z0 < 1) continue;
+    for (const [a, b] of face.stretches)
+      windows.push(
+        scope.keep(
+          wasm.Manifold.cube([b - a, face.z1 - face.z0, t + 2])
+            .translate([a, face.z0, -(t / 2 + 1)])
+            .transform(face.frame),
+        ),
+      );
+    // sheet coordinates (u, across, z) → world: u along, across = ez × along
+    const [ax, ay] = face.along;
+    const toWorld = frame([ax, ay, 0], [-ay, ax, 0], [0, 0, 1], face.origin);
+    for (const m of sheetStrands(wasm, p, face.stretches, face.z0, face.z1, half, quality))
+      strands.push(scope.keep(scope.keep(m).transform(toWorld)));
+  }
+  return { windows, strands };
 }

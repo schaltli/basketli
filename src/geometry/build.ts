@@ -1,5 +1,5 @@
 import type { Manifold } from 'manifold-3d';
-import { dividerHoleCutters } from './dividerPatterns';
+import { dividerHoleCutters, expandedDividerParts } from './dividerPatterns';
 import { dividerSolids } from './dividers';
 import { handleBands, handleNotches } from './handles';
 import { buildTub, type Quality } from './basket';
@@ -55,6 +55,11 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       const holes = dividerHoleCutters(wasm, scope, params);
       if (holes.length > 0)
         body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(holes))));
+      const sheet = expandedDividerParts(wasm, scope, params, quality);
+      if (sheet.windows.length > 0) {
+        body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(sheet.windows))));
+        body = scope.keep(wasm.Manifold.union([body, ...sheet.strands]));
+      }
     }
     if (params.handles !== 'none') {
       // Open walls get a band closing the cut edges; hole patterns leave
