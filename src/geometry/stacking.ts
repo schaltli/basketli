@@ -48,9 +48,19 @@ export function wallIntrusion(p: BasketParams): number {
   }
 }
 
-/** Stack pitch: how much higher the next basket stands (chamfer on inner edge). */
+/**
+ * 45° chamfer on the top edges of the rim and the dividers (mm): at most
+ * 0.5 mm and a quarter of the wall, so half the top stays flat.
+ */
+export const topChamfer = (p: BasketParams) => Math.min(0.5, wallIntrusion(p) / 4);
+
+/**
+ * Stack pitch: how much higher the next basket stands. The foot's chamfer
+ * rests on the lower basket's inner top chamfer (parallel, both 45°), which
+ * lets it sink by that chamfer below the unchamfered inner edge.
+ */
 export function stackPitch(lower: BasketParams, upper: BasketParams): number {
-  return lower.height - FOOT_HEIGHT - (footInset(upper) - wallIntrusion(lower));
+  return lower.height - FOOT_HEIGHT - (footInset(upper) - wallIntrusion(lower)) - topChamfer(lower);
 }
 
 function contour(p: BasketParams, inset: number, quality: Quality) {

@@ -4,6 +4,7 @@ import { dividerSolids } from './dividers';
 import { floorCutter } from './floor';
 import { handleBands, handleCutters, handleSupports } from './handles';
 import { buildTub, type Quality } from './basket';
+import { withChamfers } from './chamfers';
 import { Scope, type Wasm } from './manifold';
 import type { BasketParams } from './params';
 import { buildExpanded } from './patterns/expanded';
@@ -91,6 +92,8 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     const floorHoles = floorCutter(wasm, scope, params, quality);
     if (floorHoles.length > 0)
       body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(floorHoles))));
+    // last: bottom edge (elephant's foot, stacking) and top edges of rim and dividers
+    body = withChamfers(wasm, scope, params, quality, body);
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
