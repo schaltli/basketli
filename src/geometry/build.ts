@@ -3,6 +3,7 @@ import { dividerHoleCutters, expandedDividerParts } from './dividerPatterns';
 import { dividerSolids } from './dividers';
 import { floorCutter } from './floor';
 import { handleBands, handleCutters, handleSupports } from './handles';
+import { labelPlate, tapeCutter } from './label';
 import { buildTub, type Quality } from './basket';
 import { withChamfers } from './chamfers';
 import { Scope, type Wasm } from './manifold';
@@ -77,6 +78,14 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
         body = scope.keep(wasm.Manifold.union([body, ...sheet.strands]));
       }
     }
+    // Label field: hole patterns leave it solid already (clipHoles); open
+    // walls get a solid plate. Then the recess for label-maker tape.
+    const plate = OPEN_WALLS.includes(params.wallStyle)
+      ? labelPlate(wasm, scope, params, quality, body)
+      : undefined;
+    if (plate) body = scope.keep(wasm.Manifold.union([body, plate]));
+    const tape = tapeCutter(wasm, scope, params);
+    if (tape) body = scope.keep(body.subtract(tape));
     if (params.handles !== 'none') {
       // Open walls get a band closing the cut edges; hole patterns leave
       // that band solid already (clipHoles).

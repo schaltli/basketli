@@ -1,6 +1,6 @@
 /** All lengths in mm. */
 import { dividerTop, fitDividers } from './dividers';
-import { patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
+import { holesBottom, patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
 export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave', 'braid'] as const;
@@ -11,6 +11,12 @@ export type HandleMode = (typeof HANDLE_MODES)[number];
 /** Handle kind: cut-out from the top edge, or a closed slot below the rim. */
 export const HANDLE_TYPES = ['notch', 'slot'] as const;
 export type HandleType = (typeof HANDLE_TYPES)[number];
+/** Label field: none, on an end wall (shorter) or on a side wall (longer). */
+export const LABEL_POSITIONS = ['none', 'end', 'side'] as const;
+export type LabelPosition = (typeof LABEL_POSITIONS)[number];
+/** Recess for label-maker tape (P-touch TZe widths, mm), or none. */
+export const LABEL_TAPES = ['none', '6', '9', '12', '18', '24'] as const;
+export type LabelTape = (typeof LABEL_TAPES)[number];
 /** Floor: closed, or holes in one of these patterns. */
 export const FLOOR_PATTERNS = ['closed', 'hex', 'voronoi', 'diamond', 'slots'] as const;
 export type FloorPattern = (typeof FLOOR_PATTERNS)[number];
@@ -86,6 +92,12 @@ export interface BasketParams {
   slotWidth: number;
   slotHeight: number;
   slotBar: number;
+  /** Solid label field in the wall: where, size, corner radius, tape recess. */
+  labelPosition: LabelPosition;
+  labelWidth: number;
+  labelHeight: number;
+  labelRadius: number;
+  labelTape: LabelTape;
   /**
    * Divider positions (centers, mm from the outer left / front edge):
    * dividersX split the width, dividersY the depth.
@@ -141,6 +153,9 @@ export const LIMITS = {
   slotWidth: { min: 40, max: 120 },
   slotHeight: { min: 15, max: 40 },
   slotBar: { min: 8, max: 30 },
+  labelWidth: { min: 20, max: 150 },
+  labelHeight: { min: 8, max: 60 },
+  labelRadius: { min: 0, max: 15 },
   dividerHeight: { min: 0, max: 300 },
   floorHoleSize: { min: 4, max: 30 },
   floorWebWidth: { min: 1.5, max: 10 },
@@ -156,6 +171,11 @@ export const MAX_OPEN_SPACING = 15;
 /** Solid frame round a handle cut-out, and solid wall left before a corner (mm). */
 export const HANDLE_FRAME = 3;
 export const HANDLE_MARGIN = 5;
+/** Label field: distance to the corner arcs, border bands and a handle frame (mm). */
+export const LABEL_MARGIN = 3;
+/** Tape recess: clearance over the tape width, solid rim left round it (mm). */
+export const TAPE_CLEARANCE = 0.6;
+export const TAPE_RIM = 1.5;
 /** Lowest divider (above the floor plate, mm). */
 export const MIN_DIVIDER_HEIGHT = 10;
 
@@ -187,6 +207,11 @@ export const DEFAULTS: BasketParams = {
   slotWidth: 80,
   slotHeight: 25,
   slotBar: 15,
+  labelPosition: 'none',
+  labelWidth: 60,
+  labelHeight: 20,
+  labelRadius: 3,
+  labelTape: 'none',
   dividersX: [],
   dividersY: [],
   dividerHeight: 0,
@@ -243,6 +268,9 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'slotWidth',
   'slotHeight',
   'slotBar',
+  'labelWidth',
+  'labelHeight',
+  'labelRadius',
   'dividerHeight',
   'floorHoleSize',
   'floorWebWidth',
@@ -474,6 +502,56 @@ export function clampParams(input: BasketParams): ClampResult {
     }
   }
 
+  // Label field: on the straight part of its wall, between the border bands
+  // (below a handle on the same wall); room for the tape recess.
+  if (p.labelPosition !== 'none') {
+    const zone = labelZone(p);
+    const maxWidth = round(zone.length - 2 * LABEL_MARGIN);
+    const maxHeight = round(zone.top - zone.bottom - 2 * LABEL_MARGIN);
+    if (maxWidth < LIMITS.labelWidth.min || maxHeight < LIMITS.labelHeight.min) {
+      p.labelPosition = 'none';
+      rule('labelPosition', 'none');
+    } else {
+      if (p.labelWidth > maxWidth) {
+        p.labelWidth = maxWidth;
+        rule('labelWidth', maxWidth);
+      }
+      if (p.labelTape !== 'none') {
+        const need = (tape: LabelTape) => Number(tape) + TAPE_CLEARANCE + 2 * TAPE_RIM;
+        if (p.labelHeight < need(p.labelTape)) {
+          const fits = LABEL_TAPES.filter(
+            (t) => t !== 'none' && need(t) <= Math.min(maxHeight, LIMITS.labelHeight.max),
+          );
+          if (fits.length === 0 || need(fits.at(-1)!) < need(p.labelTape)) {
+            // the field cannot grow enough: the widest tape that fits
+            p.labelTape = fits.at(-1) ?? 'none';
+            rule('labelTape', p.labelTape);
+          }
+          if (p.labelTape !== 'none' && p.labelHeight < need(p.labelTape)) {
+            p.labelHeight = round(need(p.labelTape));
+            rule('labelHeight', p.labelHeight);
+          }
+        }
+        // the recess needs some wall behind it
+        if (p.wallStyle === 'solid' || p.wallStyle === 'hex' || p.wallStyle === 'voronoi') {
+          if (p.wall < 2 * TAPE_DEPTH) {
+            p.wall = 2 * TAPE_DEPTH;
+            rule('wall', p.wall);
+          }
+        }
+      }
+      if (p.labelHeight > maxHeight) {
+        p.labelHeight = maxHeight;
+        rule('labelHeight', maxHeight);
+      }
+      const maxRadius = round(Math.min(p.labelWidth, p.labelHeight) / 2);
+      if (p.labelRadius > maxRadius) {
+        p.labelRadius = maxRadius;
+        rule('labelRadius', maxRadius);
+      }
+    }
+  }
+
   // Dividers: in order, every compartment wide enough, below a stacked basket.
   const t = wallIntrusion(p);
   for (const [key, size] of [
@@ -499,6 +577,27 @@ export function clampParams(input: BasketParams): ClampResult {
   }
 
   return { params: p, notices };
+}
+
+/** Depth of the tape recess below the outer face (mm): tape ~0.15 mm sits sunk in. */
+export const TAPE_DEPTH = 0.4;
+
+/**
+ * Where a label field may go: the straight length of its wall and the height
+ * range between the bottom zone and the top border (or a handle on that wall).
+ * With one handle the label goes on the other end wall.
+ */
+export function labelZone(p: BasketParams): { length: number; bottom: number; top: number } {
+  const walls = straightWallLengths(p);
+  const length = p.labelPosition === 'side' ? walls.sides : walls.ends;
+  const bottom = holesBottom(p);
+  let top = p.height - (p.wallStyle === 'weave' ? p.weave.rim : p.borderBand);
+  if (p.labelPosition === 'end' && p.handles === 'ends') {
+    const opening =
+      p.handleType === 'slot' ? p.height - p.slotBar - p.slotHeight : p.height - p.handleDepth;
+    top = Math.min(top, opening - HANDLE_FRAME);
+  }
+  return { length, bottom, top };
 }
 
 /** Switches weave material; untouched size values follow the new material's defaults. */

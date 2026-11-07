@@ -4,6 +4,8 @@ import {
   FLOOR_PATTERNS,
   HANDLE_MODES,
   HANDLE_TYPES,
+  LABEL_POSITIONS,
+  LABEL_TAPES,
   LIMITS,
   MIN_DIVIDER_HEIGHT,
   setWeaveMaterial,
@@ -34,6 +36,9 @@ type NumericPath =
   | 'slotWidth'
   | 'slotHeight'
   | 'slotBar'
+  | 'labelWidth'
+  | 'labelHeight'
+  | 'labelRadius'
   | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
   | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`
@@ -79,6 +84,9 @@ const STEP: Partial<Record<NumericPath, number>> = {
   slotWidth: 1,
   slotHeight: 1,
   slotBar: 1,
+  labelWidth: 1,
+  labelHeight: 0.5,
+  labelRadius: 0.5,
 };
 
 const FLOOR_LABEL = {
@@ -91,6 +99,11 @@ const FLOOR_LABEL = {
 
 const HANDLE_LABEL = { none: de.handlesNone, one: de.handlesOne, ends: de.handlesEnds } as const;
 const HANDLE_TYPE_LABEL = { notch: de.handleTypeNotch, slot: de.handleTypeSlot } as const;
+const LABEL_POSITION_LABEL = {
+  none: de.labelNone,
+  end: de.labelEnd,
+  side: de.labelSide,
+} as const;
 
 const CHOICE_LABEL: Record<StyleChoice, string> = {
   expanded: de.wallStyleExpanded,
@@ -279,6 +292,49 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             ? (['slotWidth', 'slotHeight', 'slotBar'] as const)
             : (['handleWidth', 'handleDepth'] as const)
           ).map(field)}
+      </fieldset>
+
+      <fieldset>
+        <legend>{de.groupLabel}</legend>
+        <div className="field">
+          <label htmlFor="label-position">{de.fields.labelPosition}</label>
+          <select
+            id="label-position"
+            value={params.labelPosition}
+            onChange={(e) => {
+              const next = LABEL_POSITIONS.find((m) => m === e.target.value) ?? 'none';
+              update((p) => ({ ...p, labelPosition: next }));
+            }}
+          >
+            {LABEL_POSITIONS.map((m) => (
+              <option key={m} value={m}>
+                {LABEL_POSITION_LABEL[m]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {params.labelPosition !== 'none' &&
+          (['labelWidth', 'labelHeight', 'labelRadius'] as const).map(field)}
+        {params.labelPosition !== 'none' && (
+          <div className="field">
+            <label htmlFor="label-tape">{de.fields.labelTape}</label>
+            <select
+              id="label-tape"
+              value={params.labelTape}
+              onChange={(e) => {
+                const next = LABEL_TAPES.find((t) => t === e.target.value) ?? 'none';
+                update((p) => ({ ...p, labelTape: next }));
+              }}
+            >
+              {LABEL_TAPES.map((t) => (
+                <option key={t} value={t}>
+                  {t === 'none' ? de.labelTapeNone : de.labelTapeWidth(t)}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">{de.labelTapeHint}</p>
+          </div>
+        )}
       </fieldset>
 
       <fieldset>

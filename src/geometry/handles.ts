@@ -4,6 +4,7 @@ import type { Scope, Wasm } from './manifold';
 import { HANDLE_FRAME, type BasketParams } from './params';
 import { effectiveDividerTop, jointWidth } from './dividers';
 import { junctionArcs } from './junctions';
+import { labelZoneOnWall } from './label';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './weave/layout';
@@ -262,7 +263,7 @@ const polyArea = (h: Vec2[]) =>
  * Trims wall-pattern holes (wall coordinates: x = arc length on the outer
  * wall, y = height) where they meet a handle band or a divider joint, then
  * `finish` (the pattern's printability rule) reshapes every piece like any
- * other hole. A divider joint keeps a strip jointWidth wide solid,
+ * other hole. A label field stays solid like a handle band. A divider joint keeps a strip jointWidth wide solid,
  * but only up to the divider top (plus a web): above it the pattern runs on
  * across the joint. A hole reaching below that top is cut over its whole
  * height, so every piece stays one span per row. Slivers are dropped.
@@ -278,14 +279,18 @@ export function clipHoles(
 ): Vec2[][] {
   const centers = handleArcCenters(p, path);
   const joints = withJoints ? junctionArcs(p, path) : [];
+  const label = labelZoneOnWall(p, path);
   const done = (h: Vec2[]) => h.length >= 3;
-  if (centers.length === 0 && joints.length === 0) return holes.map(finish).filter(done);
+  if (centers.length === 0 && joints.length === 0 && !label) return holes.map(finish).filter(done);
   const L = path.length;
   const band = bandOutline(p);
   const half = jointWidth(p) / 2;
   const jointTop = effectiveDividerTop(p) + p.webWidth;
   const copies = (zone: Vec2[]) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2));
-  const bands = centers.flatMap((sc) => copies(band.map(([u, z]) => [sc + u, z] as Vec2)));
+  const bands = [
+    ...centers.flatMap((sc) => copies(band.map(([u, z]) => [sc + u, z] as Vec2))),
+    ...(label ? copies(label) : []),
+  ];
   const strips = joints.flatMap((s) =>
     copies([
       [s - half, -1],
@@ -296,7 +301,8 @@ export function clipHoles(
   );
   const box = (zone: Vec2[]) => {
     const xs = zone.map((q) => q[0]);
-    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...zone.map((q) => q[1])) };
+    const ys = zone.map((q) => q[1]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
   };
   const bandBoxes = bands.map(box);
   const stripBoxes = strips.map(box);
@@ -305,8 +311,8 @@ export function clipHoles(
     const xs = hole.map((q) => q[0]);
     const ys = hole.map((q) => q[1]);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const overlaps = (b: { x0: number; x1: number; y0: number }) =>
-      y1 > b.y0 && x1 > b.x0 && x0 < b.x1;
+    const overlaps = (b: { x0: number; x1: number; y0: number; y1: number }) =>
+      y1 > b.y0 && y0 < b.y1 && x1 > b.x0 && x0 < b.x1;
     const cutters = [
       ...bands.filter((_, i) => overlaps(bandBoxes[i]!)),
       ...(y0 < jointTop ? strips.filter((_, i) => overlaps(stripBoxes[i]!)) : []),
