@@ -4,7 +4,8 @@
 
 Stapelbare, 3D-druckbare Körbe im Browser entwerfen: Maße einstellen, Wandstil wählen
 (Streckmetall, Waben, Voronoi, Geflecht geschlossen oder offen, Geflecht 45°), Griffe, Trennwände und
-ein Beschriftungsfeld (auf Wunsch mit Vertiefung für P-touch-Band) hinzufügen und als STL oder 3MF
+ein Beschriftungsfeld (auf Wunsch mit Vertiefung für P-touch-Band) hinzufügen, die Oberkante
+an schräge Decken oder Rückwände anpassen und als STL oder 3MF
 herunterladen. Alle Modelle sind ohne Stützmaterial druckbar und lassen sich stilübergreifend
 stapeln.
 

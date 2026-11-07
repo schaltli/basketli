@@ -73,7 +73,18 @@ export interface VoronoiParams {
 export interface BasketParams {
   width: number;
   depth: number;
+  /** Height; with an irregular top the highest of the corner heights. */
   height: number;
+  /**
+   * Irregular top (e.g. under a sloping ceiling): the height measured at each
+   * corner of the footprint (front/back = −y/+y, left/right = −x/+x). The
+   * top runs straight along every wall from corner to corner. Not stackable.
+   */
+  irregular: boolean;
+  heightFL: number;
+  heightFR: number;
+  heightBL: number;
+  heightBR: number;
   wall: number;
   floor: number;
   cornerRadius: number;
@@ -126,6 +137,10 @@ export const LIMITS = {
   width: { min: 30, max: 400 },
   depth: { min: 30, max: 400 },
   height: { min: 20, max: 300 },
+  heightFL: { min: 20, max: 300 },
+  heightFR: { min: 20, max: 300 },
+  heightBL: { min: 20, max: 300 },
+  heightBR: { min: 20, max: 300 },
   wall: { min: 0.8, max: 5 },
   floor: { min: 0.6, max: 5 },
   cornerRadius: { min: 0, max: 30 },
@@ -191,6 +206,11 @@ export const DEFAULTS: BasketParams = {
   width: 150,
   depth: 100,
   height: 80,
+  irregular: false,
+  heightFL: 80,
+  heightFR: 80,
+  heightBL: 80,
+  heightBR: 80,
   wall: 1.6,
   floor: 1.2,
   cornerRadius: 10,
@@ -256,6 +276,10 @@ const TOP_NUMBERS: TopNumberKey[] = [
   'width',
   'depth',
   'height',
+  'heightFL',
+  'heightFR',
+  'heightBL',
+  'heightBR',
   'wall',
   'floor',
   'cornerRadius',
@@ -361,6 +385,37 @@ export function clampParams(input: BasketParams): ClampResult {
 
   const isWeave = p.wallStyle === 'weave';
 
+  // Irregular top: no stacking (the rim is not level); every wall's top
+  // rises at most 45°; the height is the highest corner.
+  if (p.irregular) {
+    if (p.stackable) {
+      p.stackable = false;
+      rule('stackable', 'false');
+    }
+    const edges: [CornerKey, CornerKey, number][] = [
+      ['heightFL', 'heightFR', p.width],
+      ['heightBL', 'heightBR', p.width],
+      ['heightFL', 'heightBL', p.depth],
+      ['heightFR', 'heightBR', p.depth],
+    ];
+    const raised = new Set<CornerKey>();
+    for (let pass = 0; pass < 4; pass++)
+      for (const [a, b, len] of edges)
+        for (const [lo, hi] of [
+          [a, b],
+          [b, a],
+        ] as const)
+          if (p[hi] - p[lo] > len + 1e-9) {
+            // rounded up, so the rise stays within 45° (idempotent)
+            p[lo] = Math.ceil((p[hi] - len) * 1000 - 1e-6) / 1000;
+            raised.add(lo);
+          }
+    raised.forEach((k) => rule(k, p[k]));
+    p.height = Math.max(...CORNER_KEYS.map((k) => p[k]));
+  }
+  /** Lowest point of the top edge. */
+  const low = lowestTop(p);
+
   // Corner radius: fits the footprint; weave strands need room to bend.
   const maxRadius = round(Math.min(p.width, p.depth) / 2);
   if (p.cornerRadius > maxRadius) {
@@ -372,7 +427,7 @@ export function clampParams(input: BasketParams): ClampResult {
       p.wallStyle === 'expanded' ||
       p.wallStyle === 'hex' ||
       p.wallStyle === 'braid') &&
-    p.cornerRadius < MIN_VORONOI_CORNER_RADIUS
+    p.cornerRadius < Math.min(MIN_VORONOI_CORNER_RADIUS, maxRadius)
   ) {
     // Holes run round the corners; tighter corners squeeze the inner webs.
     p.cornerRadius = Math.min(MIN_VORONOI_CORNER_RADIUS, maxRadius);
@@ -382,14 +437,15 @@ export function clampParams(input: BasketParams): ClampResult {
     // Strands must not self-intersect where they bend round the corners.
     const span = p.weave.stakeDiameter + 2 * p.weave.materialThickness;
     const minRadius = Math.max(MIN_WEAVE_CORNER_RADIUS, round(span + 1));
-    if (p.cornerRadius < minRadius) {
+    // (a footprint too small for it keeps the largest radius it has)
+    if (p.cornerRadius < Math.min(minRadius, maxRadius)) {
       p.cornerRadius = Math.min(minRadius, maxRadius);
       rule('cornerRadius', p.cornerRadius);
     }
   }
 
   // Border bands must leave a usable wall zone.
-  const maxBand = Math.max(LIMITS.borderBand.min, round(p.height / 2 - 2));
+  const maxBand = Math.max(LIMITS.borderBand.min, round(low / 2 - 2));
   if (p.borderBand > maxBand) {
     p.borderBand = maxBand;
     rule('borderBand', maxBand);
@@ -397,13 +453,13 @@ export function clampParams(input: BasketParams): ClampResult {
 
   if (isWeave) {
     const w = p.weave;
-    const maxMaterial = Math.max(LIMITS.materialHeight.min, round(p.height - 2 * p.borderBand));
+    const maxMaterial = Math.max(LIMITS.materialHeight.min, round(low - 2 * p.borderBand));
     if (w.materialHeight > maxMaterial) {
       w.materialHeight = maxMaterial;
       rule('weave.materialHeight', maxMaterial);
     }
     // The top rim leaves at least half the woven wall for the rows.
-    const maxRim = Math.max(LIMITS.rim.min, round((p.height - patternBase(p)) / 2));
+    const maxRim = Math.max(LIMITS.rim.min, round((low - patternBase(p)) / 2));
     if (w.rim > maxRim) {
       w.rim = maxRim;
       rule('weave.rim', maxRim);
@@ -414,7 +470,7 @@ export function clampParams(input: BasketParams): ClampResult {
   if (p.stackable) {
     // The corner radius is part of the footprint: one minimum for all styles,
     // so the same input gives the same outline whatever the wall style.
-    if (p.cornerRadius < STACK_MIN_RADIUS) {
+    if (p.cornerRadius < Math.min(STACK_MIN_RADIUS, maxRadius)) {
       p.cornerRadius = Math.min(STACK_MIN_RADIUS, maxRadius);
       rule('cornerRadius', p.cornerRadius);
     }
@@ -444,6 +500,11 @@ export function clampParams(input: BasketParams): ClampResult {
   // longest bridge (the bridge limit wins).
   if (isWeave) {
     const w = p.weave;
+    // a stake and two bands must fit into the longest spacing: thinner bands
+    if (w.stakeDiameter + 2 * w.materialThickness > MAX_OPEN_SPACING) {
+      w.materialThickness = Math.floor(((MAX_OPEN_SPACING - w.stakeDiameter) / 2) * 1000) / 1000;
+      rule('weave.materialThickness', w.materialThickness);
+    }
     const minSpacing = round(w.stakeDiameter + 2 * w.materialThickness);
     if (w.stakeSpacing < minSpacing) {
       w.stakeSpacing = Math.min(minSpacing, LIMITS.stakeSpacing.max);
@@ -462,7 +523,7 @@ export function clampParams(input: BasketParams): ClampResult {
     const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
     const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
     // bar + hole + frame below must stay above the socket / bottom zone
-    const room = round(p.height - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
+    const room = round(handleWallTop(p) - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
     if (maxWidth < LIMITS.slotWidth.min || room < LIMITS.slotBar.min + LIMITS.slotHeight.min) {
       p.handles = 'none';
       rule('handles', 'none');
@@ -486,7 +547,7 @@ export function clampParams(input: BasketParams): ClampResult {
   } else if (p.handles !== 'none') {
     const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
     const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
-    const maxDepth = round(p.height - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
+    const maxDepth = round(handleWallTop(p) - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
     if (maxWidth < LIMITS.handleWidth.min || maxDepth < LIMITS.handleDepth.min) {
       p.handles = 'none';
       rule('handles', 'none');
@@ -516,6 +577,11 @@ export function clampParams(input: BasketParams): ClampResult {
         p.labelWidth = maxWidth;
         rule('labelWidth', maxWidth);
       }
+      // the height first: the tape recess must fit the field as it ends up
+      if (p.labelHeight > maxHeight) {
+        p.labelHeight = maxHeight;
+        rule('labelHeight', maxHeight);
+      }
       if (p.labelTape !== 'none') {
         const need = (tape: LabelTape) => Number(tape) + TAPE_CLEARANCE + 2 * TAPE_RIM;
         if (p.labelHeight < need(p.labelTape)) {
@@ -539,10 +605,6 @@ export function clampParams(input: BasketParams): ClampResult {
             rule('wall', p.wall);
           }
         }
-      }
-      if (p.labelHeight > maxHeight) {
-        p.labelHeight = maxHeight;
-        rule('labelHeight', maxHeight);
       }
       const maxRadius = round(Math.min(p.labelWidth, p.labelHeight) / 2);
       if (p.labelRadius > maxRadius) {
@@ -591,13 +653,68 @@ export function labelZone(p: BasketParams): { length: number; bottom: number; to
   const walls = straightWallLengths(p);
   const length = p.labelPosition === 'side' ? walls.sides : walls.ends;
   const bottom = holesBottom(p);
-  let top = p.height - (p.wallStyle === 'weave' ? p.weave.rim : p.borderBand);
+  const wall = labelWall(p);
+  let top = Math.min(...wall.map((k) => cornerHeight(p, k))) - topBand(p);
   if (p.labelPosition === 'end' && p.handles === 'ends') {
-    const opening =
-      p.handleType === 'slot' ? p.height - p.slotBar - p.slotHeight : p.height - p.handleDepth;
+    // the handle on the same wall, at that wall's height in its middle
+    const hc = wall.reduce((sum, k) => sum + cornerHeight(p, k), 0) / 2;
+    const opening = p.handleType === 'slot' ? hc - p.slotBar - p.slotHeight : hc - p.handleDepth;
     top = Math.min(top, opening - HANDLE_FRAME);
   }
   return { length, bottom, top };
+}
+
+export const CORNER_KEYS = ['heightFL', 'heightFR', 'heightBL', 'heightBR'] as const;
+export type CornerKey = (typeof CORNER_KEYS)[number];
+
+/** Height of the top at a corner (the plain height unless the top is irregular). */
+export const cornerHeight = (p: BasketParams, k: CornerKey) => (p.irregular ? p[k] : p.height);
+
+/** Lowest point of the top edge. */
+export const lowestTop = (p: BasketParams) =>
+  Math.min(...CORNER_KEYS.map((k) => cornerHeight(p, k)));
+
+/**
+ * Height of the top over (x, y) (model coordinates, origin in the middle of
+ * the footprint): bilinear between the corner heights, so it runs straight
+ * along every wall and every divider.
+ */
+export function topAt(p: BasketParams, x: number, y: number): number {
+  if (!p.irregular) return p.height;
+  const u = Math.min(1, Math.max(0, x / p.width + 0.5));
+  const v = Math.min(1, Math.max(0, y / p.depth + 0.5));
+  return (
+    (1 - v) * ((1 - u) * p.heightFL + u * p.heightFR) + v * ((1 - u) * p.heightBL + u * p.heightBR)
+  );
+}
+
+/** Height of the solid band along the top edge (weave: its rim). */
+export const topBand = (p: BasketParams) => (p.wallStyle === 'weave' ? p.weave.rim : p.borderBand);
+
+/** Corners of the wall the label field sits on (see label.ts labelSite). */
+function labelWall(p: BasketParams): [CornerKey, CornerKey] {
+  const alongX = p.width >= p.depth;
+  if (p.labelPosition === 'side')
+    return alongX ? ['heightFL', 'heightFR'] : ['heightFR', 'heightBR'];
+  const other = p.handles === 'one';
+  if (alongX) return other ? ['heightFL', 'heightBL'] : ['heightFR', 'heightBR'];
+  return other ? ['heightFL', 'heightFR'] : ['heightBL', 'heightBR'];
+}
+
+/** Lowest middle height of the walls that carry handles (end walls). */
+export function handleWallTop(p: BasketParams): number {
+  const alongX = p.width >= p.depth;
+  const walls: [CornerKey, CornerKey][] = alongX
+    ? [
+        ['heightFR', 'heightBR'],
+        ['heightFL', 'heightBL'],
+      ]
+    : [
+        ['heightBL', 'heightBR'],
+        ['heightFL', 'heightFR'],
+      ];
+  const used = p.handles === 'one' ? walls.slice(0, 1) : walls;
+  return Math.min(...used.map(([a, b]) => (cornerHeight(p, a) + cornerHeight(p, b)) / 2));
 }
 
 /** Switches weave material; untouched size values follow the new material's defaults. */

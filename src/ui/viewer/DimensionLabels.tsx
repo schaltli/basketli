@@ -130,7 +130,12 @@ export function DimensionLabels({ params }: { params: BasketParams }) {
   return (
     <group ref={ref}>
       {list.map((e, i) => (
-        <Dimension key={DIMS[i]} edge={e} visible={view.show[i] ?? true} />
+        <Dimension
+          key={DIMS[i]}
+          edge={e}
+          // an irregular top has four heights: they have their own grips
+          visible={(view.show[i] ?? true) && !(params.irregular && e.dim === 'height')}
+        />
       ))}
     </group>
   );

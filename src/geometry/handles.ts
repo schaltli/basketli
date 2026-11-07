@@ -1,10 +1,11 @@
 import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
-import { HANDLE_FRAME, type BasketParams } from './params';
+import { HANDLE_FRAME, topAt, type BasketParams } from './params';
 import { effectiveDividerTop, jointWidth } from './dividers';
 import { junctionArcs } from './junctions';
 import { labelZoneOnWall } from './label';
+import { aboveBandOnWall, belowTop } from './slope';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './weave/layout';
@@ -25,6 +26,20 @@ interface Site {
   /** Middle of the end wall on the outer outline. */
   c: Vec2;
 }
+
+/**
+ * The top of an end wall around its middle (u along the wall): height there
+ * and rise per mm. Level baskets: the height, no rise.
+ */
+export interface WallTop {
+  hc: number;
+  k: number;
+}
+const level = (p: BasketParams): WallTop => ({ hc: p.height, k: 0 });
+const wallTop = (p: BasketParams, { c, t }: Site): WallTop => {
+  const hc = topAt(p, c[0], c[1]);
+  return { hc, k: topAt(p, c[0] + t[0], c[1] + t[1]) - hc };
+};
 
 /** End walls = the shorter walls. 'one' takes the +x (or +y) end. */
 function sites(p: BasketParams): Site[] {
@@ -64,19 +79,22 @@ const bottomRadius = (p: BasketParams) => Math.min(BOTTOM_RADIUS, p.handleWidth 
  * at the top: round bottom corners, rounded top edges. It opens upwards, so
  * it has no overhang.
  */
-export function notchOutline(p: BasketParams): Vec2[] {
+export function notchOutline(p: BasketParams, top: WallTop = level(p)): Vec2[] {
   const H = p.height;
   const x0 = -p.handleWidth / 2;
   const x1 = p.handleWidth / 2;
-  const zb = H - p.handleDepth;
+  const zb = top.hc - p.handleDepth;
   const rb = bottomRadius(p);
   const rt = TOP_RADIUS;
+  // the rounded top edges sit on the (possibly sloping) rim
+  const hl = top.hc + top.k * (x0 - rt);
+  const hr = top.hc + top.k * (x1 + rt);
   return [
     [x0 - rt, H + 1],
-    ...arc(x0 - rt, H - rt, rt, PI / 2, 0),
+    ...arc(x0 - rt, hl - rt, rt, PI / 2, 0),
     ...arc(x0 + rb, zb + rb, rb, PI, (3 * PI) / 2),
     ...arc(x1 - rb, zb + rb, rb, (3 * PI) / 2, 2 * PI),
-    ...arc(x1 + rt, H - rt, rt, PI, PI / 2),
+    ...arc(x1 + rt, hr - rt, rt, PI, PI / 2),
     [x1 + rt, H + 1],
   ];
 }
@@ -85,27 +103,30 @@ export function notchOutline(p: BasketParams): Vec2[] {
  * Closed slot below the rim (u along the wall, z up): a stadium with flat
  * top and bottom and round ends. Its flat top is carried by breakaway ribs.
  */
-export function slotGeometry(p: BasketParams) {
+export function slotGeometry(p: BasketParams, wall: WallTop = level(p)) {
   const r = p.slotHeight / 2;
-  const top = p.height - p.slotBar;
+  const top = wall.hc - p.slotBar;
   const bottom = top - p.slotHeight;
   /** Centers of the round ends at ±uc. */
   const uc = Math.max(0, p.slotWidth / 2 - r);
   return { r, top, bottom, uc, zc: bottom + r };
 }
 
-export function slotOutline(p: BasketParams): Vec2[] {
-  const { r, uc, zc } = slotGeometry(p);
+export function slotOutline(p: BasketParams, top: WallTop = level(p)): Vec2[] {
+  const { r, uc, zc } = slotGeometry(p, top);
   return [...arc(uc, zc, r, -PI / 2, PI / 2), ...arc(-uc, zc, r, PI / 2, (3 * PI) / 2)];
 }
 
 /** The opening a handle band frames: half width, lowest point, bottom corner radius. */
-function opening(p: BasketParams): { half: number; bottom: number; rb: number } {
+function opening(
+  p: BasketParams,
+  top: WallTop = level(p),
+): { half: number; bottom: number; rb: number } {
   if (p.handleType === 'slot') {
-    const g = slotGeometry(p);
+    const g = slotGeometry(p, top);
     return { half: p.slotWidth / 2, bottom: g.bottom, rb: g.r };
   }
-  return { half: p.handleWidth / 2, bottom: p.height - p.handleDepth, rb: bottomRadius(p) };
+  return { half: p.handleWidth / 2, bottom: top.hc - p.handleDepth, rb: bottomRadius(p) };
 }
 
 /** Where the level bottom of the default band outline ends (|u|). */
@@ -123,10 +144,14 @@ function flatEnd(p: BasketParams): number {
  * `ends` moves the level bottom's ends (weave: into the next stakes); from
  * there the edge rises at 45° to the side.
  */
-export function bandOutline(p: BasketParams, ends?: { left: number; right: number }): Vec2[] {
+export function bandOutline(
+  p: BasketParams,
+  ends?: { left: number; right: number },
+  top: WallTop = level(p),
+): Vec2[] {
   const H = p.height;
   const F = HANDLE_FRAME;
-  const o = opening(p);
+  const o = opening(p, top);
   const side = o.half + F;
   const zf = o.bottom - F;
   if (ends) {
@@ -184,10 +209,13 @@ const onWall = ({ n, t, c }: Site): Mat4 =>
 /** Cutters for all cut-outs or slots, reaching through the whole wall. */
 export function handleCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
   const T = wallIntrusion(p);
-  const outline = p.handleType === 'slot' ? slotOutline(p) : notchOutline(p);
-  const shape = scope.keep(wasm.CrossSection.ofPolygons([outline]));
-  const prism = scope.keep(scope.keep(shape.extrude(T + 2)).translate([0, 0, -(T + 1)]));
-  return sites(p).map((site) => scope.keep(prism.transform(onWall(site))));
+  return sites(p).map((site) => {
+    const top = wallTop(p, site);
+    const outline = p.handleType === 'slot' ? slotOutline(p, top) : notchOutline(p, top);
+    const shape = scope.keep(wasm.CrossSection.ofPolygons([outline]));
+    const prism = scope.keep(scope.keep(shape.extrude(T + 2)).translate([0, 0, -(T + 1)]));
+    return scope.keep(prism.transform(onWall(site)));
+  });
 }
 
 /** Breakaway ribs: body width, neck width at both contacts, neck height (mm). */
@@ -209,8 +237,8 @@ export function ribPositions(p: BasketParams): number[] {
 }
 
 /** One rib in wall coordinates: a thin plate, necked at the top and bottom contact. */
-export function ribOutline(p: BasketParams, u: number): Vec2[] {
-  const { top, bottom } = slotGeometry(p);
+export function ribOutline(p: BasketParams, u: number, wall: WallTop = level(p)): Vec2[] {
+  const { top, bottom } = slotGeometry(p, wall);
   const a = RIB_WIDTH / 2;
   const n = RIB_NECK / 2;
   // widens 45° above the bottom neck; narrows towards the top neck
@@ -241,11 +269,14 @@ export function ribOutline(p: BasketParams, u: number): Vec2[] {
 export function handleSupports(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
   if (p.handleType !== 'slot') return [];
   const T = wallIntrusion(p);
-  const ribs = scope.keep(
-    wasm.CrossSection.ofPolygons(ribPositions(p).map((u) => ribOutline(p, u))),
-  );
-  const plate = scope.keep(scope.keep(ribs.extrude(T)).translate([0, 0, -T]));
-  return sites(p).map((site) => scope.keep(plate.transform(onWall(site))));
+  return sites(p).map((site) => {
+    const top = wallTop(p, site);
+    const ribs = scope.keep(
+      wasm.CrossSection.ofPolygons(ribPositions(p).map((u) => ribOutline(p, u, top))),
+    );
+    const plate = scope.keep(scope.keep(ribs.extrude(T)).translate([0, 0, -T]));
+    return scope.keep(plate.transform(onWall(site)));
+  });
 }
 
 /** Pieces of a cut hole smaller than this share of the hole are dropped (no slivers). */
@@ -281,15 +312,19 @@ export function clipHoles(
   const joints = withJoints ? junctionArcs(p, path) : [];
   const label = labelZoneOnWall(p, path);
   const done = (h: Vec2[]) => h.length >= 3;
-  if (centers.length === 0 && joints.length === 0 && !label) return holes.map(finish).filter(done);
+  if (centers.length === 0 && joints.length === 0 && !label && !p.irregular)
+    return holes.map(finish).filter(done);
   const L = path.length;
-  const band = bandOutline(p);
+  const tops = sites(p).map((site) => wallTop(p, site));
   const half = jointWidth(p) / 2;
   const jointTop = effectiveDividerTop(p) + p.webWidth;
   const copies = (zone: Vec2[]) => [-L, 0, L].map((k) => zone.map(([x, z]) => [x + k, z] as Vec2));
   const bands = [
-    ...centers.flatMap((sc) => copies(band.map(([u, z]) => [sc + u, z] as Vec2))),
+    ...centers.flatMap((sc, i) =>
+      copies(bandOutline(p, undefined, tops[i]).map(([u, z]) => [sc + u, z] as Vec2)),
+    ),
     ...(label ? copies(label) : []),
+    ...aboveBandOnWall(p, path),
   ];
   const strips = joints.flatMap((s) =>
     copies([
@@ -370,6 +405,8 @@ export function handleBands(
       )
       .extrude(p.height),
   );
+  // an irregular top cuts the band like the rim
+  const clip = p.irregular ? scope.keep(outline.intersect(belowTop(wasm, scope, p, 0))) : outline;
   return all.map((site, i) => {
     let ends: { left: number; right: number } | undefined;
     if (weave) {
@@ -382,13 +419,15 @@ export function handleBands(
         left: Math.min(...rel.filter((u) => u <= -reach).map((u) => -u)) + INTO_STAKE,
       };
     }
-    const shape: CrossSection = scope.keep(wasm.CrossSection.ofPolygons([bandOutline(p, ends)]));
+    const shape: CrossSection = scope.keep(
+      wasm.CrossSection.ofPolygons([bandOutline(p, ends, wallTop(p, site))]),
+    );
     const layers = Array.from({ length: steps + 1 }, (_, k) => {
       const thick = Math.min(T, FIRST_LINE + 2 * k * LAYER);
       const raised = k === 0 ? shape : scope.keep(shape.translate([0, k * LAYER]));
       return scope.keep(scope.keep(raised.extrude(thick)).translate([0, 0, -T / 2 - thick / 2]));
     });
     const band = scope.keep(wasm.Manifold.union(layers));
-    return scope.keep(scope.keep(band.transform(onWall(site))).intersect(outline));
+    return scope.keep(scope.keep(band.transform(onWall(site))).intersect(clip));
   });
 }

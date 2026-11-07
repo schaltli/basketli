@@ -8,6 +8,7 @@ import type { BasketParams } from '../../geometry/params';
 import { useUi } from '../uiState';
 import { DimensionLabels } from './DimensionLabels';
 import { GridEditor } from './GridEditor';
+import { ShapeEditor } from './ShapeEditor';
 import { materialFor } from './materials';
 import { useViewLock } from './viewLock';
 
@@ -132,6 +133,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
     params.wallStyle === 'weave' ? CREASE_ANGLE.smooth : CREASE_ANGLE.hard,
   );
   const gridMode = useUi((s) => s.gridMode);
+  const shapeMode = useUi((s) => s.shapeMode) && params.irregular;
   const size = Math.max(params.width, params.depth, params.height);
   const dist = size * 1.8;
   // Only the start value: afterwards CameraFit moves the target, so a size
@@ -153,7 +155,13 @@ export function Viewer({ mesh, params }: ViewerProps) {
             <meshStandardMaterial {...materialFor(params.wallStyle)} />
           </mesh>
         )}
-        {gridMode ? <GridEditor params={params} /> : <DimensionLabels params={params} />}
+        {gridMode ? (
+          <GridEditor params={params} />
+        ) : shapeMode ? (
+          <ShapeEditor params={params} />
+        ) : (
+          <DimensionLabels params={params} />
+        )}
       </group>
       <Grid
         args={[1000, 1000]}

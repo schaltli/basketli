@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useBasket } from './state/store';
 import { ParamsPanel } from './ui/controls/ParamsPanel';
 import { GridToolbar } from './ui/controls/GridToolbar';
+import { ShapeToolbar } from './ui/controls/ShapeToolbar';
 import { Toolbar } from './ui/controls/Toolbar';
 import { useUi } from './ui/uiState';
 import { de } from './ui/i18n/de';
@@ -14,6 +15,7 @@ export function App() {
   const state = useBasketMesh(params);
   const [paramsOpen, setParamsOpen] = useState(true);
   const gridMode = useUi((s) => s.gridMode);
+  const shapeMode = useUi((s) => s.shapeMode) && params.irregular;
 
   return (
     <div className="app">
@@ -27,6 +29,7 @@ export function App() {
         >
           <Viewer mesh={state.mesh} params={params} />
           {gridMode && <GridToolbar />}
+          {shapeMode && <ShapeToolbar />}
           {state.status === 'ready' && (
             <p className="app-stats">
               {Math.round(state.ms)} ms · {(state.mesh.indices.length / 3).toLocaleString('de-CH')}{' '}

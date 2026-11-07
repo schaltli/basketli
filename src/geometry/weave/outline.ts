@@ -58,6 +58,31 @@ export class RoundedRectPath {
     return this.r;
   }
 
+  /** Arc position of the point of the path nearest to (x, y). */
+  project(x: number, y: number): number {
+    const { hx, hy, r, ends } = this;
+    const qx = Math.min(hx, Math.max(-hx, x));
+    const qy = Math.min(hy, Math.max(-hy, y));
+    const vx = x - qx;
+    const vy = y - qy;
+    if (r > 0 && vx !== 0 && vy !== 0) {
+      // corner arc around (qx, qy): angle from its start
+      const a = Math.atan2(vy, vx);
+      const k = qx > 0 ? (qy < 0 ? 0 : 1) : qy > 0 ? 2 : 3;
+      const start = -Math.PI / 2 + (k * Math.PI) / 2;
+      const t = (((a - start) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      return ends[2 * k]! + r * Math.min(Math.PI / 2, t);
+    }
+    // nearest straight side
+    const dx = hx + r - Math.abs(x);
+    const dy = hy + r - Math.abs(y);
+    if (vx !== 0 || (vy === 0 && dx < dy)) {
+      return x > 0 ? ends[1]! + (qy + hy) : ends[5]! + (hy - qy);
+    }
+    if (y > 0) return ends[3]! + (hx - qx);
+    return qx >= 0 ? qx : ends[7]! + (qx + hx);
+  }
+
   /** True if arc position s lies on a corner arc. */
   onArc(s: number): boolean {
     return this.r > 0 && this.pieceAt(s) % 2 === 1;

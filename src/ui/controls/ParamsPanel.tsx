@@ -22,6 +22,10 @@ type NumericPath =
   | 'width'
   | 'depth'
   | 'height'
+  | 'heightFL'
+  | 'heightFR'
+  | 'heightBL'
+  | 'heightBR'
   | 'cornerRadius'
   | 'floor'
   | 'wall'
@@ -66,6 +70,10 @@ const STEP: Partial<Record<NumericPath, number>> = {
   width: 1,
   depth: 1,
   height: 1,
+  heightFL: 1,
+  heightFR: 1,
+  heightBL: 1,
+  heightBR: 1,
   cornerRadius: 0.5,
   borderBand: 0.5,
   holeSize: 0.5,
@@ -156,6 +164,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
   const notices = useBasket((s) => s.notices);
   const update = useBasket((s) => s.update);
   const setGridMode = useUi((s) => s.setGridMode);
+  const setShapeMode = useUi((s) => s.setShapeMode);
   const panel = useRef<HTMLElement>(null);
   const choice = choiceOf(params);
 
@@ -196,7 +205,42 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
 
       <fieldset>
         <legend>{de.groupSize}</legend>
-        {(['width', 'depth', 'height', 'cornerRadius'] as const).map(field)}
+        {(['width', 'depth'] as const).map(field)}
+        {!params.irregular && field('height')}
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={params.irregular}
+            onChange={(e) => {
+              const on = e.target.checked;
+              update((p) =>
+                on
+                  ? // start level at the current height
+                    {
+                      ...p,
+                      irregular: true,
+                      heightFL: p.height,
+                      heightFR: p.height,
+                      heightBL: p.height,
+                      heightBR: p.height,
+                    }
+                  : { ...p, irregular: false },
+              );
+              setShapeMode(on);
+            }}
+          />
+          {de.irregular}
+        </label>
+        {params.irregular && (
+          <>
+            <p className="field-hint">{de.irregularHint}</p>
+            {(['heightBL', 'heightBR', 'heightFL', 'heightFR'] as const).map(field)}
+            <button type="button" className="secondary" onClick={() => setShapeMode(true)}>
+              {de.shapeEdit}
+            </button>
+          </>
+        )}
+        {field('cornerRadius')}
       </fieldset>
 
       <fieldset>
@@ -423,10 +467,12 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
           <input
             type="checkbox"
             checked={params.stackable}
+            disabled={params.irregular}
             onChange={(e) => update((p) => ({ ...p, stackable: e.target.checked }))}
           />
           {de.fields.stackable}
         </label>
+        {params.irregular && <p className="field-hint">{de.stackIrregular}</p>}
         {params.stackable && field('stackClearance')}
       </fieldset>
 

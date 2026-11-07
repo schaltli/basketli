@@ -12,6 +12,7 @@ import { buildBraid } from './patterns/braid';
 import { buildExpanded } from './patterns/expanded';
 import { hexCutters } from './patterns/hex';
 import { voronoiCutters } from './patterns/voronoi';
+import { withIrregularTop } from './slope';
 import { withStacking } from './stacking';
 import { buildWeave } from './weave';
 import { wovenDividers } from './weave/divider';
@@ -78,6 +79,13 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
         body = scope.keep(wasm.Manifold.union([body, ...sheet.strands]));
       }
     }
+    // Irregular top: the level basket gets its chamfers, then comes down to
+    // the measured top (rim and divider tops moved, the rest cut below them).
+    // Label and handles follow, built at their wall's own height.
+    if (params.irregular) {
+      body = withChamfers(wasm, scope, params, quality, body);
+      body = dropSlivers(wasm, scope, withIrregularTop(wasm, scope, params, quality, body));
+    }
     // Label field: hole patterns leave it solid already (clipHoles); open
     // walls get a solid plate. Then the recess for label-maker tape.
     const plate = OPEN_WALLS.includes(params.wallStyle)
@@ -107,7 +115,7 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     if (floorHoles.length > 0)
       body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(floorHoles))));
     // last: bottom edge (elephant's foot, stacking) and top edges of rim and dividers
-    body = withChamfers(wasm, scope, params, quality, body);
+    if (!params.irregular) body = withChamfers(wasm, scope, params, quality, body);
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
