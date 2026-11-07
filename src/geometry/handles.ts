@@ -335,7 +335,7 @@ export function clipHoles(
 }
 
 /**
- * Band closing the cut edges of open walls (expanded metal, weave), over the
+ * Band closing the cut edges of open walls (expanded metal, weave, braid), over the
  * full wall thickness. Like the top rim of the weave its first layer is one
  * line in the middle of the wall, bridging from support to support, and it
  * grows 45° to the full thickness above (one step per print layer). In the

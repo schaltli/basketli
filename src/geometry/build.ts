@@ -6,7 +6,8 @@ import { handleBands, handleCutters, handleSupports } from './handles';
 import { buildTub, type Quality } from './basket';
 import { withChamfers } from './chamfers';
 import { Scope, type Wasm } from './manifold';
-import type { BasketParams } from './params';
+import type { BasketParams, WallStyle } from './params';
+import { buildBraid } from './patterns/braid';
 import { buildExpanded } from './patterns/expanded';
 import { hexCutters } from './patterns/hex';
 import { voronoiCutters } from './patterns/voronoi';
@@ -18,6 +19,9 @@ export type { Quality };
 
 /** Max. surface deviation (mm) allowed when simplifying the export mesh. */
 export const EXPORT_TOLERANCE = 0.02;
+
+/** Walls built from strands or bands (no plain tub): handle bands, export simplify. */
+const OPEN_WALLS: readonly WallStyle[] = ['weave', 'expanded', 'braid'];
 
 /** Plain triangle mesh, independent of manifold and three.js. */
 export interface MeshData {
@@ -40,6 +44,8 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
       weave = built.layout;
     } else if (params.wallStyle === 'expanded') {
       body = buildExpanded(wasm, scope, params, quality);
+    } else if (params.wallStyle === 'braid') {
+      body = buildBraid(wasm, scope, params, quality);
     } else {
       body = buildTub(wasm, scope, params, quality);
       if (params.wallStyle === 'voronoi' || params.wallStyle === 'hex') {
@@ -74,10 +80,9 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     if (params.handles !== 'none') {
       // Open walls get a band closing the cut edges; hole patterns leave
       // that band solid already (clipHoles).
-      const frames =
-        params.wallStyle === 'weave' || params.wallStyle === 'expanded'
-          ? handleBands(wasm, scope, params, quality, weave)
-          : [];
+      const frames = OPEN_WALLS.includes(params.wallStyle)
+        ? handleBands(wasm, scope, params, quality, weave)
+        : [];
       if (frames.length > 0) body = scope.keep(wasm.Manifold.union([body, ...frames]));
       body = scope.keep(
         body.subtract(scope.keep(wasm.Manifold.union(handleCutters(wasm, scope, params)))),
@@ -97,7 +102,7 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     // Woven export: drop vertices that move the surface by less than 0.02 mm
     // (the dense relief grid would otherwise be ~1M triangles).
     // Both calls return a new object that survives scope.dispose().
-    return quality === 'export' && (params.wallStyle === 'weave' || params.wallStyle === 'expanded')
+    return quality === 'export' && OPEN_WALLS.includes(params.wallStyle)
       ? body.simplify(EXPORT_TOLERANCE)
       : body.translate(0, 0, 0);
   } finally {

@@ -3,7 +3,7 @@ import { dividerTop, fitDividers } from './dividers';
 import { patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion } from './stacking';
 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
-export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave'] as const;
+export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave', 'braid'] as const;
 export type WallStyle = (typeof WALL_STYLES)[number];
 /** Cut-out from the top edge: none, on one end wall, or on both end walls. */
 export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
@@ -43,6 +43,18 @@ export interface ExpandedParams {
   strand: number;
   /** Each strand is tilted about its axis: edges shifted ± this much (mm). */
   twist: number;
+}
+
+/**
+ * 45° braid ("Geflecht 45°"): flat bands of equal width running at +45° and
+ * −45°, woven in plain weave (over one, under one). No stakes.
+ */
+export interface BraidParams {
+  /** Width of every band, across the band (mm). */
+  bandWidth: number;
+  bandThickness: number;
+  /** Clear distance between neighbouring parallel bands; 0 = tight weave. */
+  bandGap: number;
 }
 
 export interface VoronoiParams {
@@ -88,6 +100,7 @@ export interface BasketParams {
   floorHoleSize: number;
   floorWebWidth: number;
   weave: WeaveParams;
+  braid: BraidParams;
   voronoi: VoronoiParams;
   expanded: ExpandedParams;
 }
@@ -120,6 +133,9 @@ export const LIMITS = {
   diamondHeight: { min: 6, max: 40 },
   strand: { min: 1, max: 4 },
   twist: { min: 0, max: 2 },
+  bandWidth: { min: 4, max: 20 },
+  bandThickness: { min: 0.8, max: 2 },
+  bandGap: { min: 0, max: 10 },
   handleWidth: { min: 30, max: 120 },
   handleDepth: { min: 10, max: 40 },
   slotWidth: { min: 40, max: 120 },
@@ -180,6 +196,7 @@ export const DEFAULTS: BasketParams = {
   floorWebWidth: 3,
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
+  braid: { bandWidth: 8, bandThickness: 1, bandGap: 2 },
   weave: {
     material: 'cane',
     ...MATERIAL_DEFAULTS.cane,
@@ -298,6 +315,9 @@ export function clampParams(input: BasketParams): ClampResult {
     e.twist = Math.max(0, twistLimit);
     rule('expanded.twist', e.twist);
   }
+  p.braid = { ...input.braid };
+  for (const k of ['bandWidth', 'bandThickness', 'bandGap'] as const)
+    p.braid[k] = fit(`braid.${k}`, p.braid[k], LIMITS[k], DEFAULTS.braid[k]);
   p.voronoi = { ...input.voronoi };
   p.voronoi.cellSize = fit(
     'voronoi.cellSize',
@@ -320,7 +340,10 @@ export function clampParams(input: BasketParams): ClampResult {
     rule('cornerRadius', maxRadius);
   }
   if (
-    (p.wallStyle === 'voronoi' || p.wallStyle === 'expanded' || p.wallStyle === 'hex') &&
+    (p.wallStyle === 'voronoi' ||
+      p.wallStyle === 'expanded' ||
+      p.wallStyle === 'hex' ||
+      p.wallStyle === 'braid') &&
     p.cornerRadius < MIN_VORONOI_CORNER_RADIUS
   ) {
     // Holes run round the corners; tighter corners squeeze the inner webs.

@@ -36,7 +36,8 @@ type NumericPath =
   | 'slotBar'
   | `weave.${'materialHeight' | 'materialThickness' | 'stakeSpacing' | 'stakeDiameter' | 'rowGap' | 'rim'}`
   | `voronoi.${'cellSize'}`
-  | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`;
+  | `expanded.${'diamondWidth' | 'diamondHeight' | 'strand' | 'twist'}`
+  | `braid.${'bandWidth' | 'bandThickness' | 'bandGap'}`;
 
 function read(p: BasketParams, path: NumericPath): number {
   const [a, b] = path.split('.') as [string, string | undefined];
@@ -69,6 +70,8 @@ const STEP: Partial<Record<NumericPath, number>> = {
   'expanded.diamondWidth': 0.5,
   'expanded.diamondHeight': 0.5,
   'voronoi.cellSize': 0.5,
+  'braid.bandWidth': 0.5,
+  'braid.bandGap': 0.5,
   handleWidth: 1,
   floorHoleSize: 0.5,
   floorWebWidth: 0.5,
@@ -95,6 +98,7 @@ const CHOICE_LABEL: Record<StyleChoice, string> = {
   voronoi: de.wallStyleVoronoi,
   'weave-closed': de.wallStyleWeaveClosed,
   'weave-open': de.wallStyleWeaveOpen,
+  braid: de.wallStyleBraid,
   solid: de.wallStyleSolid,
 };
 
@@ -125,6 +129,7 @@ const STYLE_FIELDS: Record<StyleChoice, NumericPath[]> = {
     'weave.rowGap',
     'weave.rim',
   ],
+  braid: ['braid.bandWidth', 'braid.bandThickness', 'braid.bandGap', 'borderBand'],
   solid: ['wall'],
 };
 
@@ -311,7 +316,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         <button type="button" className="secondary" onClick={() => setGridMode(true)}>
           {de.dividerEdit}
         </button>
-        {params.wallStyle !== 'solid' && (
+        {params.wallStyle !== 'solid' && params.wallStyle !== 'braid' && (
           <div className="field divider-style">
             <label htmlFor="divider-style">{de.dividerStyle}</label>
             <select

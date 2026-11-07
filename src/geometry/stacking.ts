@@ -25,6 +25,12 @@ export const STACK_MIN_RADIUS = 10;
 export const SOCKET_WALL = 1.6;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
+/**
+ * Radial overlap of two braid bands where they cross (mm): the outer band
+ * lies on the inner one and fuses with it.
+ */
+export const BRAID_FUSE = 0.3;
+
 export const footInset = (p: BasketParams) => STACK_INSET + p.stackClearance;
 /** Top of the solid socket (end of the chamfer). */
 export const socketTop = (p: BasketParams) => FOOT_HEIGHT + footInset(p);
@@ -39,6 +45,9 @@ export function wallIntrusion(p: BasketParams): number {
   switch (p.wallStyle) {
     case 'expanded':
       return p.wall + 2 * p.expanded.twist;
+    case 'braid':
+      // two bands crossing, overlapping by BRAID_FUSE
+      return 2 * p.braid.bandThickness - BRAID_FUSE;
     case 'weave': {
       const r = p.weave.stakeDiameter / 2;
       return 2 * Math.max(r, r - 0.325 + p.weave.materialThickness / 2);

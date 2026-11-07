@@ -24,6 +24,9 @@ const LIMIT_OF: Record<string, keyof typeof LIMITS> = {
   'expanded.diamondHeight': 'diamondHeight',
   'expanded.strand': 'strand',
   'expanded.twist': 'twist',
+  'braid.bandWidth': 'bandWidth',
+  'braid.bandThickness': 'bandThickness',
+  'braid.bandGap': 'bandGap',
 };
 
 /** Random parameters inside the limits, then clamped (= a reachable state). */

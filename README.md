@@ -3,7 +3,7 @@
 **→ App öffnen: [schaltli.github.io/basketli](https://schaltli.github.io/basketli/)**
 
 Stapelbare, 3D-druckbare Körbe im Browser entwerfen: Maße einstellen, Wandstil wählen
-(Streckmetall, Waben, Voronoi, Geflecht geschlossen oder offen) und als STL oder 3MF
+(Streckmetall, Waben, Voronoi, Geflecht geschlossen oder offen, Geflecht 45°) und als STL oder 3MF
 herunterladen. Alle Modelle sind ohne Stützmaterial druckbar und lassen sich stilübergreifend
 stapeln.
 

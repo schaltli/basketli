@@ -211,19 +211,19 @@ export function strandSolids(
   );
 }
 
-/** Ring band over the full radial span of the strands, from z0 to z1. */
-function band(
+/** Ring band over the full radial span (2 · halfSpan) of an open wall, from z0 to z1. */
+export function ringBand(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
-  layout: ExpandedLayout,
+  halfSpan: number,
   quality: Quality,
   z0: number,
   z1: number,
 ): Manifold {
   const { CrossSection } = wasm;
   const seg = CORNER_SEGMENTS[quality];
-  const span = 2 * layout.halfSpan;
+  const span = 2 * halfSpan;
   const outer = scope.keep(
     CrossSection.ofPolygons([roundedRect(p.width, p.depth, p.cornerRadius, seg)]),
   );
@@ -257,12 +257,13 @@ export function buildExpanded(
     ]),
   );
   const parts: Manifold[] = [scope.keep(outline.extrude(p.floor))];
-  parts.push(band(wasm, scope, p, layout, quality, 0, layout.y0));
-  parts.push(band(wasm, scope, p, layout, quality, layout.y1, p.height));
-  if (envelope) parts.push(band(wasm, scope, p, layout, quality, layout.y0, layout.y1));
+  const h = layout.halfSpan;
+  parts.push(ringBand(wasm, scope, p, h, quality, 0, layout.y0));
+  parts.push(ringBand(wasm, scope, p, h, quality, layout.y1, p.height));
+  if (envelope) parts.push(ringBand(wasm, scope, p, h, quality, layout.y0, layout.y1));
   else {
     for (const s of strandSolids(wasm, p, layout, quality)) parts.push(scope.keep(s));
-    parts.push(...jointStrips(wasm, scope, p, layout, quality));
+    parts.push(...jointStrips(wasm, scope, p, h, quality));
   }
   return scope.keep(Manifold.union(parts));
 }
@@ -270,13 +271,13 @@ export function buildExpanded(
 /**
  * Solid vertical strips where dividers meet the wall, jointWidth wide
  * and as high as the dividers: below the divider top the strands of the
- * neighbouring stretches end in them.
+ * neighbouring stretches end in them (the 45° braid runs through them).
  */
-function jointStrips(
+export function jointStrips(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
-  layout: ExpandedLayout,
+  halfSpan: number,
   quality: Quality,
 ): Manifold[] {
   if (p.dividersX.length === 0 && p.dividersY.length === 0) return [];
@@ -293,7 +294,7 @@ function jointStrips(
       Manifold.cube([W + 2, j, top]).translate([-W / 2 - 1, -D / 2 + y - j / 2, 0]),
     ),
   ].map((m) => scope.keep(m));
-  const ring = band(wasm, scope, p, layout, quality, 0, p.height);
+  const ring = ringBand(wasm, scope, p, halfSpan, quality, 0, p.height);
   return [scope.keep(scope.keep(Manifold.union(slabs)).intersect(ring))];
 }
 

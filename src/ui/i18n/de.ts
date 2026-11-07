@@ -59,6 +59,7 @@ export const de = {
   wallStyleVoronoi: 'Voronoi',
   wallStyleWeaveClosed: 'Geflecht geschlossen',
   wallStyleWeaveOpen: 'Geflecht offen',
+  wallStyleBraid: 'Geflecht 45°',
   wallStyleSolid: 'Glatt',
   dividerStyle: 'Ausführung',
   dividerPattern: 'mit Muster',
@@ -108,6 +109,9 @@ export const de = {
     'expanded.diamondHeight': 'Rautenhöhe',
     'expanded.strand': 'Stegbreite',
     'expanded.twist': 'Verdrehung',
+    'braid.bandWidth': 'Bandbreite',
+    'braid.bandThickness': 'Banddicke',
+    'braid.bandGap': 'Bandabstand',
   } as Record<string, string>,
 
   /** Explanation of an automatic correction. */
