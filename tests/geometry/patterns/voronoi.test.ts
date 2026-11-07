@@ -301,7 +301,8 @@ describe('voronoi beside divider joints', () => {
           let open = 0;
           let n = 0;
           for (let y = y0; y < y1; y += 0.25, n++) if (inHole(x, y)) open++;
-          expect(open / n, `joint ${s.toFixed(1)} side ${side}`).toBeGreaterThan(0.6);
+          // the 30° gable tops of the holes close the upper corners at the strip
+          expect(open / n, `joint ${s.toFixed(1)} side ${side}`).toBeGreaterThan(0.55);
         }
       }
     } finally {

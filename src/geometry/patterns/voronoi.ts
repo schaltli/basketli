@@ -14,8 +14,11 @@ import { bentCutter } from './wallcut';
 export const CORNER_ROUND = 1.5;
 const cornerRound = (cellSize: number) => Math.min(CORNER_ROUND, 0.12 * cellSize);
 
-/** Widest flat hole top (mm): bridge limit minus a margin for the wall depth. */
-export const MAX_HOLE_TOP = 13;
+/**
+ * Widest flat hole top (mm). A bridge across a hole is only one or two lines
+ * in a thin wall; this short it holds on any printer without sagging.
+ */
+export const MAX_HOLE_TOP = 4;
 
 /** Sites move at most this fraction of the cell size away from their grid point. */
 const JITTER = 0.38;
@@ -100,9 +103,11 @@ export function voronoiCells(
 
 /**
  * Upper hole outlines flatter than this (degrees) are not printed as they are:
- * every layer would extend the wall lines lengthwise by more than ~1.4 mm.
+ * every layer would extend the wall lines lengthwise by more than ~0.35 mm,
+ * the limit that prints cleanly on practically any printer (as the 30° tops
+ * of the hex holes).
  */
-export const MIN_TOP_DEG = 8;
+export const MIN_TOP_DEG = 30;
 /** Layer height the hole tops are designed for (mm). */
 const LAYER = 0.2;
 /** Height step of the scan (mm). */
