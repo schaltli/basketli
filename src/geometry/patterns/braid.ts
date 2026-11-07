@@ -9,17 +9,19 @@ import { jointStrips, ringBand } from './expanded';
 
 /**
  * Longest step between two band cross-sections, up the wall and across a
- * band (mm). The in/out wave is gentle (sagitta < 0.01 mm at 2 mm); the
- * steps are set by the corner arcs.
+ * band (mm), on the straight sides. The in/out wave is gentle (sagitta
+ * < 0.01 mm at 2 mm), so only the corner arcs need a finer grid.
  */
 const ROW_STEP = { preview: 2, export: 1 } as const;
 const COL_STEP = { preview: 2, export: 0.8 } as const;
+/** Largest angle (rad) a grid step may turn through on a corner arc. */
+const ARC_ANGLE = { preview: (5 * Math.PI) / 180, export: (2.5 * Math.PI) / 180 } as const;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 /** Bands reach this far into the border bands. */
 const ANCHOR = 0.6;
 /**
- * The gaps close this far (mm) before the border bands: the bands meet in
- * full, and no gap corner touches a border band in a single point.
+ * Least distance (mm) between a gap corner and a border band edge: a corner
+ * touching the edge in a single point would leave degenerate slivers.
  */
 const TIP_CLEAR = 0.3;
 /** Below this gap the bands of a family are drawn overlapping (no touching faces). */
@@ -46,7 +48,7 @@ export interface BraidLayout {
   amplitude: number;
   /** Radial half-extent of the woven wall. */
   halfSpan: number;
-  /** Reference height: a row of gaps is centered here. */
+  /** Reference height: the highest row of gaps is centered here. */
   zRef: number;
   /** Band zone between the border bands. */
   y0: number;
@@ -79,19 +81,22 @@ export function braidLayout(p: BasketParams): BraidLayout {
   const width = b.bandWidth * f;
   const gap = b.bandGap * f;
 
-  // Gaps are squares standing on a corner (half diagonal hg). A row of gaps
-  // closes just below the top border band, so the band rests on the bands
-  // all the way round: no bridges under it.
+  // Gaps are squares standing on a corner (half diagonal hg), in rows
+  // pitch/2 apart (the crossings lie on the same rows, in between). The
+  // border bands end halfway between two rows: there the weave is closed
+  // when the bands are at least as wide as the gaps, and otherwise the gaps
+  // are as narrow as anywhere – (gap − width)/√2, the shortest bridge.
+  // Gap corners that would touch an edge in a point are moved TIP_CLEAR away.
   const hg = gap / Math.SQRT2;
+  const e = hg - pitch / 4; // how far the gaps reach past the halfway line
+  const shift = Math.abs(e) < TIP_CLEAR ? TIP_CLEAR + Math.abs(e) : 0;
   const top = p.height - p.borderBand;
-  const zRef = top - TIP_CLEAR - hg;
+  const zRef = top - shift - pitch / 4; // center of the highest row of gaps
   const floor = holesBottom(p);
-  let y0 = floor;
-  if (gap >= 0.5) {
-    // bottom border band up to just below the lowest full row of gaps
-    const n = Math.floor(((zRef - hg - TIP_CLEAR - floor) * 2) / pitch);
-    if (n >= 1) y0 = zRef - (n * pitch) / 2 - hg - TIP_CLEAR;
-  }
+  // bottom border band up to halfway below the lowest row of gaps
+  const n = Math.floor(((zRef - pitch / 4 - shift - floor) * 2) / pitch + 1e-9);
+  let y0 = zRef - (n * pitch) / 2 - pitch / 4 - shift;
+  if (y0 < floor) y0 = floor;
   return { path, pitch, width, gap, count, amplitude, halfSpan, zRef, y0, y1: top };
 }
 
@@ -109,53 +114,115 @@ export function bandOffset(l: BraidLayout, dir: 1 | -1, k: number, s: number, z:
 }
 
 /**
- * Appends one band (closed mesh) to vert/tri: a grid of horizontal rows
- * (z from `z0` to `z1`) and columns across the band, outer and inner face.
+ * Appends one band (closed mesh) to vert/tri, on a grid of its own: rows
+ * are lines straight across the band (ℓ along the band constant – the
+ * in/out offset is constant on them, so the faces are exact), columns run
+ * along it (q across constant). Rows and columns are finer where the band
+ * runs round a corner arc. The ends stand square to the band and reach
+ * past [zA, zB] at every point; the caller cuts them off level.
  */
 function bandMesh(
   l: BraidLayout,
   dir: 1 | -1,
   k: number,
-  z0: number,
-  z1: number,
+  zA: number,
+  zB: number,
   drawnWidth: number,
   thickness: number,
   quality: Quality,
   vert: number[],
   tri: number[],
 ) {
-  const rows = Math.max(2, Math.ceil((z1 - z0) / Math.min(ROW_STEP[quality], l.pitch / 8)));
-  const hx = drawnWidth / Math.SQRT2; // horizontal half-width of a 45° band
-  const cols = Math.max(2, Math.ceil((2 * hx) / Math.min(COL_STEP[quality], l.pitch / 8)));
+  const w = drawnWidth;
+  // Band coordinates → wall (s, z): the center line climbs 45° (to the
+  // right for "/", to the left for ""); q runs square to it, towards +s.
+  const sOf = (ell: number, q: number) => k * l.pitch + (dir * ell + q) / Math.SQRT2;
+  const zOf = (ell: number, q: number) => l.zRef + (ell - dir * q) / Math.SQRT2;
+  const coarseRow = Math.min(ROW_STEP[quality], l.pitch / 8);
+  const coarseCol = Math.min(COL_STEP[quality], l.pitch / 8);
+  const fine = Math.max(0.1, l.path.radius * ARC_ANGLE[quality]);
+
+  // Rows from below zA to above zB at every point across the band; fine
+  // while the row (plus one coarse step) touches a corner arc.
+  const ell0 = Math.SQRT2 * (zA - l.zRef) - w / 2;
+  const ell1 = Math.SQRT2 * (zB - l.zRef) + w / 2;
+  const reach = w / (2 * Math.SQRT2) + coarseRow; // half the row's extent along s, plus a step
+  const ells: number[] = [ell0];
+  for (let e = ell0; e < ell1 - 1e-9;) {
+    const c = sOf(e, 0);
+    const step = l.path.isStraight(c - reach, c + reach) ? coarseRow : Math.min(coarseRow, fine);
+    e = Math.min(ell1, e + step);
+    if (ell1 - e < 0.25 * step) e = ell1; // no sliver row at the end
+    ells.push(e);
+  }
+  const rows = ells.length - 1;
+
+  // Columns per row, placed by density: `fine` apart (along the wall) on
+  // corner arcs, `coarseCol` on the straight sides. Rows with different
+  // counts are zipped together, so the mesh stays closed.
+  const sub = Math.max(16, Math.ceil(w / (fine / 2)));
+  const dq = w / sub;
+  const across = ells.map((e) => {
+    const cum = [0];
+    for (let m = 0; m < sub; m++) {
+      const onArc = l.path.onArc(sOf(e, -w / 2 + (m + 0.5) * dq));
+      cum.push(cum[m]! + dq / (onArc ? Math.min(fine, coarseCol) : coarseCol));
+    }
+    const n = Math.max(2, Math.ceil(cum[sub]! - 1e-9));
+    // offsets from the band's left edge (0 … w)
+    const u = [0];
+    let m = 0;
+    for (let j = 1; j < n; j++) {
+      const target = (cum[sub]! * j) / n;
+      while (m < sub - 1 && cum[m + 1]! < target) m++;
+      u.push((m + (target - cum[m]!) / (cum[m + 1]! - cum[m]!)) * dq);
+    }
+    u.push(w);
+    return u;
+  });
+
   const half = thickness / 2;
-  const base = vert.length / 3;
-  const stride = (cols + 1) * 2;
+  // first vertex of every row; per column an inner and an outer vertex
+  const start: number[] = [];
   for (let i = 0; i <= rows; i++) {
-    const z = z0 + ((z1 - z0) * i) / rows;
-    const c = k * l.pitch + dir * (z - l.zRef);
-    for (let j = 0; j <= cols; j++) {
-      const s = c - hx + (2 * hx * j) / cols;
+    start.push(vert.length / 3);
+    const e = ells[i]!;
+    for (const u of across[i]!) {
+      const s = sOf(e, u - w / 2);
+      const z = zOf(e, u - w / 2);
       const d = bandOffset(l, dir, k, s, z);
       const { p: at, n } = l.path.at(s);
-      for (const u of [d - half, d + half]) vert.push(at[0] + n[0] * u, at[1] + n[1] * u, z);
+      for (const r of [d - half, d + half]) vert.push(at[0] + n[0] * r, at[1] + n[1] * r, z);
     }
   }
-  // inner (0) and outer (1) vertex of row i, column j
-  const I = (i: number, j: number) => base + i * stride + j * 2;
+  const I = (i: number, j: number) => start[i]! + j * 2;
   const O = (i: number, j: number) => I(i, j) + 1;
+  const last = (i: number) => across[i]!.length - 1;
   const quad = (a: number, b: number, c: number, d: number) => tri.push(a, b, c, a, c, d);
   for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      quad(O(i, j), O(i, j + 1), O(i + 1, j + 1), O(i + 1, j)); // outer face
-      quad(I(i, j + 1), I(i, j), I(i + 1, j), I(i + 1, j + 1)); // inner face
+    // zip row i and i + 1 across the band, always advancing the column
+    // that comes first; outer face as is, inner face reversed
+    const A = across[i]!;
+    const B = across[i + 1]!;
+    let a = 0;
+    let b = 0;
+    while (a < A.length - 1 || b < B.length - 1) {
+      const upA = b === B.length - 1 || (a < A.length - 1 && A[a + 1]! <= B[b + 1]!);
+      if (upA) {
+        tri.push(O(i, a), O(i, a + 1), O(i + 1, b));
+        tri.push(I(i, a + 1), I(i, a), I(i + 1, b));
+        a++;
+      } else {
+        tri.push(O(i, a), O(i + 1, b + 1), O(i + 1, b));
+        tri.push(I(i, a), I(i + 1, b), I(i + 1, b + 1));
+        b++;
+      }
     }
     quad(I(i, 0), O(i, 0), O(i + 1, 0), I(i + 1, 0)); // left edge
-    quad(O(i, cols), I(i, cols), I(i + 1, cols), O(i + 1, cols)); // right edge
+    quad(O(i, last(i)), I(i, last(i)), I(i + 1, last(i + 1)), O(i + 1, last(i + 1))); // right edge
   }
-  for (let j = 0; j < cols; j++) {
-    quad(I(0, j), I(0, j + 1), O(0, j + 1), O(0, j)); // bottom cap
-    quad(O(rows, j), O(rows, j + 1), I(rows, j + 1), I(rows, j)); // top cap
-  }
+  for (let j = 0; j < last(0); j++) quad(I(0, j), I(0, j + 1), O(0, j + 1), O(0, j)); // lower end
+  for (let j = 0; j < last(rows); j++) quad(O(rows, j), O(rows, j + 1), I(rows, j + 1), I(rows, j)); // upper end
 }
 
 /**
@@ -170,34 +237,32 @@ export function braidBands(
 ): Manifold[] {
   // tight weave: neighbouring bands of a family overlap a little
   const drawn = l.gap < MIN_GAP ? l.width + l.gap + MIN_GAP : l.width;
+  const zA = l.y0 - ANCHOR;
+  const zB = l.y1 + ANCHOR;
+  const slab = wasm.Manifold.cube([p.width + 2, p.depth + 2, zB - zA], true).translate([
+    0,
+    0,
+    (zA + zB) / 2,
+  ]);
   const out: Manifold[] = [];
   for (const dir of [1, -1] as const)
     for (const parity of [0, 1]) {
       const vert: number[] = [];
       const tri: number[] = [];
       for (let k = parity; k < l.count; k += 2)
-        bandMesh(
-          l,
-          dir,
-          k,
-          l.y0 - ANCHOR,
-          l.y1 + ANCHOR,
-          drawn,
-          p.braid.bandThickness,
-          quality,
-          vert,
-          tri,
-        );
-      out.push(
-        new wasm.Manifold(
-          new wasm.Mesh({
-            numProp: 3,
-            vertProperties: Float32Array.from(vert),
-            triVerts: Uint32Array.from(tri),
-          }),
-        ),
+        bandMesh(l, dir, k, zA, zB, drawn, p.braid.bandThickness, quality, vert, tri);
+      const bands = new wasm.Manifold(
+        new wasm.Mesh({
+          numProp: 3,
+          vertProperties: Float32Array.from(vert),
+          triVerts: Uint32Array.from(tri),
+        }),
       );
+      // cut the square ends off level, ANCHOR inside the border bands
+      out.push(bands.intersect(slab));
+      bands.delete();
     }
+  slab.delete();
   return out;
 }
 

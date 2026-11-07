@@ -103,6 +103,26 @@ describe('braid basket', () => {
   });
 
   it.each([
+    [8, 2],
+    [6, 6],
+    [6, 9],
+    [4, 10],
+  ])('width %d, gap %d: the top border band bridges at most (gap − width)/√2', (w, g) => {
+    const p = params({}, { bandWidth: w, bandGap: g });
+    const l = braidLayout(p);
+    const m = buildManifold(wasm, p, 'preview');
+    try {
+      const r = overhangReport(m);
+      // bands at least as wide as the gaps: closed all round, no bridge at all
+      const bound = Math.max(0, (l.gap - l.width) / Math.SQRT2);
+      expect(r.maxBridge).toBeLessThanOrEqual(bound + 0.8);
+      if (w >= g) expect(r.maxBridge).toBeLessThan(0.8);
+    } finally {
+      m.delete();
+    }
+  });
+
+  it.each([
     ['dividers', { dividersX: [40], dividersY: [30] }],
     ['handles', { handles: 'ends', width: 120, height: 60 }],
   ] as const)('with %s: one manifold body', (_n, patch) => {

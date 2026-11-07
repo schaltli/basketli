@@ -53,6 +53,16 @@ export class RoundedRectPath {
     );
   }
 
+  /** Radius of the corner arcs. */
+  get radius(): number {
+    return this.r;
+  }
+
+  /** True if arc position s lies on a corner arc. */
+  onArc(s: number): boolean {
+    return this.r > 0 && this.pieceAt(s) % 2 === 1;
+  }
+
   /** True if the arc range [s0, s1] lies on one straight side (no corner). */
   isStraight(s0: number, s1: number): boolean {
     const a = this.pieceAt(s0);
