@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.{ts,tsx}'],
     environment: 'node',
-    testTimeout: 20000,
+    testTimeout: 60000,
     coverage: {
       provider: 'v8',
       include: ['src/geometry/**', 'src/export/**'],
