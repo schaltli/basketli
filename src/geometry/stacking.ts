@@ -1,7 +1,7 @@
 import type { Manifold } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
-import type { BasketParams } from './params';
+import { MIN_WALL, type BasketParams } from './params';
 import { roundedRect, type Vec2 } from './shapes';
 
 /**
@@ -23,6 +23,16 @@ export const STACK_INSET = 4;
 export const STACK_MIN_RADIUS = 10;
 /** Solid wall of the socket next to the foot (mm). */
 export const SOCKET_WALL = 1.6;
+/** A weave band passing a stake on its outside covers it by this much (mm). */
+export const STAKE_COVER = 0.1;
+
+/**
+ * Sideways swing of a weave band's centre line: at a stake it lies outside
+ * it, covering it by STAKE_COVER, and its first line (MIN_WALL wide) still
+ * runs almost all inside the stake, so it is anchored there.
+ */
+export const weaveAmplitude = (p: BasketParams) =>
+  Math.max(0, p.weave.stakeDiameter / 2 - MIN_WALL / 2 + STAKE_COVER);
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
 /**
@@ -50,7 +60,7 @@ export function wallIntrusion(p: BasketParams): number {
       return 2 * p.braid.bandThickness - BRAID_FUSE;
     case 'weave': {
       const r = p.weave.stakeDiameter / 2;
-      return 2 * Math.max(r, r - 0.325 + p.weave.materialThickness / 2);
+      return 2 * Math.max(r, weaveAmplitude(p) + p.weave.materialThickness / 2);
     }
     default:
       return p.wall;
@@ -59,9 +69,11 @@ export function wallIntrusion(p: BasketParams): number {
 
 /**
  * 45° chamfer on the top edges of the rim and the dividers (mm): at most
- * 0.5 mm and a quarter of the wall, so half the top stays flat.
+ * 0.5 mm and a quarter of the wall, so half the top stays flat, and the top
+ * layer keeps MIN_WALL.
  */
-export const topChamfer = (p: BasketParams) => Math.min(0.5, wallIntrusion(p) / 4);
+export const topChamfer = (p: BasketParams) =>
+  Math.max(0, Math.min(0.5, wallIntrusion(p) / 4, (wallIntrusion(p) - MIN_WALL) / 2));
 
 /**
  * Stack pitch: how much higher the next basket stands. The foot's chamfer

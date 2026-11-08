@@ -1,14 +1,15 @@
-import { MAX_OPEN_SPACING, type BasketParams } from '../params';
+import { MAX_OPEN_SPACING, MIN_WALL, type BasketParams } from '../params';
 import { junctionArcs, wallSegments } from '../junctions';
-import { patternBase } from '../stacking';
+import { patternBase, weaveAmplitude } from '../stacking';
 import { RoundedRectPath } from './outline';
 
-/** Width of one extrusion line: the first layer of every band (mm). */
-export const FIRST_LINE = 0.45;
+/**
+ * First layer of every band and of every base that grows out of a wall
+ * (mm): as wide as the thinnest wall, so no layer is thinner (MIN_WALL).
+ */
+export const FIRST_LINE = MIN_WALL;
 /** Layer height the band bottom is designed for (mm). */
 export const LAYER = 0.2;
-/** The first line runs this far inside each stake (it cuts, not touches). */
-export const CUT = 0.1;
 
 export interface WeaveRow {
   /** Bottom and top of the band in this row (mm). */
@@ -79,9 +80,7 @@ export function jointStakes(joints: number[], L: number, target: number, max: nu
 export function weaveLayout(p: BasketParams): WeaveLayout {
   const w = p.weave;
   const r = w.stakeDiameter / 2;
-  // The band's center line (= its single-line first layer) passes through
-  // every stake, CUT inside the stake's surface.
-  const amplitude = Math.max(0, r - FIRST_LINE / 2 - CUT);
+  const amplitude = weaveAmplitude(p);
   const span = 2 * Math.max(r, amplitude + w.materialThickness / 2);
   const centerOffset = span / 2;
 

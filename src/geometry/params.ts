@@ -143,6 +143,12 @@ export interface Range {
   max: number;
 }
 
+/**
+ * Thinnest wall any layer may have (mm): two to three lines of a 0.4 mm
+ * nozzle, so every printer lays it down and the basket stays sturdy.
+ */
+export const MIN_WALL = 1.2;
+
 export const LIMITS = {
   width: { min: 30, max: 400 },
   depth: { min: 30, max: 400 },
@@ -151,15 +157,16 @@ export const LIMITS = {
   heightFR: { min: 20, max: 300 },
   heightBL: { min: 20, max: 300 },
   heightBR: { min: 20, max: 300 },
-  wall: { min: 0.8, max: 5 },
+  wall: { min: MIN_WALL, max: 5 },
   floor: { min: 0.6, max: 5 },
   cornerRadius: { min: 0, max: 30 },
   stackClearance: { min: 0.1, max: 1 },
   holeSize: { min: 3, max: 40 },
-  webWidth: { min: 1, max: 10 },
+  // voronoi webs keep ≥ 80 % round the corners: 1.5 · 0.8 = MIN_WALL
+  webWidth: { min: 1.5, max: 10 },
   borderBand: { min: 3, max: 30 },
   materialHeight: { min: 3, max: 40 },
-  materialThickness: { min: 0.8, max: 4 },
+  materialThickness: { min: MIN_WALL, max: 4 },
   stakeSpacing: { min: 6, max: 40 },
   stakeDiameter: { min: 2, max: 8 },
   rowGap: { min: 0, max: 10 },
@@ -168,10 +175,10 @@ export const LIMITS = {
   seed: { min: 0, max: 9999 },
   diamondWidth: { min: 3, max: 15 },
   diamondHeight: { min: 6, max: 40 },
-  strand: { min: 1, max: 4 },
+  strand: { min: MIN_WALL, max: 4 },
   twist: { min: 0, max: 2 },
   bandWidth: { min: 4, max: 20 },
-  bandThickness: { min: 0.8, max: 2 },
+  bandThickness: { min: MIN_WALL, max: 2 },
   bandGap: { min: 0, max: 10 },
   handleWidth: { min: 30, max: 120 },
   handleDepth: { min: 10, max: 40 },
@@ -209,7 +216,7 @@ export const MATERIAL_DEFAULTS: Record<
   Pick<WeaveParams, 'materialHeight' | 'materialThickness'>
 > = {
   cane: { materialHeight: 6, materialThickness: 1.2 },
-  band: { materialHeight: 9, materialThickness: 0.8 },
+  band: { materialHeight: 9, materialThickness: 1.2 },
 };
 
 export const DEFAULTS: BasketParams = {
@@ -251,7 +258,7 @@ export const DEFAULTS: BasketParams = {
   floorWebWidth: 3,
   voronoi: { cellSize: 12, seed: 1 },
   expanded: { diamondWidth: 5, diamondHeight: 12, strand: 1.6, twist: 0.6 },
-  braid: { bandWidth: 8, bandThickness: 1, bandGap: 2 },
+  braid: { bandWidth: 8, bandThickness: 1.2, bandGap: 2 },
   weave: {
     material: 'cane',
     ...MATERIAL_DEFAULTS.cane,

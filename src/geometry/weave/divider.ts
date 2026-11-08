@@ -208,7 +208,9 @@ export function wovenDividers(
     // stakes, so the wall rim's first line (on that line) rests on it fully
     local.push(bandAlong(wasm, stakes, 0, half, rimProf, rim.z0, undefined, samples, RIM_REACH));
     const stake = scope.keep(wasm.Manifold.cylinder(stakeTop, r, r, STAKE_SEGMENTS[quality]));
-    for (const s of stakes) local.push(stake.translate([s, 0, 0]));
+    // the end stakes stand in the wall already (taller): a second one in the
+    // same place would leave zero-volume slivers in the union
+    for (const s of stakes.slice(1, -1)) local.push(stake.translate([s, 0, 0]));
     for (const m of local) parts.push(scope.keep(scope.keep(m).transform(toWorld)));
   }
   return parts;

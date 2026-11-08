@@ -3,7 +3,7 @@ import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
 import type { BasketParams } from '../params';
 import { roundedRect } from '../shapes';
-import { bandSolids, rimProfile, rimSolid } from './bands';
+import { bandSolids, rimFullAt, rimProfile, rimSolid } from './bands';
 import { weaveLayout, type WeaveLayout } from './layout';
 
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
@@ -33,7 +33,7 @@ export function buildWeave(
   // Stakes end inside the rim, where it has reached the full wall span and
   // below its chamfer, so they never poke out of it.
   const rim = rimProfile(layout.span, p.weave.materialThickness, layout.rim.z1 - layout.rim.z0);
-  const stakeTop = layout.rim.z0 + Math.min(rim.z[2]!, rim.z[3]!);
+  const stakeTop = layout.rim.z0 + Math.min(rimFullAt(p, layout), rim.z[3]!);
   const r = p.weave.stakeDiameter / 2;
   const stake = scope.keep(Manifold.cylinder(stakeTop, r, r, STAKE_SEGMENTS[quality]));
   for (const s of layout.stakes) {

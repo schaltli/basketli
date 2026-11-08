@@ -1,7 +1,7 @@
 import type { Manifold } from 'manifold-3d';
 import type { Quality } from '../basket';
 import type { Scope, Wasm } from '../manifold';
-import type { BasketParams } from '../params';
+import { MIN_WALL, type BasketParams } from '../params';
 import type { Vec2 } from '../shapes';
 import type { Field } from './field';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './layout';
@@ -44,7 +44,8 @@ export interface BandProfile {
 export function bandProfile(t: number, h: number): BandProfile {
   const line = Math.min(FIRST_LINE, t);
   const grow = (t - line) / 2; // 45°: height = sideways growth per side
-  const top = Math.min(CHAMFER_RATIO * t, Math.max(0, h - LAYER - grow));
+  // the chamfer leaves at least MIN_WALL
+  const top = Math.min(CHAMFER_RATIO * t, Math.max(0, t - MIN_WALL), Math.max(0, h - LAYER - grow));
   return {
     z: [0, LAYER, LAYER + grow, h - top, h],
     inner: [line / 2, line / 2, t / 2, t / 2, t / 2],
@@ -52,7 +53,35 @@ export function bandProfile(t: number, h: number): BandProfile {
   };
 }
 
-/** Band of one row as a height field along the wall normal. */
+/** Whether `upper` starts where `lower` ends (closed weave: no row gap). */
+export const touches = (lower: { z1: number }, upper: { z0: number }) => upper.z0 - lower.z1 < 1e-6;
+
+/** Moves `from` towards `to` by at most `by`. */
+const toward = (from: number, to: number, by: number) =>
+  from + Math.max(-by, Math.min(by, to - from));
+
+/**
+ * Band of one row (perpendicular half-widths) at arc position s: centre and
+ * the stretch that keeps it `t` thick square to itself on the wave's slopes.
+ */
+function bandAt(layout: WeaveLayout, row: number, s: number): { mid: number; stretch: number } {
+  const mid = displacement(layout, row, s);
+  const { phase, step } = stakePhase(layout, s);
+  const slope = ((layout.amplitude * Math.PI) / step) * Math.sin(Math.PI * phase + Math.PI * row);
+  return { mid, stretch: Math.sqrt(1 + slope * slope) };
+}
+
+/**
+ * Band of one row as a height field along the wall normal.
+ *
+ * On a row gap (or the floor) the band starts with its first line, see
+ * bandProfile. In a closed weave it stands on the row below, which lies
+ * displaced the other way: a narrow first line there would leave a neck
+ * thinner than MIN_WALL all round, a full-width one would hang out to the
+ * side. So the band starts as the top of the row below and moves over to
+ * its own place at 45° (one LAYER per layer), at full thickness all the way;
+ * and a band with a row (or the rim) right on top has no top chamfer.
+ */
 export function bandField(
   p: BasketParams,
   layout: WeaveLayout,
@@ -60,9 +89,27 @@ export function bandField(
   quality: Quality,
 ): Field {
   const r = layout.rows[row]!;
-  const prof = bandProfile(p.weave.materialThickness, r.z1 - r.z0);
+  const t = p.weave.materialThickness;
+  const h = r.z1 - r.z0;
+  const below = row > 0 && touches(layout.rows[row - 1]!, r);
+  const above = touches(r, layout.rows[row + 1] ?? layout.rim);
+  const prof = bandProfile(t, h);
+  const top = above ? 0 : prof.z[4]! - prof.z[3]!;
+  // closed weave: LAYER steps while the band moves over from the row below
+  const moves = below ? Math.max(1, Math.ceil((2 * layout.amplitude) / LAYER - 1e-9)) : 0;
+  // [height, inner, outer half-width] for a band that starts with its line
+  const own: [number, number, number][] = [0, 1, 2].map((k) => [
+    prof.z[k]!,
+    prof.inner[k]!,
+    prof.outer[k]!,
+  ]);
+  const rel = below
+    ? [0, ...Array.from({ length: moves }, (_, k) => (k + 1) * LAYER)]
+    : own.map((x) => x[0]);
+  if (top > 1e-9) rel.push(h - top);
+  rel.push(h);
   // The bottom reaches ROW_OVERLAP into the row (or plate) below to fuse.
-  const z = Float64Array.from(prof.z, (dz, k) => (k === 0 ? r.z0 - ROW_OVERLAP : r.z0 + dz));
+  const z = Float64Array.from(rel, (dz, k) => (k === 0 ? r.z0 - ROW_OVERLAP : r.z0 + dz));
   const cols = layout.stakeCount * BAND_SAMPLES_PER_STAKE[quality];
   const s = Float64Array.from({ length: cols }, (_, j) => (j / cols) * layout.path.length);
   const K = z.length;
@@ -71,15 +118,27 @@ export function bandField(
   const half = layout.span / 2;
 
   for (let j = 0; j < cols; j++) {
-    const mid = displacement(layout, row, s[j]!);
     // Offsets run along the wall normal; on the slopes of the wave the band
     // is thinner perpendicular to itself, so widen by sqrt(1 + slope²).
-    const { phase, step } = stakePhase(layout, s[j]!);
-    const slope = ((layout.amplitude * Math.PI) / step) * Math.sin(Math.PI * phase + Math.PI * row);
-    const stretch = Math.sqrt(1 + slope * slope);
+    const { mid, stretch } = bandAt(layout, row, s[j]!);
+    const w = (stretch * t) / 2;
     for (let k = 0; k < K; k++) {
-      inner[j * K + k] = Math.max(-half, mid - stretch * prof.inner[k]!);
-      outer[j * K + k] = Math.min(half, mid + stretch * prof.outer[k]!);
+      let lo: number;
+      let hi: number;
+      if (below) {
+        const prev = bandAt(layout, row - 1, s[j]!);
+        const wp = (prev.stretch * t) / 2;
+        const by = Math.max(0, rel[k]!);
+        lo = toward(prev.mid - wp, mid - w, by);
+        hi = toward(prev.mid + wp, mid + w, by);
+        if (k === K - 1) hi -= stretch * top;
+      } else {
+        const [, wi, wo] = own[k] ?? [0, t / 2, t / 2];
+        lo = mid - stretch * wi;
+        hi = mid + stretch * (k === K - 1 ? t / 2 - top : wo);
+      }
+      inner[j * K + k] = Math.max(-half, lo);
+      outer[j * K + k] = Math.min(half, hi);
     }
   }
   return { s, z, inner, outer };
@@ -108,7 +167,11 @@ export function rimProfile(span: number, t: number, h: number): BandProfile {
   const half = span / 2;
   const line = Math.min(FIRST_LINE, span);
   const grow = half - line / 2;
-  const top = Math.min(CHAMFER_RATIO * t, Math.max(0, h - LAYER - grow));
+  const top = Math.min(
+    CHAMFER_RATIO * t,
+    Math.max(0, span - MIN_WALL),
+    Math.max(0, h - LAYER - grow),
+  );
   return {
     z: [0, LAYER, LAYER + grow, h - top, h],
     inner: [line / 2, line / 2, half, half, half],
@@ -117,8 +180,21 @@ export function rimProfile(span: number, t: number, h: number): BandProfile {
 }
 
 /**
+ * Height above the rim's bottom where it has reached the full span: after
+ * its own 45° growth, or after growing out of the last row (closed weave).
+ */
+export function rimFullAt(p: BasketParams, layout: WeaveLayout): number {
+  const own = rimProfile(layout.span, p.weave.materialThickness, layout.rim.z1 - layout.rim.z0);
+  const last = layout.rows.at(-1);
+  if (!last || !touches(last, layout.rim)) return own.z[2]!;
+  return Math.ceil((layout.span / 2 + layout.amplitude) / LAYER - 1e-9) * LAYER;
+}
+
+/**
  * Flat closing band round the top edge: one closed ring over all stakes.
  * With a lower `z0` the same ring reaches further down (handle frames).
+ * On a row gap it starts with its line (rimProfile); in a closed weave it
+ * starts as the top of the last row and grows out at 45° to the full span.
  */
 export function rimSolid(
   wasm: Wasm,
@@ -128,18 +204,41 @@ export function rimSolid(
   z0 = layout.rim.z0,
 ): Manifold {
   const { z1 } = layout.rim;
-  const prof = rimProfile(layout.span, p.weave.materialThickness, z1 - z0);
+  const t = p.weave.materialThickness;
+  const prof = rimProfile(layout.span, t, z1 - z0);
+  const last = layout.rows.at(-1);
+  const onRow = z0 === layout.rim.z0 && last !== undefined && touches(last, layout.rim);
+  const half = layout.span / 2;
+  const top = prof.z[4]! - prof.z[3]!;
+  const full = rimFullAt(p, layout);
+  const rel = onRow
+    ? [
+        0,
+        ...Array.from({ length: Math.round(full / LAYER) }, (_, k) => (k + 1) * LAYER),
+        z1 - z0 - top,
+        z1 - z0,
+      ]
+    : prof.z;
   // The bottom reaches ROW_OVERLAP down to fuse with the row below.
-  const z = Float64Array.from(prof.z, (dz, k) => (k === 0 ? z0 - ROW_OVERLAP : z0 + dz));
+  const z = Float64Array.from(rel, (dz, k) => (k === 0 ? z0 - ROW_OVERLAP : z0 + dz));
   const cols = layout.stakeCount * BAND_SAMPLES_PER_STAKE[quality];
   const s = Float64Array.from({ length: cols }, (_, j) => (j / cols) * layout.path.length);
   const K = z.length;
   const inner = new Float64Array(cols * K);
   const outer = new Float64Array(cols * K);
-  for (let j = 0; j < cols; j++)
+  for (let j = 0; j < cols; j++) {
+    const b = onRow ? bandAt(layout, layout.rows.length - 1, s[j]!) : undefined;
     for (let k = 0; k < K; k++) {
-      inner[j * K + k] = -prof.inner[k]!;
-      outer[j * K + k] = prof.outer[k]!;
+      if (b) {
+        const w = (b.stretch * t) / 2;
+        const by = Math.max(0, rel[k]!);
+        inner[j * K + k] = Math.max(-half, toward(b.mid - w, -half, by));
+        outer[j * K + k] = Math.min(half, toward(b.mid + w, half, by)) - (k === K - 1 ? top : 0);
+      } else {
+        inner[j * K + k] = -prof.inner[k]!;
+        outer[j * K + k] = prof.outer[k]!;
+      }
     }
+  }
   return reliefShell(wasm, { s, z, inner, outer }, layout.path);
 }

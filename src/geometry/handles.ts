@@ -8,6 +8,7 @@ import { labelZonesOnWall } from './label';
 import { aboveBandOnWall, belowTop } from './slope';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
+import { weaveGrowth } from './weave/grow';
 import { FIRST_LINE, LAYER, type WeaveLayout } from './weave/layout';
 import type { RoundedRectPath } from './weave/outline';
 
@@ -387,7 +388,7 @@ export function handleBands(
   );
   // an irregular top cuts the band like the rim
   const clip = p.irregular ? scope.keep(outline.intersect(belowTop(wasm, scope, p, 0))) : outline;
-  return all.map((site, i) => {
+  const shapes = all.map((site, i) => {
     let ends: { left: number; right: number } | undefined;
     if (weave) {
       const L = weave.path.length;
@@ -399,15 +400,29 @@ export function handleBands(
         left: Math.min(...rel.filter((u) => u <= -reach).map((u) => -u)) + INTO_STAKE,
       };
     }
-    const shape: CrossSection = scope.keep(
+    return scope.keep(
       wasm.CrossSection.ofPolygons([bandOutline(p, ends, wallTop(p, site))]),
-    );
-    const layers = Array.from({ length: steps + 1 }, (_, k) => {
-      const thick = Math.min(T, FIRST_LINE + 2 * k * LAYER);
+    ) as CrossSection;
+  });
+  // In a weave the bands below swing in and out: grow from them (weaveGrowth).
+  const bottoms = shapes.map((sh) => sh.bounds().min[1]);
+  const growth = weave
+    ? weaveGrowth(wasm, scope, p, weave, quality, Math.min(...bottoms), Math.max(...bottoms))
+    : undefined;
+  return all.map((site, i) => {
+    const shape = shapes[i]!;
+    const n = growth ? growth.steps : steps;
+    const layers = Array.from({ length: n + 1 }, (_, k) => {
+      const thick = growth ? T : Math.min(T, FIRST_LINE + 2 * k * LAYER);
       const raised = k === 0 ? shape : scope.keep(shape.translate([0, k * LAYER]));
-      return scope.keep(scope.keep(raised.extrude(thick)).translate([0, 0, -T / 2 - thick / 2]));
+      const layer = scope.keep(
+        scope.keep(raised.extrude(thick)).translate([0, 0, -T / 2 - thick / 2]),
+      );
+      if (!growth) return layer;
+      return scope.keep(scope.keep(layer.transform(onWall(site))).intersect(growth.at(k)));
     });
     const band = scope.keep(wasm.Manifold.union(layers));
-    return scope.keep(scope.keep(band.transform(onWall(site))).intersect(clip));
+    const placed = growth ? band : scope.keep(band.transform(onWall(site)));
+    return scope.keep(placed.intersect(clip));
   });
 }

@@ -3,8 +3,9 @@ import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
 import { topAt, topBand, type BasketParams, type WallStyle } from './params';
 import { roundedRect, type Vec2 } from './shapes';
-import { wallIntrusion } from './stacking';
-import { FIRST_LINE, LAYER } from './weave/layout';
+import { wallIntrusion, weaveAmplitude } from './stacking';
+import { weaveGrowth } from './weave/grow';
+import { FIRST_LINE, LAYER, weaveLayout } from './weave/layout';
 import { RoundedRectPath } from './weave/outline';
 
 /**
@@ -314,7 +315,12 @@ export function smoothRimBase(
   const path = new RoundedRectPath(p.width, p.depth, p.cornerRadius);
   const L = path.length;
   const T = wallIntrusion(p);
-  const steps = Math.max(0, Math.ceil((T - FIRST_LINE) / (2 * LAYER)));
+  // layers until the base has the full thickness: from the middle line, or
+  // in a weave from a band that lies up to the amplitude off the middle
+  const steps =
+    p.wallStyle === 'weave'
+      ? Math.ceil((T / 2 + weaveAmplitude(p)) / LAYER - 1e-9)
+      : Math.max(0, Math.ceil((T - FIRST_LINE) / (2 * LAYER)));
   // highest underside allowed: full thickness reached below the rim
   const drop = topBand(p) + steps * LAYER;
   const ss = path.breakpoints(1);
@@ -430,11 +436,17 @@ export function smoothRimBase(
   });
   const cut = scope.keep(Manifold.union([above, ...closed]));
 
-  // grows from the middle line to the full thickness, one layer at a time
+  // grows from the middle line to the full thickness, one layer at a time;
+  // in a weave from the band below, which swings in and out (weaveGrowth)
+  const growth =
+    p.wallStyle === 'weave'
+      ? weaveGrowth(wasm, scope, p, weaveLayout(p), quality, lo, hi)
+      : undefined;
   const layers = Array.from({ length: steps + 1 }, (_, k) => {
-    const th = Math.min(T, FIRST_LINE + 2 * k * LAYER);
+    const th = growth ? T : Math.min(T, FIRST_LINE + 2 * k * LAYER);
     const ring = annulus(wasm, scope, p, T / 2 - th / 2, T / 2 + th / 2, quality);
-    const tall = scope.keep(ring.extrude(roof + 1));
+    let tall = scope.keep(ring.extrude(roof + 1));
+    if (growth) tall = scope.keep(tall.intersect(growth.at(k)));
     return scope.keep(tall.intersect(scope.keep(cut.translate([0, 0, k * LAYER]))));
   });
   const grown = scope.keep(Manifold.union(layers));

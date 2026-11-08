@@ -113,6 +113,18 @@ export function bandOffset(l: BraidLayout, dir: 1 | -1, k: number, s: number, z:
     : -l.amplitude * Math.cos(Math.PI * (k + (s - zp) / l.pitch));
 }
 
+/** Steepest in/out slope of band `k` at (s, z): |∇bandOffset| over the wall. */
+function bandSlope(l: BraidLayout, dir: 1 | -1, k: number, s: number, z: number): number {
+  const zp = z - l.zRef;
+  const u = dir === 1 ? s + zp : s - zp;
+  // the offset depends on s ± z only, so its gradient is √2 · d/du
+  return (
+    Math.SQRT2 *
+    ((l.amplitude * Math.PI) / l.pitch) *
+    Math.abs(Math.sin(Math.PI * (k + u / l.pitch)))
+  );
+}
+
 /**
  * Appends one band (closed mesh) to vert/tri, on a grid of its own: rows
  * are lines straight across the band (ℓ along the band constant – the
@@ -191,8 +203,12 @@ function bandMesh(
       const s = sOf(e, u - w / 2);
       const z = zOf(e, u - w / 2);
       const d = bandOffset(l, dir, k, s, z);
+      // Between crossings the band runs in or out; widen along the normal
+      // by sqrt(1 + slope²) so it stays `thickness` thick square to itself.
+      const slope = bandSlope(l, dir, k, s, z);
+      const h = half * Math.sqrt(1 + slope * slope);
       const { p: at, n } = l.path.at(s);
-      for (const r of [d - half, d + half]) vert.push(at[0] + n[0] * r, at[1] + n[1] * r, z);
+      for (const r of [d - h, d + h]) vert.push(at[0] + n[0] * r, at[1] + n[1] * r, z);
     }
   }
   const I = (i: number, j: number) => start[i]! + j * 2;
@@ -238,7 +254,9 @@ export function braidBands(
   // tight weave: neighbouring bands of a family overlap a little
   const drawn = l.gap < MIN_GAP ? l.width + l.gap + MIN_GAP : l.width;
   const zA = l.y0 - ANCHOR;
-  const zB = l.y1 + ANCHOR;
+  // up to where the top border band has grown to the full span: below that
+  // the border alone is thinner than MIN_WALL
+  const zB = l.y1 + Math.max(ANCHOR, l.halfSpan - BRAID_FUSE / 2);
   const slab = wasm.Manifold.cube([p.width + 2, p.depth + 2, zB - zA], true).translate([
     0,
     0,

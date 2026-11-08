@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
-import { CUT, evenStakeCount, FIRST_LINE, weaveLayout } from '../../../src/geometry/weave/layout';
+import { evenStakeCount, FIRST_LINE, weaveLayout } from '../../../src/geometry/weave/layout';
+import { STAKE_COVER } from '../../../src/geometry/stacking';
 import { patternBase } from '../../../src/geometry/stacking';
 import { RoundedRectPath } from '../../../src/geometry/weave/outline';
 
@@ -90,11 +91,13 @@ describe('weaveLayout', () => {
     expect(l.stakes).toHaveLength(l.stakeCount);
   });
 
-  it('the first line of a band runs inside every stake (cuts it)', () => {
+  it('the first line of a band runs (almost all) inside every stake', () => {
     const p = weave();
     const l = weaveLayout(p);
     const r = p.weave.stakeDiameter / 2;
-    expect(l.amplitude + FIRST_LINE / 2).toBeCloseTo(r - CUT, 9);
+    expect(l.amplitude + FIRST_LINE / 2).toBeCloseTo(r + STAKE_COVER, 9);
+    // anchored: at least 90 % of the line's width lies on the stake
+    expect(r - (l.amplitude - FIRST_LINE / 2)).toBeGreaterThanOrEqual(0.9 * FIRST_LINE);
   });
 
   it('the band still covers the stake on its outer side', () => {

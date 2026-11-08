@@ -202,7 +202,7 @@ describe('setWeaveMaterial', () => {
   it('switching to band applies band defaults when values are untouched', () => {
     const p = setWeaveMaterial(withWeave({}), 'band');
     expect(p.weave).toMatchObject({ material: 'band', ...MATERIAL_DEFAULTS.band });
-    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 9, materialThickness: 0.8 });
+    expect(MATERIAL_DEFAULTS.band).toEqual({ materialHeight: 9, materialThickness: 1.2 });
   });
 
   it('keeps user-modified values', () => {
