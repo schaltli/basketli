@@ -3,11 +3,11 @@ import { dividerHoleCutters, expandedDividerParts } from './dividerPatterns';
 import { dividerSolids } from './dividers';
 import { floorCutter } from './floor';
 import { handleBands, handleCutters, handleSupports } from './handles';
-import { labelPlate, tapeCutter } from './label';
+import { labelPlates, tapeCutters } from './label';
 import { buildTub, type Quality } from './basket';
 import { withChamfers } from './chamfers';
 import { Scope, type Wasm } from './manifold';
-import type { BasketParams, WallStyle } from './params';
+import { sidesOf, type BasketParams, type WallStyle } from './params';
 import { buildBraid } from './patterns/braid';
 import { buildExpanded } from './patterns/expanded';
 import { hexCutters } from './patterns/hex';
@@ -88,13 +88,13 @@ export function buildManifold(wasm: Wasm, params: BasketParams, quality: Quality
     }
     // Label field: hole patterns leave it solid already (clipHoles); open
     // walls get a solid plate. Then the recess for label-maker tape.
-    const plate = OPEN_WALLS.includes(params.wallStyle)
-      ? labelPlate(wasm, scope, params, quality, body)
-      : undefined;
-    if (plate) body = scope.keep(wasm.Manifold.union([body, plate]));
-    const tape = tapeCutter(wasm, scope, params);
-    if (tape) body = scope.keep(body.subtract(tape));
-    if (params.handles !== 'none') {
+    const plates = OPEN_WALLS.includes(params.wallStyle)
+      ? labelPlates(wasm, scope, params, quality, body)
+      : [];
+    if (plates.length > 0) body = scope.keep(wasm.Manifold.union([body, ...plates]));
+    const tapes = tapeCutters(wasm, scope, params);
+    if (tapes.length > 0) body = scope.keep(body.subtract(scope.keep(wasm.Manifold.union(tapes))));
+    if (sidesOf(params.handleSides).length > 0) {
       // Open walls get a band closing the cut edges; hole patterns leave
       // that band solid already (clipHoles).
       const frames = OPEN_WALLS.includes(params.wallStyle)

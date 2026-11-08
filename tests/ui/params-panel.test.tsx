@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULTS, LIMITS } from '../../src/geometry/params';
+import { DEFAULTS, LIMITS, sides } from '../../src/geometry/params';
 import { useBasket } from '../../src/state/store';
 import { ParamsPanel } from '../../src/ui/controls/ParamsPanel';
 
@@ -33,18 +33,34 @@ describe('ParamsPanel', () => {
 
   it('handle cut-out: off by default, width and depth appear when switched on', () => {
     panel();
-    const select = screen.getByLabelText('Griffe');
-    expect((select as HTMLSelectElement).value).toBe('none');
+    const handles = within(screen.getByRole('group', { name: 'Seiten mit Griff' }));
+    const right = handles.getByLabelText('rechts') as HTMLInputElement;
+    expect(right.checked).toBe(false);
     expect(screen.queryByLabelText('Tiefe', { selector: 'input[type=text]' })).toBeTruthy(); // basket depth
-    fireEvent.change(select, { target: { value: 'one' } });
-    expect(useBasket.getState().params.handles).toBe('one');
+    fireEvent.click(right);
+    expect(useBasket.getState().params.handleSides).toEqual(sides('right'));
     expect(screen.getAllByLabelText('Breite', { selector: 'input[type=text]' })).toHaveLength(2);
     expect(screen.getAllByLabelText('Tiefe', { selector: 'input[type=text]' })).toHaveLength(2);
   });
 
+  it('sections fold away behind their title and show a summary', () => {
+    panel();
+    const toggle = screen.getByRole('button', { name: /Außenwand einklappen/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText('Wandstil')).toBeNull();
+    const closed = screen.getByRole('button', { name: /Außenwand ausklappen/ });
+    expect(closed.getAttribute('aria-expanded')).toBe('false');
+    expect(closed.textContent).toContain('Streckmetall');
+    fireEvent.click(closed);
+    expect(screen.getByLabelText('Wandstil')).toBeTruthy();
+  });
+
   it('closed slot: own width, height and bar instead of the cut-out depth', () => {
     panel();
-    fireEvent.change(screen.getByLabelText('Griffe'), { target: { value: 'ends' } });
+    const handles = within(screen.getByRole('group', { name: 'Seiten mit Griff' }));
+    fireEvent.click(handles.getByLabelText('links'));
+    fireEvent.click(handles.getByLabelText('rechts'));
     const type = screen.getByLabelText('Griffart') as HTMLSelectElement;
     expect(type.value).toBe('notch');
     fireEvent.change(type, { target: { value: 'slot' } });

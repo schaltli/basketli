@@ -1,21 +1,24 @@
 import { useEffect, useRef } from 'react';
 import { dividerTop } from '../../geometry/dividers';
 import {
+  CORNER_KEYS,
   FLOOR_PATTERNS,
-  HANDLE_MODES,
   HANDLE_TYPES,
-  LABEL_POSITIONS,
   LABEL_TAPES,
   LIMITS,
   MIN_DIVIDER_HEIGHT,
   setWeaveMaterial,
+  sidesOf,
   type BasketParams,
+  type Sides,
 } from '../../geometry/params';
 import { useUi } from '../uiState';
 import { useBasket } from '../../state/store';
 import { de } from '../i18n/de';
 import { noticeText } from './notices';
 import { NumberField } from './NumberField';
+import { Section } from './Section';
+import { SideChoice } from './SideChoice';
 import { applyChoice, choiceOf, STYLE_CHOICES, type StyleChoice } from './styleChoice';
 
 type NumericPath =
@@ -105,13 +108,22 @@ const FLOOR_LABEL = {
   slots: de.floorSlots,
 } as const;
 
-const HANDLE_LABEL = { none: de.handlesNone, one: de.handlesOne, ends: de.handlesEnds } as const;
 const HANDLE_TYPE_LABEL = { notch: de.handleTypeNotch, slot: de.handleTypeSlot } as const;
-const LABEL_POSITION_LABEL = {
-  none: de.labelNone,
-  end: de.labelEnd,
-  side: de.labelSide,
-} as const;
+
+/** Chosen walls as text, e.g. "vorne, links". */
+const sidesText = (s: Sides) =>
+  sidesOf(s)
+    .map((k) => de.side[k])
+    .join(', ') || de.sidesNone;
+
+const fmt = (v: number) => String(Math.round(v * 10) / 10);
+
+/** One line about the basket's size for the closed size section. */
+function sizeSummary(p: BasketParams): string {
+  if (!p.irregular) return `${fmt(p.width)} × ${fmt(p.depth)} × ${fmt(p.height)}`;
+  const hs = CORNER_KEYS.map((k) => p[k]);
+  return `${fmt(p.width)} × ${fmt(p.depth)} × ${fmt(Math.min(...hs))}–${fmt(Math.max(...hs))}`;
+}
 
 const CHOICE_LABEL: Record<StyleChoice, string> = {
   expanded: de.wallStyleExpanded,
@@ -167,6 +179,8 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
   const setShapeMode = useUi((s) => s.setShapeMode);
   const panel = useRef<HTMLElement>(null);
   const choice = choiceOf(params);
+  const hasHandles = sidesOf(params.handleSides).length > 0;
+  const hasLabel = sidesOf(params.labelSides).length > 0;
 
   useEffect(() => {
     panel.current?.querySelector<HTMLElement>('input, select')?.focus();
@@ -203,8 +217,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         </button>
       </header>
 
-      <fieldset>
-        <legend>{de.groupSize}</legend>
+      <Section id="size" title={de.groupSize} summary={sizeSummary(params)}>
         {(['width', 'depth'] as const).map(field)}
         {!params.irregular && field('height')}
         <label className="check">
@@ -241,10 +254,9 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
           </>
         )}
         {field('cornerRadius')}
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>{de.groupWall}</legend>
+      <Section id="wall" title={de.groupWall} summary={CHOICE_LABEL[choice]}>
         <div className="field">
           <label htmlFor="wall-style">{de.wallStyle}</label>
           <select
@@ -292,24 +304,18 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             {de.voronoiReroll}
           </button>
         )}
-        <div className="field">
-          <label htmlFor="handles">{de.fields.handles}</label>
-          <select
-            id="handles"
-            value={params.handles}
-            onChange={(e) => {
-              const next = HANDLE_MODES.find((m) => m === e.target.value) ?? 'none';
-              update((p) => ({ ...p, handles: next }));
-            }}
-          >
-            {HANDLE_MODES.map((m) => (
-              <option key={m} value={m}>
-                {HANDLE_LABEL[m]}
-              </option>
-            ))}
-          </select>
-        </div>
-        {params.handles !== 'none' && (
+      </Section>
+
+      <Section id="handles" title={de.groupHandles} summary={sidesText(params.handleSides)}>
+        <SideChoice
+          label={de.handleSides}
+          value={params.handleSides}
+          onChange={(side, on) =>
+            update((p) => ({ ...p, handleSides: { ...p.handleSides, [side]: on } }))
+          }
+          hint={de.sidesHint}
+        />
+        {hasHandles && (
           <div className="field">
             <label htmlFor="handle-type">{de.fields.handleType}</label>
             <select
@@ -331,35 +337,24 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             </p>
           </div>
         )}
-        {params.handles !== 'none' &&
+        {hasHandles &&
           (params.handleType === 'slot'
             ? (['slotWidth', 'slotHeight', 'slotBar'] as const)
             : (['handleWidth', 'handleDepth'] as const)
           ).map(field)}
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>{de.groupLabel}</legend>
-        <div className="field">
-          <label htmlFor="label-position">{de.fields.labelPosition}</label>
-          <select
-            id="label-position"
-            value={params.labelPosition}
-            onChange={(e) => {
-              const next = LABEL_POSITIONS.find((m) => m === e.target.value) ?? 'none';
-              update((p) => ({ ...p, labelPosition: next }));
-            }}
-          >
-            {LABEL_POSITIONS.map((m) => (
-              <option key={m} value={m}>
-                {LABEL_POSITION_LABEL[m]}
-              </option>
-            ))}
-          </select>
-        </div>
-        {params.labelPosition !== 'none' &&
-          (['labelWidth', 'labelHeight', 'labelRadius'] as const).map(field)}
-        {params.labelPosition !== 'none' && (
+      <Section id="label" title={de.groupLabel} summary={sidesText(params.labelSides)}>
+        <SideChoice
+          label={de.labelSides}
+          value={params.labelSides}
+          onChange={(side, on) =>
+            update((p) => ({ ...p, labelSides: { ...p.labelSides, [side]: on } }))
+          }
+          hint={de.sidesHint}
+        />
+        {hasLabel && (['labelWidth', 'labelHeight', 'labelRadius'] as const).map(field)}
+        {hasLabel && (
           <div className="field">
             <label htmlFor="label-tape">{de.fields.labelTape}</label>
             <select
@@ -379,10 +374,9 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             <p className="field-hint">{de.labelTapeHint}</p>
           </div>
         )}
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>{de.groupFloor}</legend>
+      <Section id="floor" title={de.groupFloor} summary={FLOOR_LABEL[params.floorPattern]}>
         {field('floor')}
         <div className="field">
           <label htmlFor="floor-pattern">{de.floorPattern}</label>
@@ -406,10 +400,15 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         </div>
         {params.floorPattern !== 'closed' &&
           (['floorHoleSize', 'floorWebWidth'] as const).map(field)}
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>{de.groupDividers}</legend>
+      <Section
+        id="dividers"
+        title={de.groupDividers}
+        summary={de
+          .dividerCount(params.dividersX.length, params.dividersY.length)
+          .replace(/\.$/, '')}
+      >
         <p className="field-hint">
           {de.dividerCount(params.dividersX.length, params.dividersY.length)}
         </p>
@@ -459,10 +458,13 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
             onChange={(v) => update((p) => ({ ...p, dividerHeight: v }))}
           />
         )}
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>{de.groupStacking}</legend>
+      <Section
+        id="stacking"
+        title={de.groupStacking}
+        summary={params.stackable ? de.stackOn : de.stackOff}
+      >
         <label className="check">
           <input
             type="checkbox"
@@ -474,7 +476,7 @@ export function ParamsPanel({ onClose }: ParamsPanelProps) {
         </label>
         {params.irregular && <p className="field-hint">{de.stackIrregular}</p>}
         {params.stackable && field('stackClearance')}
-      </fieldset>
+      </Section>
 
       {notices.length > 0 && (
         <section className="notices" aria-live="polite">

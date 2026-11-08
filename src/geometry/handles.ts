@@ -1,10 +1,10 @@
 import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
-import { HANDLE_FRAME, topAt, type BasketParams } from './params';
+import { HANDLE_FRAME, sidesOf, topAt, wallSite, type BasketParams, type WallSite } from './params';
 import { effectiveDividerTop, jointWidth } from './dividers';
 import { junctionArcs } from './junctions';
-import { labelZoneOnWall } from './label';
+import { labelZonesOnWall } from './label';
 import { aboveBandOnWall, belowTop } from './slope';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
@@ -19,16 +19,10 @@ const ARC_SEGMENTS = 16;
 const INTO_STAKE = 0.3;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
-interface Site {
-  /** Outward normal and counter-clockwise tangent of the end wall. */
-  n: Vec2;
-  t: Vec2;
-  /** Middle of the end wall on the outer outline. */
-  c: Vec2;
-}
+type Site = WallSite;
 
 /**
- * The top of an end wall around its middle (u along the wall): height there
+ * The top of a handle wall around its middle (u along the wall): height there
  * and rise per mm. Level baskets: the height, no rise.
  */
 export interface WallTop {
@@ -41,28 +35,14 @@ const wallTop = (p: BasketParams, { c, t }: Site): WallTop => {
   return { hc, k: topAt(p, c[0] + t[0], c[1] + t[1]) - hc };
 };
 
-/** End walls = the shorter walls. 'one' takes the +x (or +y) end. */
+/** The walls with a handle, in SIDES order. */
 function sites(p: BasketParams): Site[] {
-  if (p.handles === 'none') return [];
-  const alongX = p.width >= p.depth;
-  const all: Site[] = alongX
-    ? [
-        { n: [1, 0], t: [0, 1], c: [p.width / 2, 0] },
-        { n: [-1, 0], t: [0, -1], c: [-p.width / 2, 0] },
-      ]
-    : [
-        { n: [0, 1], t: [-1, 0], c: [0, p.depth / 2] },
-        { n: [0, -1], t: [1, 0], c: [0, -p.depth / 2] },
-      ];
-  return p.handles === 'one' ? all.slice(0, 1) : all;
+  return sidesOf(p.handleSides).map((side) => wallSite(p, side));
 }
 
-/** Arc positions of the cut-out centers on a rounded-rectangle path (s = 0: middle of the front). */
+/** Arc positions of the cut-out centers on a rounded-rectangle path (s = 0: middle of the front), in sites order. */
 export function handleArcCenters(p: BasketParams, path: RoundedRectPath): number[] {
-  const L = path.length;
-  const alongX = p.width >= p.depth;
-  const centers = alongX ? [L / 4, (3 * L) / 4] : [L / 2, 0];
-  return p.handles === 'none' ? [] : p.handles === 'one' ? centers.slice(0, 1) : centers;
+  return sites(p).map((site) => site.s(path.length));
 }
 
 const PI = Math.PI;
@@ -202,7 +182,7 @@ const frame = (a: number[], b: number[], e: number[], to: number[]): Mat4 => [
   1,
 ];
 
-/** Maps wall-plane coordinates (u, z, offset along the outward normal) onto an end wall. */
+/** Maps wall-plane coordinates (u, z, offset along the outward normal) onto a handle wall. */
 const onWall = ({ n, t, c }: Site): Mat4 =>
   frame([t[0], t[1], 0], [0, 0, 1], [n[0], n[1], 0], [c[0], c[1], 0]);
 
@@ -310,9 +290,9 @@ export function clipHoles(
 ): Vec2[][] {
   const centers = handleArcCenters(p, path);
   const joints = withJoints ? junctionArcs(p, path) : [];
-  const label = labelZoneOnWall(p, path);
+  const labels = labelZonesOnWall(p, path);
   const done = (h: Vec2[]) => h.length >= 3;
-  if (centers.length === 0 && joints.length === 0 && !label && !p.irregular)
+  if (centers.length === 0 && joints.length === 0 && labels.length === 0 && !p.irregular)
     return holes.map(finish).filter(done);
   const L = path.length;
   const tops = sites(p).map((site) => wallTop(p, site));
@@ -323,7 +303,7 @@ export function clipHoles(
     ...centers.flatMap((sc, i) =>
       copies(bandOutline(p, undefined, tops[i]).map(([u, z]) => [sc + u, z] as Vec2)),
     ),
-    ...(label ? copies(label) : []),
+    ...labels.flatMap(copies),
     ...aboveBandOnWall(p, path),
   ];
   const strips = joints.flatMap((s) =>

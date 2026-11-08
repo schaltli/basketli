@@ -9,10 +9,12 @@ import {
   topAt,
   type BasketParams,
   type WallStyle,
+  sides,
 } from '../../src/geometry/params';
 import { buildBraid } from '../../src/geometry/patterns/braid';
 import { buildExpanded } from '../../src/geometry/patterns/expanded';
 import { MAX_BRIDGE, overhangReport } from '../../src/geometry/printability';
+import { wallIntrusion } from '../../src/geometry/stacking';
 import { RoundedRectPath } from '../../src/geometry/weave/outline';
 
 let wasm: Wasm;
@@ -115,7 +117,13 @@ describe('irregular top: geometry', () => {
           : style === 'braid'
             ? buildBraid(wasm, scope, p, 'preview', true)
             : style === 'weave'
-              ? undefined
+              ? // a solid wall as thick as the weave: lines may run on lengthwise in it
+                buildTub(
+                  wasm,
+                  scope,
+                  { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
+                  'preview',
+                )
               : buildTub(wasm, scope, p, 'preview');
       const r = overhangReport(m, envelope ? { envelope } : {});
       expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
@@ -129,10 +137,13 @@ describe('irregular top: geometry', () => {
   });
 
   it.each([
-    ['notch handles', { handles: 'ends' }],
-    ['slot handles', { handles: 'ends', handleType: 'slot', heightBR: 60, heightBL: 66 }],
+    ['notch handles', { handleSides: sides('left', 'right') }],
+    [
+      'slot handles',
+      { handleSides: sides('left', 'right'), handleType: 'slot', heightBR: 60, heightBL: 66 },
+    ],
     ['dividers', { dividersX: [50, 100], dividersY: [40] }],
-    ['label', { labelPosition: 'side', labelTape: '12' }],
+    ['label', { labelSides: sides('front'), labelTape: '12' }],
   ] as const)('with %s: one manifold body', (_n, patch) => {
     for (const wallStyle of ['voronoi', 'expanded'] as const) {
       const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
@@ -154,6 +165,17 @@ describe('irregular top: geometry', () => {
     ['steep (22°)', 'expanded', { heightFL: 80, heightFR: 80, heightBL: 40, heightBR: 40 }],
     ['twisted', 'braid', { heightFL: 80, heightFR: 60, heightBL: 60, heightBR: 80 }],
     ['open weave', 'weave', { weave: { ...DEFAULTS.weave, rowGap: 4 } }],
+    [
+      'one corner raised, wide gaps',
+      'braid',
+      {
+        heightFL: 80,
+        heightFR: 80,
+        heightBL: 97,
+        heightBR: 80,
+        braid: { ...DEFAULTS.braid, bandGap: 4.5 },
+      },
+    ],
   ] as const)('%s %s: printable', (_n, wallStyle, patch) => {
     const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
     const m = buildManifold(wasm, p, 'preview');
@@ -167,7 +189,12 @@ describe('irregular top: geometry', () => {
           ? buildExpanded(wasm, scope, p, 'preview', true)
           : wallStyle === 'braid'
             ? buildBraid(wasm, scope, p, 'preview', true)
-            : undefined;
+            : buildTub(
+                wasm,
+                scope,
+                { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
+                'preview',
+              );
       const r = overhangReport(m, envelope ? { envelope } : {});
       expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
       expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);

@@ -8,7 +8,7 @@ import { clampParams, DEFAULTS } from '../../src/geometry/params';
 let mesh: MeshData;
 beforeAll(async () => {
   const wasm = await loadManifold();
-  const p = clampParams({ ...DEFAULTS, width: 80, depth: 60, height: 40, handles: 'none' }).params;
+  const p = clampParams({ ...DEFAULTS, width: 80, depth: 60, height: 40 }).params;
   mesh = build(wasm, p, 'export');
 });
 

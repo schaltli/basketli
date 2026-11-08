@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   clampParams,
   DEFAULTS,
-  HANDLE_MODES,
   LIMITS,
   WALL_STYLES,
   WEAVE_MATERIALS,
+  sides,
   type BasketParams,
 } from '../../src/geometry/params';
 import { seededRandom } from '../../src/geometry/random';
@@ -70,28 +70,48 @@ describe('url', () => {
       type: 'enum',
       values: WALL_STYLES,
     });
-    expect(FIELDS.find((f) => f.path === 'handles')!.kind).toEqual({
-      type: 'enum',
-      values: HANDLE_MODES,
-    });
+    expect(FIELDS.find((f) => f.path === 'handleSides.front')!.kind).toEqual({ type: 'bool' });
     expect(FIELDS.find((f) => f.path === 'weave.material')!.kind).toEqual({
       type: 'enum',
       values: WEAVE_MATERIALS,
     });
   });
 
+  it('reads the end / side walls of version 1 links as single walls', () => {
+    // wide basket: the end walls are left and right, the side wall is the front
+    expect(parse('v=1&handles=ends&labelPosition=side').params).toMatchObject({
+      handleSides: sides('left', 'right'),
+      labelSides: sides('front'),
+    });
+    // one handle went on the +x end, an end label then on the other end
+    expect(parse('v=1&handles=one&labelPosition=end').params).toMatchObject({
+      handleSides: sides('right'),
+      labelSides: sides('left'),
+    });
+    // deep basket: the end walls are front and back
+    const deep = parse('v=1&width=100&depth=150&handles=one&labelPosition=side');
+    expect(deep.params).toMatchObject({ handleSides: sides('back'), labelSides: sides('right') });
+    expect(deep.notices).toEqual([]);
+  });
+
+  it('writes the chosen walls one by one', () => {
+    const q = serialize({ ...DEFAULTS, handleSides: sides('front') });
+    expect(q).toBe('v=2&handleSides.front=1');
+    expect(parse(q).params.handleSides).toEqual(sides('front'));
+  });
+
   it('defaults serialize to just the version', () => {
-    expect(serialize(DEFAULTS)).toBe('v=1');
+    expect(serialize(DEFAULTS)).toBe('v=2');
   });
 
   it('only writes values that differ from the defaults', () => {
     const q = serialize({ ...DEFAULTS, width: 120, weave: { ...DEFAULTS.weave, rowGap: 4 } });
-    expect(q).toBe('v=1&width=120&weave.rowGap=4');
+    expect(q).toBe('v=2&width=120&weave.rowGap=4');
   });
 
   it('writes divider positions as a comma list and reads them back', () => {
     const q = serialize({ ...DEFAULTS, dividersX: [50, 100.5], dividersY: [40] });
-    expect(q).toBe('v=1&dividersX=50%2C100.5&dividersY=40');
+    expect(q).toBe('v=2&dividersX=50%2C100.5&dividersY=40');
     const r = parse('?v=1&dividersX=50,100.5&dividersY=40');
     expect(r.params.dividersX).toEqual([50, 100.5]);
     expect(r.params.dividersY).toEqual([40]);

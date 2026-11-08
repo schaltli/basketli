@@ -16,8 +16,9 @@ import {
   DEFAULTS,
   HANDLE_FRAME,
   type BasketParams,
-  type HandleMode,
   type WallStyle,
+  sides,
+  type Sides,
 } from '../../src/geometry/params';
 import { buildExpanded } from '../../src/geometry/patterns/expanded';
 import { MAX_BRIDGE, overhangReport } from '../../src/geometry/printability';
@@ -29,8 +30,21 @@ beforeAll(async () => {
   wasm = await loadManifold();
 });
 
-const basket = (wallStyle: WallStyle, handles: HandleMode, rowGap = 0): BasketParams =>
-  clampParams({ ...DEFAULTS, wallStyle, handles, weave: { ...DEFAULTS.weave, rowGap } }).params;
+/** The old modes, on the default (wide) basket: one or both end walls. */
+type HandleMode = 'none' | 'one' | 'ends';
+const MODE: Record<HandleMode, Sides> = {
+  none: sides(),
+  one: sides('right'),
+  ends: sides('left', 'right'),
+};
+
+const basket = (wallStyle: WallStyle, mode: HandleMode, rowGap = 0): BasketParams =>
+  clampParams({
+    ...DEFAULTS,
+    wallStyle,
+    handleSides: MODE[mode],
+    weave: { ...DEFAULTS.weave, rowGap },
+  }).params;
 
 /** Volume of `m` inside an axis-aligned box. */
 function inBox(m: Manifold, min: [number, number, number], max: [number, number, number]) {
@@ -45,21 +59,71 @@ function inBox(m: Manifold, min: [number, number, number], max: [number, number,
 }
 
 describe('handle sites', () => {
-  it('end walls are the shorter walls; their centers on the outline path', () => {
-    const wide = basket('voronoi', 'ends');
-    const path = new RoundedRectPath(wide.width, wide.depth, wide.cornerRadius);
-    const [a, b] = handleArcCenters(wide, path);
-    expect(path.at(a!).p[0]).toBeCloseTo(wide.width / 2, 6);
-    expect(path.at(a!).p[1]).toBeCloseTo(0, 6);
-    expect(path.at(b!).p[0]).toBeCloseTo(-wide.width / 2, 6);
-
-    const deep = clampParams({ ...wide, width: 100, depth: 150 }).params;
-    const p2 = new RoundedRectPath(deep.width, deep.depth, deep.cornerRadius);
-    const [c] = handleArcCenters({ ...deep, handles: 'one' }, p2);
-    expect(p2.at(c!).p[1]).toBeCloseTo(deep.depth / 2, 6);
-    expect(handleArcCenters({ ...deep, handles: 'one' }, p2)).toHaveLength(1);
-    expect(handleArcCenters({ ...deep, handles: 'none' }, p2)).toHaveLength(0);
+  it('every chosen wall gets a handle, centered on the outline path', () => {
+    const all = clampParams({
+      ...DEFAULTS,
+      height: 100,
+      handleSides: sides('front', 'back', 'left', 'right'),
+    }).params;
+    expect(all.handleSides).toEqual(sides('front', 'back', 'left', 'right'));
+    const path = new RoundedRectPath(all.width, all.depth, all.cornerRadius);
+    const at = handleArcCenters(all, path).map((s) => path.at(s).p);
+    const W = all.width / 2;
+    const D = all.depth / 2;
+    // SIDES order: front, back, left, right
+    const want = [
+      [0, -D],
+      [0, D],
+      [-W, 0],
+      [W, 0],
+    ];
+    at.forEach((q, i) => {
+      expect(q[0]).toBeCloseTo(want[i]![0]!, 6);
+      expect(q[1]).toBeCloseTo(want[i]![1]!, 6);
+    });
+    expect(handleArcCenters({ ...all, handleSides: sides() }, path)).toHaveLength(0);
   });
+
+  it('a wall too short for the handle loses it; the others keep theirs', () => {
+    // 150 × 60: the 40 mm straight end walls have no room for a 30 mm notch and its frame
+    const r = clampParams({
+      ...DEFAULTS,
+      depth: 60,
+      handleSides: sides('front', 'left'),
+    });
+    expect(r.params.handleSides).toEqual(sides('front'));
+    expect(r.notices).toContainEqual(
+      expect.objectContaining({ field: 'handleSides.left', kind: 'rule' }),
+    );
+  });
+
+  it.each(['voronoi', 'expanded', 'weave'] as const)(
+    '%s: handles on the long walls, one printable body',
+    (wallStyle) => {
+      const p = clampParams({
+        ...DEFAULTS,
+        wallStyle,
+        stackable: false,
+        handleSides: sides('front', 'back'),
+      }).params;
+      const m = buildManifold(wasm, p, 'preview');
+      try {
+        const parts = m.decompose();
+        expect(parts.length).toBe(1);
+        parts.forEach((x) => x.delete());
+        const D = p.depth / 2;
+        const T = wallIntrusion(p);
+        const H = p.height;
+        const w = p.handleWidth;
+        const d = p.handleDepth;
+        // the notch is open in the middle of both long walls
+        for (const y0 of [-D - 0.5, D - T - 0.5])
+          expect(inBox(m, [-w / 4, y0, H - d + 1], [w / 4, y0 + T + 1, H + 1])).toBeLessThan(1e-3);
+      } finally {
+        m.delete();
+      }
+    },
+  );
 });
 
 const styles: [string, WallStyle, number][] = [
@@ -73,7 +137,7 @@ const styles: [string, WallStyle, number][] = [
 describe.each(styles)('%s with a cut-out from the top', (_name, style, gap) => {
   it.each(['one', 'ends'] as const)('%s: open notch, solid frame, one printable body', (mode) => {
     const p = basket(style, mode, gap);
-    expect(p.handles).toBe(mode);
+    expect(p.handleSides).toEqual(MODE[mode]);
     const m = buildManifold(wasm, p, 'preview');
     const scope = new Scope();
     try {
@@ -168,11 +232,11 @@ describe('stacking with cut-outs', () => {
   });
 });
 
-const slotBasket = (wallStyle: WallStyle, handles: HandleMode, rowGap = 0): BasketParams =>
+const slotBasket = (wallStyle: WallStyle, mode: HandleMode, rowGap = 0): BasketParams =>
   clampParams({
     ...DEFAULTS,
     wallStyle,
-    handles,
+    handleSides: MODE[mode],
     handleType: 'slot',
     weave: { ...DEFAULTS.weave, rowGap },
   }).params;
@@ -211,15 +275,30 @@ describe('slot geometry', () => {
   });
 
   it('clamps the slot into the wall, or drops it when the basket is too low', () => {
-    const low = clampParams({ ...DEFAULTS, height: 50, handles: 'ends', handleType: 'slot' });
-    expect(low.params.handles).toBe('ends');
+    const low = clampParams({
+      ...DEFAULTS,
+      height: 50,
+      handleSides: sides('left', 'right'),
+      handleType: 'slot',
+    });
+    expect(low.params.handleSides).toEqual(sides('left', 'right'));
     expect(low.params.slotBar + low.params.slotHeight).toBeLessThanOrEqual(
       50 - 3 - HANDLE_FRAME - 5 + 1e-9,
     );
     expect(low.notices.some((n) => n.field === 'slotHeight')).toBe(true);
-    const tiny = clampParams({ ...DEFAULTS, height: 30, handles: 'ends', handleType: 'slot' });
-    expect(tiny.params.handles).toBe('none');
-    const narrow = clampParams({ ...DEFAULTS, depth: 90, handles: 'one', handleType: 'slot' });
+    const tiny = clampParams({
+      ...DEFAULTS,
+      height: 30,
+      handleSides: sides('left', 'right'),
+      handleType: 'slot',
+    });
+    expect(tiny.params.handleSides).toEqual(sides());
+    const narrow = clampParams({
+      ...DEFAULTS,
+      depth: 90,
+      handleSides: sides('right'),
+      handleType: 'slot',
+    });
     expect(narrow.params.slotWidth).toBe(90 - 2 * 10 - 2 * (HANDLE_FRAME + 5));
   });
 });
@@ -229,7 +308,7 @@ describe.each(styles)('%s with a closed slot', (_name, style, gap) => {
     '%s: open slot, solid bar, ribs, one printable body',
     (mode) => {
       const p = slotBasket(style, mode, gap);
-      expect(p.handles).toBe(mode);
+      expect(p.handleSides).toEqual(MODE[mode]);
       expect(p.handleType).toBe('slot');
       const m = buildManifold(wasm, p, 'preview');
       const scope = new Scope();

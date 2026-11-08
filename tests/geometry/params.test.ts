@@ -9,6 +9,7 @@ import {
   clampParams,
   setWeaveMaterial,
   type BasketParams,
+  sides,
 } from '../../src/geometry/params';
 
 const withP = (patch: Partial<BasketParams>): BasketParams => ({ ...DEFAULTS, ...patch });
@@ -30,7 +31,6 @@ describe('DEFAULTS', () => {
       holeSize: 10,
       webWidth: 2.5,
       borderBand: 4,
-      handles: 'none',
       handleWidth: 60,
       handleDepth: 20,
     });
@@ -103,7 +103,7 @@ describe('clampParams – ranges', () => {
 
 describe('clampParams – dependent rules', () => {
   it('corner radius is at most half the shorter side', () => {
-    const r = clampParams(withP({ width: 40, depth: 30, cornerRadius: 30, handles: 'none' }));
+    const r = clampParams(withP({ width: 40, depth: 30, cornerRadius: 30 }));
     expect(r.params.cornerRadius).toBe(15);
     expect(r.notices).toContainEqual(
       expect.objectContaining({ field: 'cornerRadius', kind: 'rule' }),
@@ -130,26 +130,30 @@ describe('clampParams – dependent rules', () => {
   });
 
   it('border bands leave room in the wall', () => {
-    const r = clampParams(withP({ height: 20, borderBand: 30, handles: 'none' }));
+    const r = clampParams(withP({ height: 20, borderBand: 30 }));
     expect(r.params.borderBand * 2).toBeLessThan(r.params.height);
   });
 
   it('handles are dropped when the basket is too low', () => {
-    const r = clampParams(withP({ height: 20, handles: 'ends' }));
-    expect(r.params.handles).toBe('none');
-    expect(r.notices).toContainEqual(expect.objectContaining({ field: 'handles', kind: 'rule' }));
+    const r = clampParams(withP({ height: 20, handleSides: sides('left', 'right') }));
+    expect(r.params.handleSides).toEqual(sides());
+    expect(r.notices).toContainEqual(
+      expect.objectContaining({ field: 'handleSides.left', kind: 'rule' }),
+    );
   });
 
   it('handles are dropped when the end walls are too narrow (ends = shorter walls)', () => {
     const tooShort =
       LIMITS.handleWidth.min + 2 * (HANDLE_FRAME + HANDLE_MARGIN) - 1 + 2 * DEFAULTS.cornerRadius;
-    const r = clampParams(withP({ width: 200, depth: tooShort, handles: 'one' }));
-    expect(r.params.handles).toBe('none');
-    expect(r.notices).toContainEqual(expect.objectContaining({ field: 'handles', kind: 'rule' }));
+    const r = clampParams(withP({ width: 200, depth: tooShort, handleSides: sides('right') }));
+    expect(r.params.handleSides).toEqual(sides());
+    expect(r.notices).toContainEqual(
+      expect.objectContaining({ field: 'handleSides.right', kind: 'rule' }),
+    );
   });
 
   it('handle width fits the straight part of the end wall, with frame and margin', () => {
-    const r = clampParams(withP({ handles: 'ends', handleWidth: 120 }));
+    const r = clampParams(withP({ handleSides: sides('left', 'right'), handleWidth: 120 }));
     const end = Math.min(r.params.width, r.params.depth) - 2 * r.params.cornerRadius;
     expect(r.params.handleWidth).toBe(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
     expect(r.notices).toContainEqual(
@@ -158,7 +162,7 @@ describe('clampParams – dependent rules', () => {
   });
 
   it('handle depth stays above the socket', () => {
-    const r = clampParams(withP({ handles: 'one', height: 40, handleDepth: 40 }));
+    const r = clampParams(withP({ handleSides: sides('right'), height: 40, handleDepth: 40 }));
     expect(r.params.handleDepth).toBeLessThanOrEqual(
       40 - 7.3 - HANDLE_FRAME - HANDLE_MARGIN + 1e-9,
     );

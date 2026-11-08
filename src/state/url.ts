@@ -3,9 +3,7 @@ import {
   DEFAULTS,
   DIVIDER_STYLES,
   FLOOR_PATTERNS,
-  HANDLE_MODES,
   HANDLE_TYPES,
-  LABEL_POSITIONS,
   LABEL_TAPES,
   WALL_STYLES,
   WEAVE_MATERIALS,
@@ -14,7 +12,29 @@ import {
 } from '../geometry/params';
 
 /** Version of the URL format; bump when keys or meanings change. */
-export const URL_VERSION = 1;
+export const URL_VERSION = 2;
+
+/**
+ * Keys of version 1 that version 2 replaced: handles / labelPosition chose
+ * end walls (the shorter ones) or side walls (the longer ones); now every
+ * wall is chosen on its own (handleSides.*, labelSides.*).
+ */
+const LEGACY = ['handles', 'labelPosition'] as const;
+
+function applyLegacy(p: BasketParams, old: Partial<Record<(typeof LEGACY)[number], string>>) {
+  const alongX = p.width >= p.depth;
+  // the +x (or +y) end first, like a single handle used to
+  const ends = alongX ? (['right', 'left'] as const) : (['back', 'front'] as const);
+  const side = alongX ? 'front' : 'right';
+  if (old.handles === 'one' || old.handles === 'ends') {
+    p.handleSides = { ...p.handleSides, [ends[0]]: true };
+    if (old.handles === 'ends') p.handleSides[ends[1]] = true;
+  }
+  if (old.labelPosition === 'side') p.labelSides = { ...p.labelSides, [side]: true };
+  if (old.labelPosition === 'end')
+    // with one handle the label went on the other end
+    p.labelSides = { ...p.labelSides, [ends[old.handles === 'one' ? 1 : 0]]: true };
+}
 
 type Kind =
   | { type: 'number' }
@@ -25,9 +45,7 @@ type Kind =
 /** Allowed values for string-valued parameters, by dotted path. */
 const ENUMS: Record<string, readonly string[]> = {
   wallStyle: WALL_STYLES,
-  handles: HANDLE_MODES,
   handleType: HANDLE_TYPES,
-  labelPosition: LABEL_POSITIONS,
   labelTape: LABEL_TAPES,
   dividerStyle: DIVIDER_STYLES,
   floorPattern: FLOOR_PATTERNS,
@@ -96,9 +114,15 @@ export function parse(search: string): { params: BasketParams; notices: Notice[]
   const p = clone(DEFAULTS);
   const notices: Notice[] = [];
   const known = new Map(FIELDS.map((f) => [f.path, f.kind]));
+  const legacy: Partial<Record<(typeof LEGACY)[number], string>> = {};
 
   for (const [key, raw] of q) {
     if (key === 'v') continue;
+    const old = LEGACY.find((k) => k === key);
+    if (old) {
+      legacy[old] = raw;
+      continue;
+    }
     const kind = known.get(key);
     if (!kind) {
       notices.push({ field: key, kind: 'unknown', value: raw });
@@ -122,6 +146,7 @@ export function parse(search: string): { params: BasketParams; notices: Notice[]
       notices.push({ field: key, kind: 'invalid', value: String(get(DEFAULTS, key)) });
     }
   }
+  applyLegacy(p, legacy);
   const clamped = clampParams(p);
   return { params: clamped.params, notices: [...notices, ...clamped.notices] };
 }

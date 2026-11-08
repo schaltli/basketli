@@ -9,6 +9,7 @@ import { useUi } from '../uiState';
 import { DimensionLabels } from './DimensionLabels';
 import { GridEditor } from './GridEditor';
 import { ShapeEditor } from './ShapeEditor';
+import { SideLabels } from './SideLabels';
 import { materialFor } from './materials';
 import { useViewLock } from './viewLock';
 
@@ -155,6 +156,7 @@ export function Viewer({ mesh, params }: ViewerProps) {
             <meshStandardMaterial {...materialFor(params.wallStyle)} />
           </mesh>
         )}
+        <SideLabels params={params} />
         {gridMode ? (
           <GridEditor params={params} />
         ) : shapeMode ? (

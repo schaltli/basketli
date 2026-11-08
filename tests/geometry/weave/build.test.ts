@@ -13,7 +13,6 @@ beforeAll(async () => {
 const weave = (patch: Partial<BasketParams> = {}, w: Partial<BasketParams['weave']> = {}) =>
   clampParams({
     ...DEFAULTS,
-    handles: 'none',
     stackable: false,
     ...patch,
     wallStyle: 'weave',

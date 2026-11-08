@@ -84,18 +84,146 @@ button {
 }
 
 .params fieldset {
-  margin: 14px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
+  min-width: 0;
 }
 
-.params legend {
-  margin-bottom: 6px;
-  font-weight: 650;
+/* collapsible sections: a full-width title row with a chevron */
+.params .section {
+  border-top: 1px solid #e6dfd4;
+}
+
+.params .section:first-of-type {
+  margin-top: 8px;
+}
+
+.params .section legend {
+  display: contents;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 2px;
+  border: 0;
+  background: none;
   color: #6b6052;
   font-size: 0.8rem;
+  font-weight: 650;
+  text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.section-toggle:hover {
+  color: #3d342a;
+}
+
+.section-toggle:focus-visible {
+  outline: 2px solid #8b6d42;
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.section-chevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+}
+
+.section.closed .section-chevron {
+  transform: none;
+}
+
+.section-title {
+  flex-shrink: 0;
+}
+
+.section-summary {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: #8a7f70;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.section-body {
+  padding: 2px 2px 12px;
+}
+
+/* walls as toggle chips: vorne, hinten, links, rechts */
+.side-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.side-choice-label {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+
+.side-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid #cfc4b4;
+  border-radius: 999px;
+  background: #fbf9f6;
+  color: #3d342a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.side-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.side-chip.on {
+  border-color: #8b6d42;
+  background: #8b6d42;
+  color: #fff;
+}
+
+.side-chip:has(input:focus-visible) {
+  outline: 2px solid #8b6d42;
+  outline-offset: 2px;
+}
+
+/* wall names on the ground beside the basket */
+.side-name {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgb(244 241 236 / 80%);
+  color: #6b6052;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.2s ease;
 }
 
 .field {

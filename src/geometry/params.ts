@@ -5,15 +5,24 @@ import { holesBottom, patternBase, STACK_INSET, STACK_MIN_RADIUS, wallIntrusion 
 /** 'solid' is the plain tub (internal base and reference body, not offered in the UI). */
 export const WALL_STYLES = ['solid', 'hex', 'voronoi', 'expanded', 'weave', 'braid'] as const;
 export type WallStyle = (typeof WALL_STYLES)[number];
-/** Cut-out from the top edge: none, on one end wall, or on both end walls. */
-export const HANDLE_MODES = ['none', 'one', 'ends'] as const;
-export type HandleMode = (typeof HANDLE_MODES)[number];
+/** The four walls, seen from the front (−y). */
+export const SIDES = ['front', 'back', 'left', 'right'] as const;
+export type Side = (typeof SIDES)[number];
+/** A choice of walls (handles, label fields). */
+export type Sides = Record<Side, boolean>;
+export const NO_SIDES: Sides = { front: false, back: false, left: false, right: false };
+/** A choice of the given walls, e.g. sides('left', 'right'). */
+export const sides = (...on: Side[]): Sides => ({
+  front: on.includes('front'),
+  back: on.includes('back'),
+  left: on.includes('left'),
+  right: on.includes('right'),
+});
+/** The chosen walls, in SIDES order. */
+export const sidesOf = (s: Sides): Side[] => SIDES.filter((k) => s[k]);
 /** Handle kind: cut-out from the top edge, or a closed slot below the rim. */
 export const HANDLE_TYPES = ['notch', 'slot'] as const;
 export type HandleType = (typeof HANDLE_TYPES)[number];
-/** Label field: none, on an end wall (shorter) or on a side wall (longer). */
-export const LABEL_POSITIONS = ['none', 'end', 'side'] as const;
-export type LabelPosition = (typeof LABEL_POSITIONS)[number];
 /** Recess for label-maker tape (P-touch TZe widths, mm), or none. */
 export const LABEL_TAPES = ['none', '6', '9', '12', '18', '24'] as const;
 export type LabelTape = (typeof LABEL_TAPES)[number];
@@ -94,7 +103,8 @@ export interface BasketParams {
   holeSize: number;
   webWidth: number;
   borderBand: number;
-  handles: HandleMode;
+  /** Walls with a handle (cut-out or slot, see handleType). */
+  handleSides: Sides;
   /** Width and depth of the cut-out from the top edge (mm). */
   handleWidth: number;
   handleDepth: number;
@@ -103,8 +113,8 @@ export interface BasketParams {
   slotWidth: number;
   slotHeight: number;
   slotBar: number;
-  /** Solid label field in the wall: where, size, corner radius, tape recess. */
-  labelPosition: LabelPosition;
+  /** Solid label field in the wall: on which walls, size, corner radius, tape recess. */
+  labelSides: Sides;
   labelWidth: number;
   labelHeight: number;
   labelRadius: number;
@@ -220,14 +230,14 @@ export const DEFAULTS: BasketParams = {
   holeSize: 10,
   webWidth: 2.5,
   borderBand: 4,
-  handles: 'none',
+  handleSides: { ...NO_SIDES },
   handleWidth: 60,
   handleDepth: 20,
   handleType: 'notch',
   slotWidth: 80,
   slotHeight: 25,
   slotBar: 15,
-  labelPosition: 'none',
+  labelSides: { ...NO_SIDES },
   labelWidth: 60,
   labelHeight: 20,
   labelRadius: 3,
@@ -310,12 +320,74 @@ const WEAVE_NUMBERS: WeaveNumberKey[] = [
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
 
-/** Straight length of the shorter (end) and longer (side) walls. */
-export function straightWallLengths(p: BasketParams): { ends: number; sides: number } {
-  const shorter = Math.min(p.width, p.depth);
-  const longer = Math.max(p.width, p.depth);
-  return { ends: shorter - 2 * p.cornerRadius, sides: longer - 2 * p.cornerRadius };
+/** A wall: outward normal, counter-clockwise tangent, middle on the outer outline. */
+export interface WallSite {
+  side: Side;
+  n: [number, number];
+  t: [number, number];
+  c: [number, number];
+  /** Its two top corners. */
+  corners: [CornerKey, CornerKey];
+  /** Straight length between the corner arcs. */
+  length: number;
+  /** Arc position of the middle on a rounded-rectangle path of length L (s = 0: middle of the front). */
+  s: (L: number) => number;
 }
+
+export function wallSite(p: BasketParams, side: Side): WallSite {
+  const W = p.width / 2;
+  const D = p.depth / 2;
+  const across = p.width - 2 * p.cornerRadius;
+  const deep = p.depth - 2 * p.cornerRadius;
+  switch (side) {
+    case 'front':
+      return {
+        side,
+        n: [0, -1],
+        t: [1, 0],
+        c: [0, -D],
+        corners: ['heightFL', 'heightFR'],
+        length: across,
+        s: () => 0,
+      };
+    case 'right':
+      return {
+        side,
+        n: [1, 0],
+        t: [0, 1],
+        c: [W, 0],
+        corners: ['heightFR', 'heightBR'],
+        length: deep,
+        s: (L) => L / 4,
+      };
+    case 'back':
+      return {
+        side,
+        n: [0, 1],
+        t: [-1, 0],
+        c: [0, D],
+        corners: ['heightBL', 'heightBR'],
+        length: across,
+        s: (L) => L / 2,
+      };
+    case 'left':
+      return {
+        side,
+        n: [-1, 0],
+        t: [0, -1],
+        c: [-W, 0],
+        corners: ['heightFL', 'heightBL'],
+        length: deep,
+        s: (L) => (3 * L) / 4,
+      };
+  }
+}
+
+/** Height of a wall's top in its middle. */
+export const wallMidTop = (p: BasketParams, side: Side) => {
+  const [a, b] = wallSite(p, side).corners;
+  return (cornerHeight(p, a) + cornerHeight(p, b)) / 2;
+};
 
 /**
  * Returns params with every value inside its range and all dependent rules
@@ -327,6 +399,8 @@ export function clampParams(input: BasketParams): ClampResult {
     dividersX: [...(input.dividersX ?? [])],
     dividersY: [...(input.dividersY ?? [])],
     weave: { ...input.weave },
+    handleSides: { ...NO_SIDES, ...input.handleSides },
+    labelSides: { ...NO_SIDES, ...input.labelSides },
   };
   const notices: Notice[] = [];
 
@@ -517,62 +591,76 @@ export function clampParams(input: BasketParams): ClampResult {
     }
   }
 
-  // Handles: framed, inside the straight part of the end walls, and
-  // above the socket / bottom zone.
-  if (p.handles !== 'none' && p.handleType === 'slot') {
-    const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
-    const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
-    // bar + hole + frame below must stay above the socket / bottom zone
-    const room = round(handleWallTop(p) - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
-    if (maxWidth < LIMITS.slotWidth.min || room < LIMITS.slotBar.min + LIMITS.slotHeight.min) {
-      p.handles = 'none';
-      rule('handles', 'none');
-    } else {
-      if (p.slotWidth > maxWidth) {
-        p.slotWidth = maxWidth;
-        rule('slotWidth', maxWidth);
+  // Handles: framed, inside the straight part of their walls, and above
+  // the socket / bottom zone. A wall with no room for one loses it.
+  if (sidesOf(p.handleSides).length > 0) {
+    const slot = p.handleType === 'slot';
+    const minWidth = slot ? LIMITS.slotWidth.min : LIMITS.handleWidth.min;
+    const minRoom = slot ? LIMITS.slotBar.min + LIMITS.slotHeight.min : LIMITS.handleDepth.min;
+    const widthOn = (side: Side) =>
+      round(wallSite(p, side).length - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
+    // bar + hole (or cut-out) + frame below must stay above the socket / bottom zone
+    const roomOn = (side: Side) =>
+      round(wallMidTop(p, side) - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
+    for (const side of sidesOf(p.handleSides))
+      if (widthOn(side) < minWidth || roomOn(side) < minRoom) {
+        p.handleSides[side] = false;
+        rule(`handleSides.${side}`, 'false');
       }
-      // compare against the rounded limits, or a second pass would clamp again
-      const maxBar = round(room - LIMITS.slotHeight.min);
-      if (p.slotBar > maxBar) {
-        p.slotBar = maxBar;
-        rule('slotBar', maxBar);
-      }
-      const maxHeight = round(room - p.slotBar);
-      if (p.slotHeight > maxHeight) {
-        p.slotHeight = maxHeight;
-        rule('slotHeight', maxHeight);
-      }
-    }
-  } else if (p.handles !== 'none') {
-    const end = Math.min(p.width, p.depth) - 2 * p.cornerRadius;
-    const maxWidth = round(end - 2 * (HANDLE_FRAME + HANDLE_MARGIN));
-    const maxDepth = round(handleWallTop(p) - patternBase(p) - HANDLE_FRAME - HANDLE_MARGIN);
-    if (maxWidth < LIMITS.handleWidth.min || maxDepth < LIMITS.handleDepth.min) {
-      p.handles = 'none';
-      rule('handles', 'none');
-    } else {
-      if (p.handleWidth > maxWidth) {
-        p.handleWidth = maxWidth;
-        rule('handleWidth', maxWidth);
-      }
-      if (p.handleDepth > maxDepth) {
-        p.handleDepth = maxDepth;
-        rule('handleDepth', maxDepth);
+    const on = sidesOf(p.handleSides);
+    if (on.length > 0) {
+      const maxWidth = Math.min(...on.map(widthOn));
+      const room = Math.min(...on.map(roomOn));
+      if (slot) {
+        if (p.slotWidth > maxWidth) {
+          p.slotWidth = maxWidth;
+          rule('slotWidth', maxWidth);
+        }
+        // compare against the rounded limits, or a second pass would clamp again
+        const maxBar = round(room - LIMITS.slotHeight.min);
+        if (p.slotBar > maxBar) {
+          p.slotBar = maxBar;
+          rule('slotBar', maxBar);
+        }
+        const maxHeight = round(room - p.slotBar);
+        if (p.slotHeight > maxHeight) {
+          p.slotHeight = maxHeight;
+          rule('slotHeight', maxHeight);
+        }
+      } else {
+        if (p.handleWidth > maxWidth) {
+          p.handleWidth = maxWidth;
+          rule('handleWidth', maxWidth);
+        }
+        if (p.handleDepth > room) {
+          p.handleDepth = room;
+          rule('handleDepth', room);
+        }
       }
     }
   }
 
   // Label field: on the straight part of its wall, between the border bands
-  // (below a handle on the same wall); room for the tape recess.
-  if (p.labelPosition !== 'none') {
-    const zone = labelZone(p);
-    const maxWidth = round(zone.length - 2 * LABEL_MARGIN);
-    const maxHeight = round(zone.top - zone.bottom - 2 * LABEL_MARGIN);
-    if (maxWidth < LIMITS.labelWidth.min || maxHeight < LIMITS.labelHeight.min) {
-      p.labelPosition = 'none';
-      rule('labelPosition', 'none');
-    } else {
+  // (below a handle on the same wall); room for the tape recess. A wall
+  // with no room for one loses it; one size fits all chosen walls.
+  const labelWidthOn = (side: Side) => round(labelZone(p, side).length - 2 * LABEL_MARGIN);
+  const labelHeightOn = (side: Side) => {
+    const zone = labelZone(p, side);
+    return round(zone.top - zone.bottom - 2 * LABEL_MARGIN);
+  };
+  for (const side of sidesOf(p.labelSides))
+    if (
+      labelWidthOn(side) < LIMITS.labelWidth.min ||
+      labelHeightOn(side) < LIMITS.labelHeight.min
+    ) {
+      p.labelSides[side] = false;
+      rule(`labelSides.${side}`, 'false');
+    }
+  const labelOn = sidesOf(p.labelSides);
+  if (labelOn.length > 0) {
+    const maxWidth = Math.min(...labelOn.map(labelWidthOn));
+    const maxHeight = Math.min(...labelOn.map(labelHeightOn));
+    {
       if (p.labelWidth > maxWidth) {
         p.labelWidth = maxWidth;
         rule('labelWidth', maxWidth);
@@ -645,23 +733,23 @@ export function clampParams(input: BasketParams): ClampResult {
 export const TAPE_DEPTH = 0.4;
 
 /**
- * Where a label field may go: the straight length of its wall and the height
+ * Where a label field may go on a wall: its straight length and the height
  * range between the bottom zone and the top border (or a handle on that wall).
- * With one handle the label goes on the other end wall.
  */
-export function labelZone(p: BasketParams): { length: number; bottom: number; top: number } {
-  const walls = straightWallLengths(p);
-  const length = p.labelPosition === 'side' ? walls.sides : walls.ends;
+export function labelZone(
+  p: BasketParams,
+  side: Side,
+): { length: number; bottom: number; top: number } {
+  const wall = wallSite(p, side);
   const bottom = holesBottom(p);
-  const wall = labelWall(p);
-  let top = Math.min(...wall.map((k) => cornerHeight(p, k))) - topBand(p);
-  if (p.labelPosition === 'end' && p.handles === 'ends') {
+  let top = Math.min(...wall.corners.map((k) => cornerHeight(p, k))) - topBand(p);
+  if (p.handleSides[side]) {
     // the handle on the same wall, at that wall's height in its middle
-    const hc = wall.reduce((sum, k) => sum + cornerHeight(p, k), 0) / 2;
+    const hc = wallMidTop(p, side);
     const opening = p.handleType === 'slot' ? hc - p.slotBar - p.slotHeight : hc - p.handleDepth;
     top = Math.min(top, opening - HANDLE_FRAME);
   }
-  return { length, bottom, top };
+  return { length: wall.length, bottom, top };
 }
 
 export const CORNER_KEYS = ['heightFL', 'heightFR', 'heightBL', 'heightBR'] as const;
@@ -690,32 +778,6 @@ export function topAt(p: BasketParams, x: number, y: number): number {
 
 /** Height of the solid band along the top edge (weave: its rim). */
 export const topBand = (p: BasketParams) => (p.wallStyle === 'weave' ? p.weave.rim : p.borderBand);
-
-/** Corners of the wall the label field sits on (see label.ts labelSite). */
-function labelWall(p: BasketParams): [CornerKey, CornerKey] {
-  const alongX = p.width >= p.depth;
-  if (p.labelPosition === 'side')
-    return alongX ? ['heightFL', 'heightFR'] : ['heightFR', 'heightBR'];
-  const other = p.handles === 'one';
-  if (alongX) return other ? ['heightFL', 'heightBL'] : ['heightFR', 'heightBR'];
-  return other ? ['heightFL', 'heightFR'] : ['heightBL', 'heightBR'];
-}
-
-/** Lowest middle height of the walls that carry handles (end walls). */
-export function handleWallTop(p: BasketParams): number {
-  const alongX = p.width >= p.depth;
-  const walls: [CornerKey, CornerKey][] = alongX
-    ? [
-        ['heightFR', 'heightBR'],
-        ['heightFL', 'heightBL'],
-      ]
-    : [
-        ['heightBL', 'heightBR'],
-        ['heightFL', 'heightFR'],
-      ];
-  const used = p.handles === 'one' ? walls.slice(0, 1) : walls;
-  return Math.min(...used.map(([a, b]) => (cornerHeight(p, a) + cornerHeight(p, b)) / 2));
-}
 
 /** Switches weave material; untouched size values follow the new material's defaults. */
 export function setWeaveMaterial(p: BasketParams, material: WeaveMaterial): BasketParams {

@@ -9,7 +9,7 @@ beforeAll(async () => {
   wasm = await loadManifold();
 });
 
-const solid: BasketParams = { ...DEFAULTS, wallStyle: 'solid', handles: 'none', stackable: false };
+const solid: BasketParams = { ...DEFAULTS, wallStyle: 'solid', stackable: false };
 
 function analyticVolume(p: BasketParams): number {
   const outer = roundedRectArea(p.width, p.depth, p.cornerRadius);

@@ -1,7 +1,16 @@
 import type { CrossSection, Manifold, Mat4 } from 'manifold-3d';
 import type { Quality } from './basket';
 import type { Scope, Wasm } from './manifold';
-import { labelZone, TAPE_CLEARANCE, TAPE_DEPTH, type BasketParams } from './params';
+import {
+  labelZone,
+  sidesOf,
+  TAPE_CLEARANCE,
+  TAPE_DEPTH,
+  wallSite,
+  type BasketParams,
+  type Side,
+  type WallSite,
+} from './params';
 import { MAX_BRIDGE } from './printability';
 import { roundedRect, type Vec2 } from './shapes';
 import { wallIntrusion } from './stacking';
@@ -11,37 +20,16 @@ import type { RoundedRectPath } from './weave/outline';
 const ARC_SEGMENTS = 12;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
 
-/** Wall the label sits on: outward normal, counter-clockwise tangent, middle of the wall. */
-interface LabelSite {
-  n: Vec2;
-  t: Vec2;
-  c: Vec2;
-  /** Arc position of the middle on the outer outline (s = 0: middle of the front). */
-  s: (path: RoundedRectPath) => number;
+type LabelSite = WallSite;
+
+/** The walls with a label field, in SIDES order. */
+function labelSites(p: BasketParams): LabelSite[] {
+  return sidesOf(p.labelSides).map((side) => wallSite(p, side));
 }
 
-/**
- * The label's wall. End walls are the shorter ones: the +x (or +y) end like
- * a single handle, or the other end when there is one handle. Side walls
- * are the longer ones: the front (or the +x side of a deep basket).
- */
-function labelSite(p: BasketParams): LabelSite | undefined {
-  if (p.labelPosition === 'none') return undefined;
-  const alongX = p.width >= p.depth;
-  const W = p.width / 2;
-  const D = p.depth / 2;
-  const px: LabelSite = { n: [1, 0], t: [0, 1], c: [W, 0], s: (q) => q.length / 4 };
-  const nx: LabelSite = { n: [-1, 0], t: [0, -1], c: [-W, 0], s: (q) => (3 * q.length) / 4 };
-  const py: LabelSite = { n: [0, 1], t: [-1, 0], c: [0, D], s: (q) => q.length / 2 };
-  const ny: LabelSite = { n: [0, -1], t: [1, 0], c: [0, -D], s: () => 0 };
-  if (p.labelPosition === 'side') return alongX ? ny : px;
-  const other = p.handles === 'one';
-  return alongX ? (other ? nx : px) : other ? ny : py;
-}
-
-/** Middle height of the label field: centred in its zone. */
-export const labelCenter = (p: BasketParams) => {
-  const z = labelZone(p);
+/** Middle height of the label field on a wall: centred in its zone. */
+export const labelCenter = (p: BasketParams, side: Side) => {
+  const z = labelZone(p, side);
   return (z.bottom + z.top) / 2;
 };
 
@@ -57,10 +45,10 @@ const arc = (cx: number, cz: number, r: number, a0: number, a1: number): Vec2[] 
  * 45° and then run on at 45° to the level bottom, so the field's underside
  * is never flatter than 45° (the level bottom is a bridge in open walls).
  */
-export function labelOutline(p: BasketParams): Vec2[] {
+export function labelOutline(p: BasketParams, side: Side): Vec2[] {
   const w = p.labelWidth / 2;
   const h = p.labelHeight / 2;
-  const zc = labelCenter(p);
+  const zc = labelCenter(p, side);
   const r = Math.min(p.labelRadius, w, h);
   const PI = Math.PI;
   const bot = zc - h;
@@ -91,12 +79,12 @@ function dedupe(pts: Vec2[]): Vec2[] {
   });
 }
 
-/** Label field in wall coordinates (x = arc length on the outer wall, y = height). */
-export function labelZoneOnWall(p: BasketParams, path: RoundedRectPath): Vec2[] | undefined {
-  const site = labelSite(p);
-  if (!site) return undefined;
-  const sc = site.s(path);
-  return labelOutline(p).map(([u, z]) => [sc + u, z] as Vec2);
+/** Label fields in wall coordinates (x = arc length on the outer wall, y = height). */
+export function labelZonesOnWall(p: BasketParams, path: RoundedRectPath): Vec2[][] {
+  return labelSites(p).map((site) => {
+    const sc = site.s(path.length);
+    return labelOutline(p, site.side).map(([u, z]) => [sc + u, z] as Vec2);
+  });
 }
 
 /** Column-major matrix mapping local X, Y, Z axes to a, b, e, then moving by `to`. */
@@ -119,7 +107,7 @@ const frame = (a: number[], b: number[], e: number[], to: number[]): Mat4 => [
   1,
 ];
 
-/** Maps wall-plane coordinates (u, z, offset along the outward normal) onto the label wall. */
+/** Maps wall-plane coordinates (u, z, offset along the outward normal) onto a label wall. */
 const onWall = ({ n, t, c }: LabelSite): Mat4 =>
   frame([t[0], t[1], 0], [0, 0, 1], [n[0], n[1], 0], [c[0], c[1], 0]);
 
@@ -204,25 +192,34 @@ function bottomEnds(
  * it grows 45° to the full thickness above, so its underside needs no
  * support. `wall` is the basket so far: it holds the supports.
  */
-export function labelPlate(
+export function labelPlates(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
   quality: Quality,
   wall: Manifold,
-): Manifold | undefined {
-  const site = labelSite(p);
-  if (!site) return undefined;
+): Manifold[] {
+  return labelSites(p).map((site) => labelPlate(wasm, scope, p, quality, wall, site));
+}
+
+function labelPlate(
+  wasm: Wasm,
+  scope: Scope,
+  p: BasketParams,
+  quality: Quality,
+  wall: Manifold,
+  site: LabelSite,
+): Manifold {
   const T = wallIntrusion(p);
   const steps = Math.max(0, Math.ceil((T - FIRST_LINE) / (2 * LAYER)));
   const { CrossSection } = wasm;
   const w = p.labelWidth / 2;
-  const bot = labelCenter(p) - p.labelHeight / 2;
+  const bot = labelCenter(p, site.side) - p.labelHeight / 2;
   const r = Math.min(p.labelRadius, w, p.labelHeight / 2);
   const foot = w - r * (2 - Math.SQRT2);
   const below = scope.keep(wall.slice(bot - LAYER / 2));
   const ends = bottomEnds(scope, wasm, p, site, below, foot);
-  let shape = scope.keep(CrossSection.ofPolygons([labelOutline(p)]));
+  let shape = scope.keep(CrossSection.ofPolygons([labelOutline(p, site.side)]));
   const H = p.labelHeight + 2 * w;
   for (const [sign, e] of [
     [1, ends.right],
@@ -273,12 +270,15 @@ export function labelPlate(
 }
 
 /** Tape recess in wall coordinates (u, z): its rounded outline, centred on the field. */
-export function tapeRecess(p: BasketParams): { w: number; h: number; r: number; zc: number } {
+export function tapeRecess(
+  p: BasketParams,
+  side: Side,
+): { w: number; h: number; r: number; zc: number } {
   const h = Number(p.labelTape) + TAPE_CLEARANCE;
   const margin = Math.max(TAPE_CLEARANCE * 2, (p.labelHeight - h) / 2);
   const w = Math.max(h, p.labelWidth - 2 * margin);
   const r = Math.min(h / 2, Math.max(0.5, p.labelRadius - margin));
-  return { w, h, r, zc: labelCenter(p) };
+  return { w, h, r, zc: labelCenter(p, side) };
 }
 
 /**
@@ -286,10 +286,13 @@ export function tapeRecess(p: BasketParams): { w: number; h: number; r: number; 
  * below the outer face, so the tape's edges cannot be caught and peeled.
  * Its top edge slopes out at 45°, so the recess has no overhang.
  */
-export function tapeCutter(wasm: Wasm, scope: Scope, p: BasketParams): Manifold | undefined {
-  const site = labelSite(p);
-  if (!site || p.labelTape === 'none') return undefined;
-  const { w, h, r, zc } = tapeRecess(p);
+export function tapeCutters(wasm: Wasm, scope: Scope, p: BasketParams): Manifold[] {
+  if (p.labelTape === 'none') return [];
+  return labelSites(p).map((site) => tapeCutter(wasm, scope, p, site));
+}
+
+function tapeCutter(wasm: Wasm, scope: Scope, p: BasketParams, site: LabelSite): Manifold {
+  const { w, h, r, zc } = tapeRecess(p, site.side);
   const OUT = 1;
   const slab = (top: number, e: number) => {
     const height = h + top;

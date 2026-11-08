@@ -18,7 +18,7 @@ beforeAll(async () => {
 const MAX_UNSUPPORTED_MM2 = 0.5;
 
 const small = (patch: Partial<BasketParams>): BasketParams =>
-  clampParams({ ...DEFAULTS, width: 80, depth: 60, height: 50, handles: 'none', ...patch }).params;
+  clampParams({ ...DEFAULTS, width: 80, depth: 60, height: 50, ...patch }).params;
 
 const weave = small({ wallStyle: 'weave' });
 const band = setWeaveMaterial(weave, 'band');

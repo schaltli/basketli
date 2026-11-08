@@ -140,7 +140,6 @@ describe('voronoi webs', () => {
   const params = (cellSize: number) =>
     clampParams({
       ...DEFAULTS,
-      handles: 'none',
       wallStyle: 'voronoi',
       voronoi: { cellSize, seed: 1 },
     }).params;
@@ -213,7 +212,6 @@ describe('voronoi basket', () => {
       width: 80,
       depth: 60,
       height: 50,
-      handles: 'none',
       stackable: false,
       wallStyle: 'voronoi',
       ...patch,

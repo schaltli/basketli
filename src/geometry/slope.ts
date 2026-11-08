@@ -16,12 +16,12 @@ const SURFACE_STEP = 10;
 const SURFACE_FINE = 2;
 /** The cut below the rim reaches this far into the shifted rim (fused). */
 const OVERLAP = 0.1;
-/** Rise of one step of the stepped underside below an open wall's rim (mm). */
-const STEP = 1;
-/** A step ends at least this far inside the support below it (mm). */
+/** Rows on which the gaps under an open wall's rim are found: the print layers. */
+const ROW = LAYER;
+/** Pattern on the middle line shorter than this (mm) carries nothing. */
 const ON_SUPPORT = 0.6;
 const CORNER_SEGMENTS = { preview: 8, export: 24 } as const;
-/** Walls built from strands or bands: their rim gets a stepped underside. */
+/** Walls built from strands or bands: their rim stands on a base (smoothRimBase). */
 const OPEN: readonly WallStyle[] = ['expanded', 'weave', 'braid'];
 
 /** Depth from the outer outline within which the top is level across the wall. */
@@ -146,7 +146,7 @@ export function belowTop(wasm: Wasm, scope: Scope, p: BasketParams, drop: number
  * is moved straight down at every point by height − builtTop. The band
  * therefore keeps its height and profile everywhere and runs straight along
  * every wall and divider, where the top is linear (exact on the band's own
- * vertices). Open walls get a stepped base under the rim (steppedRimBase).
+ * vertices). Open walls get a base under the rim (smoothRimBase).
  */
 export function withIrregularTop(
   wasm: Wasm,
@@ -173,9 +173,8 @@ export function withIrregularTop(
     }),
   );
   if (!OPEN.includes(p.wallStyle)) return scope.keep(wasm.Manifold.union([lower, moved]));
-  // Open walls: in the wall the pattern ends level on the steps of a base
-  // that carries the rim (steppedRimBase), not along the slope.
-  const { cut, base } = steppedRimBase(wasm, scope, p, lower, quality);
+  // Open walls: the pattern ends on a base that carries the rim (smoothRimBase).
+  const { cut, base } = smoothRimBase(wasm, scope, p, lower, quality);
   const pattern = scope.keep(lower.subtract(cut));
   return scope.keep(wasm.Manifold.union([pattern, base, moved]));
 }
@@ -258,19 +257,53 @@ export function aboveLevel(
   });
 }
 
+/** Cyclic intervals (a may lie outside [0, L), b may pass L) split at the seam, on [0, L). */
+function onCircle(iv: [number, number][], L: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [a0, b0] of iv) {
+    if (b0 - a0 >= L - 1e-9) return [[0, L]];
+    const k = Math.floor(a0 / L) * L;
+    const [a, b] = [a0 - k, b0 - k];
+    if (b <= L) out.push([a, b]);
+    else out.push([a, L], [0, b - L]);
+  }
+  return out.sort((x, y) => x[0] - y[0]);
+}
+
+/** Merges overlapping intervals. */
+function merged(iv: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [a, b] of [...iv].sort((x, y) => x[0] - y[0])) {
+    const last = out.at(-1);
+    if (last && a <= last[1] + 1e-9) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
+/** A gap in the pattern on the wall's middle line, on one row; `line`: the slope passes below the next row over it. */
+interface Gap {
+  a: number;
+  b: number;
+  row: number;
+  line: boolean;
+}
+
 /**
- * Open walls (expanded metal, weave, braid) under an irregular top. Cut
- * along the slope, the pattern would lose one end of every bridge it cuts
- * through, and a sloping underside grows along the wall by LAYER / slope per
- * layer – far into the air on gentle slopes. So the rim stands on a base
- * with a stepped underside: level steps STEP apart, each ending on a support
- * below it (material on the wall's middle line), so every step is a bridge
- * from support to support. In the wall the pattern ends level on these
- * steps (`cut`: the wall above the steps). Like a handle band the base grows
- * from one line in the middle of the wall to the full thickness at 45°,
- * which it reaches below the rim; it reaches up into the rim.
+ * Open walls (expanded metal, weave, braid) under an irregular top. The rim
+ * stands on a base whose underside runs straight along the slope wherever
+ * the pattern below carries it (material on the wall's middle line, where
+ * the base's first line lies). Where the slope crosses a gap in the
+ * pattern, a sloping underside would grow along the wall by LAYER / slope
+ * per layer into the air; there the gap is closed from its lowest point on
+ * the slope up, so its top is a level bridge from one side of the gap to
+ * the other (or onto the base, which stands lower there). In the wall the
+ * pattern ends on this underside (`cut`: the wall above it). Like a handle
+ * band the base grows from one line in the middle of the wall to the full
+ * thickness at 45°, which it reaches below the rim; it reaches up into the
+ * rim.
  */
-export function steppedRimBase(
+export function smoothRimBase(
   wasm: Wasm,
   scope: Scope,
   p: BasketParams,
@@ -282,111 +315,104 @@ export function steppedRimBase(
   const L = path.length;
   const T = wallIntrusion(p);
   const steps = Math.max(0, Math.ceil((T - FIRST_LINE) / (2 * LAYER)));
-  const band = topBand(p);
   // highest underside allowed: full thickness reached below the rim
+  const drop = topBand(p) + steps * LAYER;
   const ss = path.breakpoints(1);
   const f = ss.map((s) => {
     const q = path.at(s).p;
-    return topAt(p, q[0], q[1]) - band - steps * LAYER;
+    return topAt(p, q[0], q[1]) - drop;
   });
   const lo = Math.min(...f);
   const hi = Math.max(...f);
-  const levels = Array.from({ length: Math.floor((hi - lo) / STEP) + 1 }, (_, j) => lo + j * STEP);
+  const slopeAt = (s: number) => {
+    const q = path.at(s).p;
+    return topAt(p, q[0], q[1]) - drop;
+  };
+  /** Lowest point of the slope over [a, b]. */
+  const lowest = (a: number, b: number) => {
+    const n = Math.max(1, Math.ceil((b - a) / 0.5));
+    return Math.min(...Array.from({ length: n + 1 }, (_, i) => slopeAt(a + ((b - a) * i) / n)));
+  };
 
-  // Supports: material on the wall's middle line through a whole step. The
-  // pattern is cut level on both sides of a step's end at different heights:
-  // a bridge of the pattern crossing it there would lose an end. Standing on
-  // a support that runs from just below the lower step up to the upper one
-  // (a stake, a node), every piece of pattern ends on it.
+  // Rows through the band the slope crosses: on each, the gaps between the
+  // pieces of pattern on the middle line, below the slope.
   const middle = annulus(wasm, scope, p, T / 2 - FIRST_LINE / 2, T / 2 + FIRST_LINE / 2, quality);
   const onLine = scope.keep(lower.intersect(scope.keep(middle.extrude(p.height + 1))));
-  const sliceCache = new Map<number, CrossSection>();
-  const sliceAt = (z: number) => {
-    const key = Math.round(z * 1000);
-    let cs = sliceCache.get(key);
-    if (!cs) {
-      cs = scope.keep(onLine.slice(z));
-      sliceCache.set(key, cs);
-    }
-    return cs;
-  };
-  const supportsThrough = (z0: number, z1: number): [number, number][] => {
-    let cs = sliceAt(z0 - LAYER / 2);
-    for (let z = z0 + LAYER / 2; z < z1; z += LAYER) cs = scope.keep(cs.intersect(sliceAt(z)));
-    return (
-      cs
-        .decompose()
-        .map((piece) => scope.keep(piece))
-        // only real supports: at least ON_SUPPORT long across the whole line,
-        // not a speck where a strand grazes the middle line
-        .filter((piece) => piece.area() >= FIRST_LINE * ON_SUPPORT)
-        .map((piece): [number, number] => {
-          let us = piece
-            .toPolygons()
-            .flat()
-            .map((q) => path.project(q[0], q[1]));
-          if (Math.max(...us) - Math.min(...us) > L / 2)
-            us = us.map((u) => (u < L / 2 ? u + L : u));
-          return [Math.min(...us), Math.max(...us)];
-        })
-        .flatMap(([a, b]): [number, number][] => [
-          [a - L, b - L],
-          [a, b],
-          [a + L, b + L],
-        ])
-    );
-  };
-
-  // Each level where it fits under the rim, its ends moved inwards onto
-  // supports, and nested inside the level below: wherever the underside rises
-  // the lower step ends, and its end rests on a support at its own level.
-  const spans: { a: number; b: number; level: number }[] = [{ a: 0, b: L, level: lo }];
-  let below: [number, number][] = [[0, L]];
-  for (const level of levels.slice(1)) {
-    const fits = aboveLevel(ss, f, level, L);
-    if (fits.length === 1 && fits[0]![1] - fits[0]![0] >= L - 1e-9) {
-      spans.push({ a: 0, b: L, level });
-      continue;
-    }
-    const sup = supportsThrough(level - STEP, level);
-    const here: [number, number][] = [];
-    for (const [a, b] of fits) {
-      const starts = sup.filter(([sa, sb]) => sb - Math.max(a, sa) >= ON_SUPPORT && sa < b);
-      const ends = sup.filter(([sa, sb]) => Math.min(b, sb) - sa >= ON_SUPPORT && sb > a);
-      if (starts.length === 0 || ends.length === 0) continue;
-      const a2 = Math.max(a, Math.min(...starts.map(([sa]) => sa)));
-      const b2 = Math.min(b, Math.max(...ends.map(([, sb]) => sb)));
-      for (const [pa, pb] of below)
-        for (const k of [-L, 0, L]) {
-          const x0 = Math.max(a2, pa + k);
-          const x1 = Math.min(b2, pb + k);
-          if (x1 - x0 > 2 * ON_SUPPORT) here.push([x0, x1]);
-        }
-    }
-    here.forEach(([a, b]) => spans.push({ a, b, level }));
-    below = here;
-    if (here.length === 0) break;
-  }
-
-  // underside: the highest level over every piece of the path
-  const mod = (s: number) => ((s % L) + L) % L;
-  const cuts = [...new Set([0, L, ...spans.flatMap(({ a, b }) => [mod(a), mod(b)])])].sort(
-    (x, y) => x - y,
+  // rows on the layer boundaries, so a bridge is a whole print layer on the one below
+  const first = Math.floor(lo / ROW + 1e-9) * ROW;
+  const rows = Array.from(
+    { length: Math.floor((hi - first) / ROW) + 1 },
+    (_, j) => first + j * ROW,
   );
-  const covers = (s: number, { a, b }: { a: number; b: number }) =>
-    (s >= a && s <= b) || (s + L >= a && s + L <= b) || (s - L >= a && s - L <= b);
-  const pieces: { a: number; b: number; level: number }[] = [];
-  for (let i = 0; i + 1 < cuts.length; i++) {
-    const [a, b] = [cuts[i]!, cuts[i + 1]!];
-    if (b - a < 1e-6) continue;
-    const level = Math.max(...spans.filter((sp) => covers((a + b) / 2, sp)).map((sp) => sp.level));
-    const prev = pieces.at(-1);
-    if (prev && prev.level === level) prev.b = b;
-    else pieces.push({ a, b, level });
-  }
+  const gaps: Gap[] = [];
+  rows.forEach((z, row) => {
+    const sup = merged(
+      onCircle(
+        scope
+          .keep(onLine.slice(z - LAYER / 2))
+          .decompose()
+          .map((piece) => scope.keep(piece))
+          // only real supports, not a speck where a strand grazes the line
+          .filter((piece) => piece.area() >= FIRST_LINE * ON_SUPPORT)
+          .map((piece): [number, number] => {
+            let us = piece
+              .toPolygons()
+              .flat()
+              .map((q) => path.project(q[0], q[1]));
+            if (Math.max(...us) - Math.min(...us) > L / 2)
+              us = us.map((u) => (u < L / 2 ? u + L : u));
+            return [Math.min(...us), Math.max(...us)];
+          }),
+        L,
+      ),
+    );
+    for (const [a, b] of onCircle(aboveLevel(ss, f, z, L), L)) {
+      let from = a;
+      const gap = (ga: number, gb: number) =>
+        gaps.push({ a: ga, b: gb, row, line: lowest(ga, gb) < z + ROW });
+      for (const [sa, sb] of sup) {
+        if (sb <= from || sa >= b) continue;
+        if (sa > from) gap(from, sa);
+        from = Math.max(from, sb);
+      }
+      if (from < b) gap(from, b);
+    }
+  });
 
-  // a strip across the wall over each piece (square to the wall, radial in
-  // the corners), from its level up
+  // gaps that overlap on neighbouring rows (or meet at the seam) are one hole
+  const parent = gaps.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]!]!;
+    return i;
+  };
+  const join = (i: number, j: number) => {
+    parent[find(i)] = find(j);
+  };
+  const byRow = rows.map(() => [] as number[]);
+  gaps.forEach((g, i) => byRow[g.row]!.push(i));
+  byRow.forEach((ids, row) => {
+    const seamA = ids.filter((i) => gaps[i]!.a < 1e-9);
+    const seamB = ids.filter((i) => gaps[i]!.b > L - 1e-9);
+    for (const i of seamA) for (const j of seamB) join(i, j);
+    for (const i of ids)
+      for (const j of byRow[row + 1] ?? [])
+        if (gaps[i]!.a < gaps[j]!.b && gaps[j]!.a < gaps[i]!.b) join(i, j);
+  });
+  // each hole that reaches the slope is closed from its lowest point on it up
+  const bridge = new Map<number, number>();
+  gaps.forEach((g, i) => {
+    if (!g.line) return;
+    const r = find(i);
+    bridge.set(r, Math.min(bridge.get(r) ?? Infinity, g.row));
+  });
+  const fills = new Map<number, [number, number][]>();
+  gaps.forEach((g, i) => {
+    const from = bridge.get(find(i));
+    if (from === undefined || g.row < from) return;
+    fills.set(from, [...(fills.get(from) ?? []), [g.a, g.b]]);
+  });
+
+  // a strip across the wall over [a, b] (square to the wall, radial in the corners)
   const sector = (a: number, b: number): Vec2[] => {
     const n = Math.max(1, Math.ceil((b - a) / 2));
     const at = Array.from({ length: n + 1 }, (_, i) => path.at(a + ((b - a) * i) / n));
@@ -395,26 +421,22 @@ export function steppedRimBase(
       ({ p: q, n: o }: { p: Vec2; n: Vec2 }): Vec2 => [q[0] + o[0] * k, q[1] + o[1] * k];
     return [...at.map(off(2)), ...at.reverse().map(off(-(T + 0.01)))];
   };
-  const byLevel = new Map<number, Vec2[][]>();
-  for (const { a, b, level } of pieces)
-    byLevel.set(level, [...(byLevel.get(level) ?? []), sector(a, b)]);
   const roof = p.height + 1;
-  const stair = scope.keep(
-    Manifold.union(
-      [...byLevel].map(([level, polys]) => {
-        const cs = scope.keep(CrossSection.ofPolygons(polys));
-        return scope.keep(scope.keep(cs.extrude(roof - level)).translate([0, 0, level]));
-      }),
-    ),
-  );
+  const wall = scope.keep(annulus(wasm, scope, p, -2, T + 0.01, quality).extrude(roof));
+  const above = scope.keep(wall.subtract(belowTop(wasm, scope, p, drop)));
+  const closed = [...fills].map(([row, iv]) => {
+    const cs = scope.keep(CrossSection.ofPolygons(merged(iv).map(([a, b]) => sector(a, b))));
+    return scope.keep(scope.keep(cs.extrude(roof - rows[row]!)).translate([0, 0, rows[row]!]));
+  });
+  const cut = scope.keep(Manifold.union([above, ...closed]));
 
   // grows from the middle line to the full thickness, one layer at a time
   const layers = Array.from({ length: steps + 1 }, (_, k) => {
     const th = Math.min(T, FIRST_LINE + 2 * k * LAYER);
     const ring = annulus(wasm, scope, p, T / 2 - th / 2, T / 2 + th / 2, quality);
     const tall = scope.keep(ring.extrude(roof + 1));
-    return scope.keep(tall.intersect(scope.keep(stair.translate([0, 0, k * LAYER]))));
+    return scope.keep(tall.intersect(scope.keep(cut.translate([0, 0, k * LAYER]))));
   });
   const grown = scope.keep(Manifold.union(layers));
-  return { cut: stair, base: scope.keep(grown.intersect(belowTop(wasm, scope, p, 0))) };
+  return { cut, base: scope.keep(grown.intersect(belowTop(wasm, scope, p, 0))) };
 }

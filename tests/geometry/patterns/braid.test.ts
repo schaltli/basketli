@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildManifold } from '../../../src/geometry/build';
 import { loadManifold, Scope, type Wasm } from '../../../src/geometry/manifold';
-import { clampParams, DEFAULTS, type BasketParams } from '../../../src/geometry/params';
+import { clampParams, DEFAULTS, type BasketParams, sides } from '../../../src/geometry/params';
 import { bandOffset, braidLayout, buildBraid } from '../../../src/geometry/patterns/braid';
 import { MAX_BRIDGE, overhangReport } from '../../../src/geometry/printability';
 import { BRAID_FUSE, wallIntrusion } from '../../../src/geometry/stacking';
@@ -17,7 +17,6 @@ const params = (patch: Partial<BasketParams> = {}, b: Partial<BasketParams['brai
     width: 80,
     depth: 60,
     height: 50,
-    handles: 'none',
     stackable: false,
     ...patch,
     wallStyle: 'braid',
@@ -124,7 +123,7 @@ describe('braid basket', () => {
 
   it.each([
     ['dividers', { dividersX: [40], dividersY: [30] }],
-    ['handles', { handles: 'ends', width: 120, height: 60 }],
+    ['handles', { handleSides: sides('left', 'right'), width: 120, height: 60 }],
   ] as const)('with %s: one manifold body', (_n, patch) => {
     const m = buildManifold(wasm, params(patch as Partial<BasketParams>), 'preview');
     try {

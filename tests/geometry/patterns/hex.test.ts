@@ -16,7 +16,6 @@ const params = (patch: Partial<BasketParams> = {}) =>
     width: 80,
     depth: 60,
     height: 50,
-    handles: 'none',
     stackable: false,
     ...patch,
     wallStyle: 'hex',
