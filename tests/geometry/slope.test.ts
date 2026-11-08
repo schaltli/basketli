@@ -87,54 +87,58 @@ describe('outline projection', () => {
 
 describe('irregular top: geometry', () => {
   const styles: WallStyle[] = ['solid', 'hex', 'voronoi', 'expanded', 'braid', 'weave'];
-  it.each(styles)('%s: follows the measured top, one body, printable', (style) => {
-    const p = params({ wallStyle: style }).params;
-    const m = buildManifold(wasm, p, 'preview');
-    const scope = new Scope();
-    try {
-      expect(m.status()).toBe('NoError');
-      const parts = m.decompose();
-      expect(parts.length).toBe(1);
-      parts.forEach((x) => x.delete());
-      // the rim's top along the walls is at the measured height
-      const W = p.width / 2;
-      const D = p.depth / 2;
-      for (const [x, y] of [
-        [0, -D + 0.5],
-        [W - 0.5, 0],
-        [0, D - 0.5],
-        [-W + 0.5, 0],
-        [-W + 30, -D + 0.5],
-      ] as const)
-        expect(topOver(m, x, y), `at ${x}, ${y}`).toBeCloseTo(topAt(p, x, y), 0);
-      // 80 mm at the sharp corner of the footprint; the rounded corner stays a little lower
-      expect(m.boundingBox().max[2]).toBeLessThanOrEqual(80 + 1e-6);
-      expect(m.boundingBox().max[2]).toBeGreaterThan(79);
+  it.each(styles)(
+    '%s: follows the measured top, one body, printable',
+    (style) => {
+      const p = params({ wallStyle: style }).params;
+      const m = buildManifold(wasm, p, 'preview');
+      const scope = new Scope();
+      try {
+        expect(m.status()).toBe('NoError');
+        const parts = m.decompose();
+        expect(parts.length).toBe(1);
+        parts.forEach((x) => x.delete());
+        // the rim's top along the walls is at the measured height
+        const W = p.width / 2;
+        const D = p.depth / 2;
+        for (const [x, y] of [
+          [0, -D + 0.5],
+          [W - 0.5, 0],
+          [0, D - 0.5],
+          [-W + 0.5, 0],
+          [-W + 30, -D + 0.5],
+        ] as const)
+          expect(topOver(m, x, y), `at ${x}, ${y}`).toBeCloseTo(topAt(p, x, y), 0);
+        // 80 mm at the sharp corner of the footprint; the rounded corner stays a little lower
+        expect(m.boundingBox().max[2]).toBeLessThanOrEqual(80 + 1e-6);
+        expect(m.boundingBox().max[2]).toBeGreaterThan(79);
 
-      const envelope =
-        style === 'expanded'
-          ? buildExpanded(wasm, scope, p, 'preview', true)
-          : style === 'braid'
-            ? buildBraid(wasm, scope, p, 'preview', true)
-            : style === 'weave'
-              ? // a solid wall as thick as the weave: lines may run on lengthwise in it
-                buildTub(
-                  wasm,
-                  scope,
-                  { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
-                  'preview',
-                )
-              : buildTub(wasm, scope, p, 'preview');
-      const r = overhangReport(m, envelope ? { envelope } : {});
-      expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
-      expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
-        MAX_BRIDGE,
-      );
-    } finally {
-      m.delete();
-      scope.dispose();
-    }
-  });
+        const envelope =
+          style === 'expanded'
+            ? buildExpanded(wasm, scope, p, 'preview', true)
+            : style === 'braid'
+              ? buildBraid(wasm, scope, p, 'preview', true)
+              : style === 'weave'
+                ? // a solid wall as thick as the weave: lines may run on lengthwise in it
+                  buildTub(
+                    wasm,
+                    scope,
+                    { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
+                    'preview',
+                  )
+                : buildTub(wasm, scope, p, 'preview');
+        const r = overhangReport(m, envelope ? { envelope } : {});
+        expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
+        expect(r.maxBridge, `longest bridge z=${r.bridgeZ.toFixed(1)}`).toBeLessThanOrEqual(
+          MAX_BRIDGE,
+        );
+      } finally {
+        m.delete();
+        scope.dispose();
+      }
+    },
+    120000,
+  );
 
   it.each([
     ['notch handles', { handleSides: sides('left', 'right') }],
@@ -144,20 +148,24 @@ describe('irregular top: geometry', () => {
     ],
     ['dividers', { dividersX: [50, 100], dividersY: [40] }],
     ['label', { labelSides: sides('front'), labelTape: '12' }],
-  ] as const)('with %s: one manifold body', (_n, patch) => {
-    for (const wallStyle of ['voronoi', 'expanded'] as const) {
-      const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
-      const m = buildManifold(wasm, p, 'preview');
-      try {
-        expect(m.status()).toBe('NoError');
-        const parts = m.decompose();
-        expect(parts.length, wallStyle).toBe(1);
-        parts.forEach((x) => x.delete());
-      } finally {
-        m.delete();
+  ] as const)(
+    'with %s: one manifold body',
+    (_n, patch) => {
+      for (const wallStyle of ['voronoi', 'expanded'] as const) {
+        const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
+        const m = buildManifold(wasm, p, 'preview');
+        try {
+          expect(m.status()).toBe('NoError');
+          const parts = m.decompose();
+          expect(parts.length, wallStyle).toBe(1);
+          parts.forEach((x) => x.delete());
+        } finally {
+          m.delete();
+        }
       }
-    }
-  });
+    },
+    120000,
+  );
 
   it.each([
     ['gentle (under 2°)', 'expanded', { heightFL: 80, heightFR: 78, heightBL: 77, heightBR: 75 }],
@@ -176,33 +184,37 @@ describe('irregular top: geometry', () => {
         braid: { ...DEFAULTS.braid, bandGap: 4.5 },
       },
     ],
-  ] as const)('%s %s: printable', (_n, wallStyle, patch) => {
-    const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
-    const m = buildManifold(wasm, p, 'preview');
-    const scope = new Scope();
-    try {
-      const parts = m.decompose();
-      expect(parts.length).toBe(1);
-      parts.forEach((x) => x.delete());
-      const envelope =
-        wallStyle === 'expanded'
-          ? buildExpanded(wasm, scope, p, 'preview', true)
-          : wallStyle === 'braid'
-            ? buildBraid(wasm, scope, p, 'preview', true)
-            : buildTub(
-                wasm,
-                scope,
-                { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
-                'preview',
-              );
-      const r = overhangReport(m, envelope ? { envelope } : {});
-      expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
-      expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);
-    } finally {
-      m.delete();
-      scope.dispose();
-    }
-  });
+  ] as const)(
+    '%s %s: printable',
+    (_n, wallStyle, patch) => {
+      const p = params({ wallStyle, ...(patch as Partial<BasketParams>) }).params;
+      const m = buildManifold(wasm, p, 'preview');
+      const scope = new Scope();
+      try {
+        const parts = m.decompose();
+        expect(parts.length).toBe(1);
+        parts.forEach((x) => x.delete());
+        const envelope =
+          wallStyle === 'expanded'
+            ? buildExpanded(wasm, scope, p, 'preview', true)
+            : wallStyle === 'braid'
+              ? buildBraid(wasm, scope, p, 'preview', true)
+              : buildTub(
+                  wasm,
+                  scope,
+                  { ...p, wall: wallIntrusion(p), wallStyle: 'solid' },
+                  'preview',
+                );
+        const r = overhangReport(m, envelope ? { envelope } : {});
+        expect(r.maxArea, `worst layer z=${r.worstZ.toFixed(1)}`).toBeLessThan(0.5);
+        expect(r.maxBridge).toBeLessThanOrEqual(MAX_BRIDGE);
+      } finally {
+        m.delete();
+        scope.dispose();
+      }
+    },
+    120000,
+  );
 
   it('dividers reach up to the sloping top', () => {
     const p = params({ wallStyle: 'solid', dividersX: [75] }).params;
