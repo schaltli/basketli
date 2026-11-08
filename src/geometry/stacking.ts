@@ -127,14 +127,24 @@ export function socketRing(wasm: Wasm, scope: Scope, p: BasketParams, quality: Q
   const rim = Math.max(SOCKET_WALL, wallIntrusion(p));
   const start = Math.max(p.floor, top - (bottom - rim));
   const startInset = Math.min(bottom, rim + (top - start));
-  // Widening upwards keeps the cavity convex, so one hull describes it.
-  const cavity = scope.keep(
+  // Straight up to `start`, then widening at 45°: the profile bends outwards,
+  // so the cavity is not convex. One hull would cut straight from the floor
+  // to the top and thin the ring to a fraction of SOCKET_WALL; two convex
+  // parts (a prism and a widening hull) keep it.
+  const straight = scope.keep(
+    scope
+      .keep(CrossSection.ofPolygons([contour(p, bottom, quality)]))
+      .extrude(start - p.floor + 0.01),
+  );
+  const widening = scope.keep(
     Manifold.hull([
-      ...lift(contour(p, bottom, quality), p.floor),
       ...lift(contour(p, startInset, quality), start),
       ...lift(contour(p, rim, quality), top),
       ...lift(contour(p, rim, quality), top + 1),
     ]),
+  );
+  const cavity = scope.keep(
+    Manifold.union([scope.keep(straight.translate([0, 0, p.floor])), widening]),
   );
   return scope.keep(slab.subtract(cavity));
 }

@@ -12,6 +12,7 @@ import { overhangReport } from '../../src/geometry/printability';
 import {
   FOOT_HEIGHT,
   footInset,
+  SOCKET_WALL,
   socketTop,
   STACK_INSET,
   stackPitch,
@@ -188,6 +189,32 @@ describe('socket inside', () => {
     const m = buildManifold(wasm, p, 'preview');
     try {
       expect(innerLedgeArea(m, p)).toBeLessThan(0.5);
+    } finally {
+      m.delete();
+    }
+  });
+
+  // A slicer drops walls thinner than a nozzle width (empty layers, the
+  // basket above floats). The ring was once 0.3 mm thin at the foot's top.
+  it.each([
+    ...styles,
+    [
+      '118×170×60',
+      clampParams({ ...DEFAULTS, width: 118, depth: 170, height: 60 }).params,
+    ] as const,
+  ])('%s: socket ring at least SOCKET_WALL thick', (_n, p) => {
+    const m = buildManifold(wasm, p, 'export');
+    try {
+      const inset = footInset(p);
+      const w = p.width - 2 * inset;
+      const d = p.depth - 2 * inset;
+      const r = Math.max(0, p.cornerRadius - inset);
+      // the ring's inner outline is longer than the foot's
+      const around = 2 * (w + d) - 8 * r + 2 * Math.PI * r;
+      for (let z = p.floor + 0.1; z < socketTop(p); z += 0.2) {
+        const thick = m.slice(z).area() / around;
+        expect(thick, `z=${z.toFixed(1)}`).toBeGreaterThan(SOCKET_WALL - 0.05);
+      }
     } finally {
       m.delete();
     }
